@@ -83,8 +83,9 @@ audit/
 # Environment (secrets — use .env.example as the template)
 .env
 
-# QR session data (generated at runtime, contains secrets)
+# QR session data and viewers (generated at runtime, may contain secrets)
 qr-data.txt
+qr-*.html
 
 # Test output captures (run artifacts, not source)
 test-output.txt
