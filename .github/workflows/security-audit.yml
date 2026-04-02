@@ -24,21 +24,10 @@ jobs:
       with:
         node-version: '20'
 
-    - name: Cache npm dependencies
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json', 'package.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
-
-    - name: Install dependencies
-      run: npm ci || npm install
-
     - name: Run npm audit
       run: |
-        echo "Running npm audit..."
-        npm audit --production --audit-level=moderate || exit 1
+        echo "Running npm audit (lock-file only — native modules built inside Docker)..."
+        npm audit --package-lock-only --production --audit-level=moderate || exit 1
 
     - name: Lint check
       run: |
