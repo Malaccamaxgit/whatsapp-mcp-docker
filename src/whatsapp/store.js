@@ -170,8 +170,11 @@ export class MessageStore {
    */
   _escapeFts5Query(query) {
     if (!query) return '';
-    // Escape special FTS5 characters by prefixing with backslash
-    return query.replace(/(["*()+\-:^~])/g, '\\$1');
+    // Backslashes must be escaped first, before they are introduced by
+    // subsequent replacements, to avoid double-escaping.
+    return query
+      .replace(/\\/g, '\\\\')
+      .replace(/(["*()+\-:^~])/g, '\\$1');
   }
 
   // ── Chat Operations ──────────────────────────────────────────

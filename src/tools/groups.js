@@ -197,7 +197,20 @@ export function registerGroupTools(server, waClient, store, permissions, audit) 
       }
 
       try {
-        const code = link.includes('chat.whatsapp.com/') ? link.split('chat.whatsapp.com/')[1].trim() : link.trim();
+        let code;
+        try {
+          const url = new URL(link.trim());
+          if (url.hostname !== 'chat.whatsapp.com') {
+            return {
+              content: [{ type: 'text', text: 'Invalid WhatsApp group link: unrecognized host.' }],
+              isError: true
+            };
+          }
+          code = url.pathname.replace(/^\//, '').trim();
+        } catch {
+          // Not a full URL — treat as a raw invite code
+          code = link.trim();
+        }
         const result = await waClient.joinGroupWithLink(code);
         audit.log('join_group', 'joined', { link: code, jid: result?.jid });
         return {

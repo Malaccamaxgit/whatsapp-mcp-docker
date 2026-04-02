@@ -37,7 +37,7 @@ The WhatsApp MCP Server collects and stores the following data:
 When `DATA_ENCRYPTION_KEY` environment variable is set:
 
 - ✅ **Encrypted fields:** `messages.body`, `messages.sender_name`, `messages.media_raw_json`, `chats.last_message_preview`, `approvals.action`, `approvals.details`, `approvals.response_text`
-- ✅ **Algorithm:** AES-256-GCM with SHA-256 key derivation
+- ✅ **Algorithm:** AES-256-GCM with scrypt key derivation (memory-hard KDF)
 - ✅ **Prefix detection:** Encrypted values prefixed with `enc:` for migration compatibility
 
 ### Encryption Limitations

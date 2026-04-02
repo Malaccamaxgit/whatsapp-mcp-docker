@@ -5,20 +5,28 @@
  * Opt-in via DATA_ENCRYPTION_KEY env var.
  * Values are prefixed with "enc:" so plaintext and encrypted
  * values can coexist during migration.
+ *
+ * Key derivation: scrypt (N=2^17, r=8, p=1) with a fixed application salt.
+ * Using a fixed salt is intentional — this is deterministic key derivation
+ * from a passphrase, not password storage. scrypt's memory-hardness makes
+ * brute-force of the passphrase expensive even with a known salt.
  */
 
-import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const PREFIX = 'enc:';
 const IV_LEN = 12;
 const TAG_LEN = 16;
+// Fixed application salt for deterministic key derivation (not password storage).
+const KDF_SALT = Buffer.from('whatsapp-mcp-docker-kdf-v1');
+const KDF_OPTS = { N: 1 << 17, r: 8, p: 1 };
 
 let _key = null;
 
 /**
  * Initialize encryption with a passphrase.
- * The passphrase is hashed to a 32-byte key via SHA-256.
+ * Derives a 32-byte AES key using scrypt (memory-hard KDF).
  * Returns true if encryption is active.
  */
 export function initEncryption(passphrase) {
@@ -26,7 +34,7 @@ export function initEncryption(passphrase) {
     _key = null;
     return false;
   }
-  _key = createHash('sha256').update(passphrase).digest();
+  _key = scryptSync(passphrase, KDF_SALT, 32, KDF_OPTS);
   console.error('[CRYPTO] Field-level encryption enabled');
   return true;
 }

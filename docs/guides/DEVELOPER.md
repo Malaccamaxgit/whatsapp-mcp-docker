@@ -229,7 +229,7 @@ Stored in Docker's credential store via `docker mcp secret set whatsapp-mcp-dock
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-When set, the server encrypts sensitive database fields using AES-256-GCM (`node:crypto`). The passphrase is hashed with SHA-256 to derive a 32-byte key. Encrypted values are prefixed with `enc:` — plaintext data written before encryption was enabled remains readable without migration.
+When set, the server encrypts sensitive database fields using AES-256-GCM (`node:crypto`). The passphrase is run through scrypt (a memory-hard KDF) to derive a 32-byte key — this makes brute-forcing the passphrase expensive. Encrypted values are prefixed with `enc:` — plaintext data written before encryption was enabled remains readable without migration.
 
 Encrypted fields: `messages.body`, `messages.sender_name`, `messages.media_raw_json`, `chats.last_message_preview`, `approvals.action`, `approvals.details`, `approvals.response_text`.
 
