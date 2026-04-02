@@ -1,3 +1,11 @@
+---
+layout: default
+title: Error Reference
+parent: Guides
+nav_order: 1
+description: "Error taxonomy, error codes, classifications, and recovery guidance for WhatsApp MCP Server."
+---
+
 # Error Code Reference
 
 > **Purpose** — Comprehensive error reference for WhatsApp MCP Server with recovery procedures and troubleshooting guidance.

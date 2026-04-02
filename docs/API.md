@@ -1,3 +1,10 @@
+---
+layout: default
+title: API Reference
+nav_order: 2
+description: "Complete API documentation for all 32 MCP tools — parameters, return types, and examples."
+---
+
 # WhatsApp MCP Server API Reference
 
 > **API documentation for all 32 MCP tools**

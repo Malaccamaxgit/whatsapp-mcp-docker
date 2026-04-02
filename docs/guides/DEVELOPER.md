@@ -1,3 +1,11 @@
+---
+layout: default
+title: Developer Handbook
+parent: Guides
+nav_order: 2
+description: "Build, test, deploy, and extend WhatsApp MCP Server. Docker-only development workflow."
+---
+
 # Developer Handbook — WhatsApp MCP Server
 
 > **Purpose** — Build, test, deploy, and extend **WhatsApp MCP Server**.

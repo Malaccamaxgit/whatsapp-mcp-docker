@@ -1,3 +1,11 @@
+---
+layout: default
+title: Troubleshooting
+parent: Guides
+nav_order: 3
+description: "Common issues, diagnostic steps, and recovery procedures for WhatsApp MCP Server."
+---
+
 # Troubleshooting Guide
 
 > **Purpose:** Common issues, diagnostic steps, and recovery procedures for WhatsApp MCP Server.

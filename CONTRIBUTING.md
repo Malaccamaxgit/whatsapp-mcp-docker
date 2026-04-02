@@ -1,3 +1,10 @@
+---
+layout: default
+title: Contributing
+nav_order: 5
+description: "Contribution guidelines, coding standards, and development workflow for WhatsApp MCP Server."
+---
+
 # Contributing to WhatsApp MCP Server
 
 > **Community contributions welcome** — Help improve WhatsApp integration for AI agents.

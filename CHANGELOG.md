@@ -1,3 +1,10 @@
+---
+layout: default
+title: Changelog
+nav_order: 6
+description: "Release history and change log for WhatsApp MCP Server."
+---
+
 # Changelog
 
 All notable changes to WhatsApp MCP Docker will be documented in this file.

@@ -1,3 +1,11 @@
+---
+layout: default
+title: Testing Guide
+parent: Guides
+nav_order: 4
+description: "Test strategy, layers (unit/integration/E2E), Docker test runner, and commands."
+---
+
 # Testing Guide
 
 > **Testing documentation for WhatsApp MCP Server**

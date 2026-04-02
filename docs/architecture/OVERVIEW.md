@@ -1,3 +1,10 @@
+---
+layout: default
+title: Architecture
+nav_order: 3
+description: "High-level architecture, component overview, data flow, storage schema, and design decisions."
+---
+
 # Architecture Overview
 
 > **Purpose** — High-level architecture documentation for **WhatsApp MCP Server**.
