@@ -376,7 +376,7 @@ describe('fuzzyMatch - Performance with Large Contact Lists', () => {
   });
 });
 
-describe('fuzzyMatch - Real-World Scenarios', () => {
+describe('fuzzyMatch - Real-World Disambiguation', () => {
   const REALISTIC_CHATS = [
     { jid: '15145551234@s.whatsapp.net', name: 'John' },
     { jid: '15145551235@s.whatsapp.net', name: 'John Smith' },

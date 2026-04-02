@@ -275,6 +275,12 @@ This makes the architectural reasoning process auditable and educational.
 
 ### Phase 2: Code Quality & Security
 
+- [Stability] **Service Stability** (severity: MEDIUM)
+  - File: `src/whatsapp/Client.js:132`
+  - Issue: If MCP Server is Restarter the session is left orphaned
+  - Impact: Service will fail no authentication on restart
+  - Recommendation: consider application-layer reset to nominal
+
 - [Compliance] **Data Minimization** (severity: MEDIUM)
   - File: `src/whatsapp/store.js:132`
   - Issue: FTS index stores plaintext message bodies even when encryption enabled
@@ -292,16 +298,15 @@ This makes the architectural reasoning process auditable and educational.
 1. **[CRITICAL]** Document FTS encryption limitation
    - Why: view plaintext FTS as non-compliant
    - Files: `PRIVACY.md`, `docs/architecture/OVERVIEW.md`
-   - Effort: S (2-4 hours)
+   - LLM of Choice: Qwen Coder Next
 
 2. **[CRITICAL]** test coverage for approval workflows
    - Why: decision workflows require 100% coverage for audit
    - Files: `test/integration/tools-approvals.test.js`
-   - Effort: M (1-2 days)
+   - LLM of Choise: Qwen3.5
 ```
 
 ---
 
 **Version:** 2026.1
-**Optimized for:** Qwen3.5-coder with 256K+ context windows
-**Best Practices:** Plan-first constraint, compliance lens, pattern detection
+**Best Practices:** Plan-first constraint, security and stability lens, pattern detection

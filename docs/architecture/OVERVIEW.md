@@ -11,7 +11,7 @@
 | Database | SQLite (better-sqlite3) with FTS5 full-text search |
 | Validation | Zod |
 | Container | Docker multi-stage (~150 MB) |
-| Tools | 15 MCP tools |
+| Tools | 32 MCP tools |
 
 ---
 
@@ -55,7 +55,7 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 | **Portability** | Identical on Windows, macOS, Linux | Platform-specific native dependency issues |
 | **Lifecycle** | Health checks, auto-restart, graceful shutdown, long-lived containers | Manual process management |
 | **Cleanup** | `docker compose down -v` removes everything | Manual cleanup of data, sessions, processes |
-| **Discovery** | `whatsapp-mcp-docker-server.yaml` auto-describes 15 tools to all clients | Manual per-client configuration |
+| **Discovery** | `whatsapp-mcp-docker-server.yaml` auto-describes 32 tools to all clients | Manual per-client configuration |
 
 ---
 
@@ -74,7 +74,7 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 │             │           │           │                         │
 │   ┌─────────▼──┐ ┌──────▼──────┐ ┌──▼──────────┐            │
 │   │   Tools    │ │  Security   │ │   Utils      │            │
-│   │  (15 MCP)  │ │  audit.js   │ │ fuzzy-match  │            │
+│   │  (32 MCP)  │ │  audit.js   │ │ fuzzy-match  │            │
 │   │            │ │ permissions │ │ phone.js     │            │
 │   └─────────┬──┘ └─────────────┘ └─────────────┘            │
 │             │                                                │
@@ -158,6 +158,10 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 | `chats.js` | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` | Chats |
 | `media.js` | `download_media`, `send_file` | Media |
 | `approvals.js` | `request_approval`, `check_approvals` | Approvals |
+| `groups.js` | `create_group`, `get_group_info`, `get_joined_groups`, `get_group_invite_link`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic` | Groups |
+| `reactions.js` | `send_reaction`, `edit_message`, `delete_message`, `create_poll` | Message Actions |
+| `contacts.js` | `get_user_info`, `is_on_whatsapp`, `get_profile_picture` | Contacts |
+| `wait.js` | `wait_for_message` | Workflow |
 
 Each tool includes:
 - Zod input schema with `.describe()` for LLM understanding

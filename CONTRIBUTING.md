@@ -138,15 +138,24 @@ src/
 │   ├── messaging.js      # send_message, list_messages, search_messages
 │   ├── chats.js          # list_chats, search_contacts, catch_up, mark_messages_read, export_chat_data
 │   ├── media.js          # download_media, send_file (with file security)
-│   └── approvals.js      # request_approval, check_approvals
+│   ├── approvals.js      # request_approval, check_approvals
+│   ├── groups.js         # create_group, get_group_info, get_joined_groups, get_group_invite_link,
+│   │                     #   join_group, leave_group, update_group_participants,
+│   │                     #   set_group_name, set_group_topic
+│   ├── reactions.js      # send_reaction, edit_message, delete_message, create_poll
+│   ├── contacts.js       # get_user_info, is_on_whatsapp, get_profile_picture
+│   └── wait.js           # wait_for_message
 ├── security/
-│   ├── audit.js          # SQLite audit log
+│   ├── audit.js          # SQLite audit log with file fallback
 │   ├── crypto.js         # AES-256-GCM field-level encryption
 │   ├── file-guard.js     # Path confinement, extension/magic checks, quota
 │   └── permissions.js    # Whitelist, rate limit, tool disable, auth throttle
 └── utils/
     ├── fuzzy-match.js    # Levenshtein + substring matching
-    └── phone.js          # E.164 validation, JID conversion
+    ├── phone.js          # E.164 validation, JID conversion
+    ├── errors.js         # Error classification and structured error responses
+    ├── zod-schemas.js    # Shared Zod schemas (PhoneArraySchema)
+    └── debug.js          # Debug logging utility
 ```
 
 See [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md) for detailed architecture documentation.

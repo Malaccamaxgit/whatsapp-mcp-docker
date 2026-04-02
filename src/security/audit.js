@@ -20,6 +20,7 @@ export class AuditLogger {
     this.db = null;
     this._onAlert = options.onAlert || null; // Callback for audit failure alerts
     this._alertSent = false; // Track if alert already sent to avoid spam
+    this._pendingAlert = null; // Stores the alert payload for replay via setAlertCallback
     this._useFallback = false; // Track if using file fallback
     this._init();
   }
@@ -100,15 +101,28 @@ export class AuditLogger {
   }
 
   /**
+   * Send an alert for audit failures. Sets _alertSent so the callback can be
+   * replayed via setAlertCallback if it is registered after _init() runs.
+   */
+  _sendAlert(type, errorMessage) {
+    this._alertSent = true;
+    this._pendingAlert = { type: 'audit_failure', reason: type, error: errorMessage, timestamp: new Date().toISOString() };
+    if (this._onAlert && !this._alertCallbackTriggered) {
+      this._alertCallbackTriggered = true;
+      this._onAlert(this._pendingAlert);
+    }
+  }
+
+  /**
    * Set callback for audit failure alerts (called when audit DB fails)
    * @param {Function} callback - Function to call with alert object
    */
   setAlertCallback(callback) {
     this._onAlert = callback;
-    // If we already sent an alert during init, trigger it now
+    // If an alert was already sent during init (before this callback was set), replay it now
     if (this._alertSent && !this._alertCallbackTriggered) {
       this._alertCallbackTriggered = true;
-      callback({
+      callback(this._pendingAlert || {
         type: 'audit_failure',
         reason: 'audit_db_init_failed',
         error: 'Audit database unavailable - initialized before alert callback set',

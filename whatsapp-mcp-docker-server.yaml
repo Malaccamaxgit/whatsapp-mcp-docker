@@ -223,7 +223,7 @@ tools:
     arguments:
       - name: query
         type: string
-        desc: "Search query (max 200 chars)"
+        desc: "Search query (max 500 chars)"
       - name: chat
         type: string
         desc: Scope to specific chat

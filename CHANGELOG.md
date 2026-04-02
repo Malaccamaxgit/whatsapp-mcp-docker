@@ -106,6 +106,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased — Groups, Reactions, Contacts, Wait] - 2026-04-02
+
+### Added
+
+#### Group Management (9 new tools)
+- **`create_group`** — Create a new WhatsApp group with specified participants
+- **`get_group_info`** — Fetch name, description, participant list, and admin status for a group
+- **`get_joined_groups`** — List all groups this account is a member of
+- **`get_group_invite_link`** — Retrieve the invite link for a group (requires admin)
+- **`join_group`** — Join a group via invite link or invite code
+- **`leave_group`** — Leave a group permanently
+- **`update_group_participants`** — Add, remove, promote, or demote participants (requires admin)
+- **`set_group_name`** — Rename a group (requires admin)
+- **`set_group_topic`** — Set or clear the group description (requires admin)
+
+#### Message Actions (4 new tools)
+- **`send_reaction`** — React to any message with an emoji; empty string removes the reaction
+- **`edit_message`** — Edit a previously sent message (own messages, ≤15 min window)
+- **`delete_message`** — Revoke a sent message for everyone in the chat
+- **`create_poll`** — Send a poll with 2–12 options; optionally allow multiple selections
+
+#### Contact & User Info (3 new tools)
+- **`get_user_info`** — Fetch display name, status, and business details for up to 20 phone numbers
+- **`is_on_whatsapp`** — Check whether up to 50 phone numbers have WhatsApp accounts
+- **`get_profile_picture`** — Retrieve the CDN URL for a contact or group profile picture
+
+#### Workflow (1 new tool)
+- **`wait_for_message`** — Block until an incoming message arrives (optional chat/sender filter), returning full message metadata; useful for interactive AI workflows
+
+#### Chats (1 new tool)
+- **`export_chat_data`** — Export up to 10,000 messages as JSON or RFC 4180-compliant CSV for PIPEDA/Law 25 compliance
+
+### Summary
+Total tool count: **32** (was 13 in v0.1.1, 14 after `disconnect` was added)
+
+---
+
 ## Implementation Checklist
 
 ### ✅ Completed (2026-04-01)

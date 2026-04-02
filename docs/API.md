@@ -1,6 +1,6 @@
 # WhatsApp MCP Server API Reference
 
-> **API documentation for all 15 MCP tools**
+> **API documentation for all 32 MCP tools**
 
 ## Table of Contents
 
@@ -10,6 +10,10 @@
 4. [Media](#media)
 5. [Intelligence](#intelligence)
 6. [Approval Workflows](#approval-workflows)
+7. [Groups](#groups)
+8. [Message Actions](#message-actions)
+9. [Contact Info](#contact-info)
+10. [Workflow](#workflow)
 
 ---
 
@@ -192,7 +196,7 @@ Full-text search across all messages using SQLite FTS5.
 **Parameters:**
 ```typescript
 {
-  query: string;             // Search keywords (max 200 chars)
+  query: string;             // Search keywords (max 500 chars)
   chat?: string;             // Scope to specific chat
   limit?: number;            // Max results: 1-100 (default: 20)
   page?: number;             // Page number (default: 0)
@@ -545,6 +549,449 @@ check_approvals({ request_id: "approval_123_abc" })  // Specific approval
 - `approved` - Approved by recipient
 - `denied` - Denied by recipient
 - `expired` - Timeout reached
+
+---
+
+## Groups
+
+### `create_group`
+
+Create a new WhatsApp group with the given name and participant phone numbers or JIDs.
+
+**Parameters:**
+```typescript
+{
+  name: string;            // Group name (1–100 characters)
+  participants: string[];  // E.164 phone numbers or JIDs (1–256 participants)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Group JID and invite link
+  isError?: boolean;
+}
+```
+
+**Example:**
+```javascript
+create_group({ name: "Project Alpha", participants: ["+15145551234", "+447911123456"] })
+```
+
+---
+
+### `get_group_info`
+
+Get detailed information about a WhatsApp group: name, description, participants, admin list, and settings.
+
+**Parameters:**
+```typescript
+{
+  group: string;  // Group name (fuzzy match) or JID ending in @g.us
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Name, JID, description, participant list with roles
+}
+```
+
+**Example:**
+```javascript
+get_group_info({ group: "Engineering Team" })
+```
+
+---
+
+### `get_joined_groups`
+
+List all WhatsApp groups this account is a member of, with participant counts and admin status.
+
+**Parameters:** None
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Formatted list with names, member counts, JIDs
+}
+```
+
+---
+
+### `get_group_invite_link`
+
+Get the invite link for a WhatsApp group. Anyone with the link can join. Requires admin privileges.
+
+**Parameters:**
+```typescript
+{
+  group: string;  // Group name (fuzzy match) or JID ending in @g.us
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // https://chat.whatsapp.com/CODE
+}
+```
+
+---
+
+### `join_group`
+
+Join a WhatsApp group using an invite link or invite code.
+
+**Parameters:**
+```typescript
+{
+  link: string;  // Full invite URL (https://chat.whatsapp.com/CODE) or just the code
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Joined group JID
+  isError?: boolean;
+}
+```
+
+---
+
+### `leave_group`
+
+Leave a WhatsApp group. This action is permanent — you will need an invite to rejoin.
+
+**Parameters:**
+```typescript
+{
+  group: string;  // Group name (fuzzy match) or JID ending in @g.us
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];
+  isError?: boolean;
+}
+```
+
+---
+
+### `update_group_participants`
+
+Add, remove, promote to admin, or demote participants in a WhatsApp group. Requires admin privileges for most actions.
+
+**Parameters:**
+```typescript
+{
+  group: string;           // Group name (fuzzy match) or JID ending in @g.us
+  action: 'add' | 'remove' | 'promote' | 'demote';
+  participants: string[];  // E.164 phone numbers or JIDs (1–50 participants)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Per-participant outcome
+  isError?: boolean;
+}
+```
+
+**Example:**
+```javascript
+update_group_participants({
+  group: "Engineering Team",
+  action: "promote",
+  participants: ["+15145551234"]
+})
+```
+
+---
+
+### `set_group_name`
+
+Change the name of a WhatsApp group. Requires admin privileges.
+
+**Parameters:**
+```typescript
+{
+  group: string;  // Group name (fuzzy match) or JID ending in @g.us
+  name: string;   // New group name (1–100 characters)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];
+  isError?: boolean;
+}
+```
+
+---
+
+### `set_group_topic`
+
+Set or update the description/topic of a WhatsApp group. Requires admin privileges.
+
+**Parameters:**
+```typescript
+{
+  group: string;  // Group name (fuzzy match) or JID ending in @g.us
+  topic: string;  // New description (max 512 chars; empty string to clear)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];
+  isError?: boolean;
+}
+```
+
+---
+
+## Message Actions
+
+### `send_reaction`
+
+React to a WhatsApp message with an emoji. Use an empty string to remove an existing reaction.
+
+**Parameters:**
+```typescript
+{
+  chat: string;        // Chat name, phone number, or JID
+  message_id: string;  // Message ID (from list_messages output)
+  emoji: string;       // Emoji to react with (e.g. "👍"). Empty string removes reaction.
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];
+  isError?: boolean;
+}
+```
+
+**Example:**
+```javascript
+send_reaction({ chat: "John", message_id: "msg-abc123", emoji: "👍" })
+send_reaction({ chat: "John", message_id: "msg-abc123", emoji: "" })  // remove
+```
+
+---
+
+### `edit_message`
+
+Edit a previously sent WhatsApp message. Only works on messages sent by this account within the last ~15 minutes.
+
+**Parameters:**
+```typescript
+{
+  chat: string;        // Chat name, phone number, or JID
+  message_id: string;  // Message ID to edit (from list_messages output)
+  new_text: string;    // Replacement text (max 4096 characters)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];
+  isError?: boolean;
+}
+```
+
+**Notes:**
+- Only messages sent by this account can be edited
+- WhatsApp enforces a ~15-minute edit window
+- Edited messages show an "edited" indicator to recipients
+
+---
+
+### `delete_message`
+
+Delete a WhatsApp message for everyone in the chat (revoke). Only works on messages sent by this account.
+
+**Parameters:**
+```typescript
+{
+  chat: string;        // Chat name, phone number, or JID
+  message_id: string;  // Message ID to delete (from list_messages output)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];
+  isError?: boolean;
+}
+```
+
+**Notes:**
+- Message is removed for all participants
+- Only messages sent by this account can be deleted
+- `destructiveHint: true` — this action cannot be undone
+
+---
+
+### `create_poll`
+
+Send a poll to a WhatsApp chat. Participants can vote on one or more options.
+
+**Parameters:**
+```typescript
+{
+  to: string;              // Recipient: contact name, group name, phone number, or JID
+  question: string;        // Poll question (max 255 characters)
+  options: string[];       // Answer options (2–12 options, max 100 chars each)
+  allow_multiple?: boolean;// Allow multiple selections (default: false)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Poll confirmation with message ID
+  isError?: boolean;
+}
+```
+
+**Example:**
+```javascript
+create_poll({
+  to: "Engineering Team",
+  question: "Which day for the team lunch?",
+  options: ["Monday", "Tuesday", "Wednesday", "Thursday"],
+  allow_multiple: false
+})
+```
+
+---
+
+## Contact Info
+
+### `get_user_info`
+
+Get WhatsApp profile information for one or more phone numbers: display name, status, and business details.
+
+**Parameters:**
+```typescript
+{
+  phones: string[];  // Phone numbers in E.164 format (1–20 numbers)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Per-number: name, status, business flag
+  isError?: boolean;
+}
+```
+
+**Example:**
+```javascript
+get_user_info({ phones: ["+15145551234", "+447911123456"] })
+```
+
+---
+
+### `is_on_whatsapp`
+
+Check whether one or more phone numbers have WhatsApp accounts. Useful before sending a message to a new contact.
+
+**Parameters:**
+```typescript
+{
+  phones: string[];  // Phone numbers in E.164 format (1–50 numbers)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Per-number: ✅ on WhatsApp / ❌ not on WhatsApp
+}
+```
+
+**Example:**
+```javascript
+is_on_whatsapp({ phones: ["+15145551234"] })
+```
+
+---
+
+### `get_profile_picture`
+
+Get the profile picture URL for a contact or group. Returns the direct image URL from WhatsApp's CDN.
+
+**Parameters:**
+```typescript
+{
+  target: string;  // Phone number, contact name, group name, or JID
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // CDN URL or "no profile picture set"
+  isError?: boolean;
+}
+```
+
+**Notes:**
+- CDN URLs expire after a short period; fetch the image promptly
+- Privacy settings may prevent retrieval for non-contacts
+
+---
+
+## Workflow
+
+### `wait_for_message`
+
+Block until an incoming WhatsApp message arrives, then return it. Use during interactive AI workflows: ask the user to send a message, call this tool, and the AI receives the reply automatically.
+
+**Parameters:**
+```typescript
+{
+  timeout?: number;      // Seconds to wait (1–300, default: 60)
+  chat?: string;         // Only match messages from this chat (name, phone, or JID)
+  from_phone?: string;   // Only match messages from this sender phone or JID
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Sender, chat, timestamp, body, media info, message ID
+  isError?: boolean;                           // isError: true if timeout reached
+}
+```
+
+**Example:**
+```javascript
+// Wait up to 2 minutes for any message from John
+wait_for_message({ timeout: 120, chat: "John" })
+
+// Wait for a message from a specific number
+wait_for_message({ timeout: 60, from_phone: "+15145551234" })
+```
+
+**Notes:**
+- Returns `isError: true` with a descriptive message if the timeout expires with no match
+- `readOnlyHint: true` — does not send anything; only observes incoming messages
 
 ---
 

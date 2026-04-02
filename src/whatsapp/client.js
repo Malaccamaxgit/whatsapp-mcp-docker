@@ -22,16 +22,20 @@ import { isGroupJid } from '../utils/phone.js';
 import { assertPathWithin, sanitizeFilename, checkExtension } from '../security/file-guard.js';
 import { decrypt } from '../security/crypto.js';
 import { classifyError } from '../utils/errors.js';
+import { PERMANENT_LOGOUT_REASONS, APPROVAL_KEYWORDS } from '../constants.js';
 
-const PERMANENT_LOGOUT_REASONS = [
-  'revoked',
-  'replaced',
-  'banned',
-  'unlinked',
-  'device_removed',
-  'logged_out',
-  'multidevice_mismatch'
-];
+/**
+ * Match text against approval keywords using word boundaries for text keywords
+ * and substring match for emoji, preventing false positives like "nobody" → "no".
+ */
+function matchesApprovalKeywords(text, keywords) {
+  return keywords.some((k) => {
+    // Emoji characters: use simple substring match (they don't form partial words)
+    if (/\p{Emoji_Presentation}|\p{Extended_Pictographic}/u.test(k)) return text.includes(k);
+    // Text keywords: require whole-word match to avoid e.g. "nobody" triggering "no"
+    return new RegExp(`\\b${k}\\b`, 'i').test(text);
+  });
+}
 
 function resolveMuslBinary() {
   try {
@@ -661,19 +665,6 @@ export class WhatsAppClient {
     if (!msg.body) return;
 
     const text = msg.body.toLowerCase().trim();
-    const approvalKeywords = [
-      'approve',
-      'approved',
-      'yes',
-      'ok',
-      'okay',
-      'confirm',
-      'y',
-      '✅',
-      '✔️'
-    ];
-    const denyKeywords = ['deny', 'denied', 'no', 'reject', 'cancel', 'n', '❌', '🚫'];
-
     const idMatch = msg.body.match(/approval_\w+/);
 
     const pendingApprovals = this.messageStore.getPendingApprovals();
@@ -688,8 +679,8 @@ export class WhatsAppClient {
     }
     if (!targetApproval) return;
 
-    const isApproved = approvalKeywords.some((k) => text.includes(k));
-    const isDenied = denyKeywords.some((k) => text.includes(k));
+    const isApproved = matchesApprovalKeywords(text, APPROVAL_KEYWORDS.APPROVE);
+    const isDenied = matchesApprovalKeywords(text, APPROVAL_KEYWORDS.DENY);
 
     if (isApproved && !isDenied) {
       this.messageStore.respondToApproval(targetApproval.id, true, msg.body);

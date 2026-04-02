@@ -454,17 +454,24 @@ export class MessageStore {
     const messages = this.listMessages({ chatJid: jid, limit: 10000, offset: 0 });
 
     if (format === 'csv') {
+      // RFC 4180: wrap every field in double quotes, escape internal quotes by doubling.
+      // Strip leading formula characters (=+-@\t\r) to prevent spreadsheet injection.
+      const csvCell = (v) => {
+        const s = String(v ?? '');
+        const safe = s.replace(/^([=+\-@\t\r])/, "'$1");
+        return `"${safe.replace(/"/g, '""')}"`;
+      };
       const headers = ['id', 'timestamp', 'sender_jid', 'sender_name', 'body', 'is_from_me', 'has_media', 'media_type'];
       const rows = messages.map((m) =>
         [
-          m.id,
-          new Date(m.timestamp * 1000).toISOString(),
-          m.sender_jid || '',
-          (m.sender_name || '').replace(/"/g, '""'),
-          (m.body || '').replace(/"/g, '""'),
-          m.is_from_me ? 1 : 0,
-          m.has_media ? 1 : 0,
-          m.media_type || ''
+          csvCell(m.id),
+          csvCell(new Date(m.timestamp * 1000).toISOString()),
+          csvCell(m.sender_jid || ''),
+          csvCell(m.sender_name || ''),
+          csvCell(m.body || ''),
+          csvCell(m.is_from_me ? 1 : 0),
+          csvCell(m.has_media ? 1 : 0),
+          csvCell(m.media_type || '')
         ].join(',')
       );
       return {
@@ -473,7 +480,7 @@ export class MessageStore {
         chatName: chat.name,
         exportedAt: new Date().toISOString(),
         messageCount: messages.length,
-        data: [headers.join(','), ...rows].join('\n')
+        data: [headers.map(csvCell).join(','), ...rows].join('\n')
       };
     }
 

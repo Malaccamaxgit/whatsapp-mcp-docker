@@ -175,11 +175,12 @@ request_approval → pending → (APPROVE/DENY) → approved/denied
 | `PERMISSION_CONTACT_NOT_WHITELISTED` | `client_error` | 403 | Recipient not in ALLOWED_CONTACTS | Add to whitelist or contact admin |
 | `PERMISSION_AUTH_THROTTLED` | `transient` | 429 | Too many failed auth attempts | Wait for exponential backoff (60s → 900s) |
 
-**Auth Backoff Schedule:**
+**Auth Backoff Schedule** (doubles each failure, capped at 15 min):
 - 1st failure: 60 seconds
 - 2nd failure: 120 seconds
-- 3rd failure: 300 seconds
-- 4th failure: 900 seconds (max)
+- 3rd failure: 240 seconds
+- 4th failure: 480 seconds
+- 5th+ failure: 900 seconds (max)
 
 ---
 

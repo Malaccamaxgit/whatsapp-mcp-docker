@@ -7,41 +7,9 @@
 
 import { resolve, basename, extname, sep } from 'node:path';
 import { stat, readdir, open } from 'node:fs/promises';
+import { FILE_SECURITY } from '../constants.js';
 
-const DANGEROUS_EXTENSIONS = new Set([
-  '.exe',
-  '.bat',
-  '.cmd',
-  '.com',
-  '.scr',
-  '.pif',
-  '.msi',
-  '.msp',
-  '.ps1',
-  '.psm1',
-  '.psd1',
-  '.vbs',
-  '.vbe',
-  '.js',
-  '.jse',
-  '.wsf',
-  '.wsh',
-  '.sh',
-  '.bash',
-  '.csh',
-  '.ksh',
-  '.dll',
-  '.sys',
-  '.drv',
-  '.ocx',
-  '.cab',
-  '.inf',
-  '.reg',
-  '.lnk',
-  '.url',
-  '.hta',
-  '.cpl'
-]);
+const { DANGEROUS_EXTENSIONS, SENSITIVE_PATTERNS } = FILE_SECURITY;
 
 const MAGIC_BYTES = [
   { type: 'image', sig: [0xff, 0xd8, 0xff], label: 'JPEG' },
@@ -92,18 +60,6 @@ export function assertPathWithin(filePath, allowedBase) {
  * Validate that a file path for upload (send_file) is within allowed
  * directories and does NOT point to sensitive files.
  */
-const SENSITIVE_PATTERNS = [
-  /session\.db/i,
-  /messages\.db/i,
-  /audit\.db/i,
-  /\.db-wal$/i,
-  /\.db-shm$/i,
-  /\.key$/i,
-  /\.pem$/i,
-  /\.env$/i,
-  /credentials/i
-];
-
 export function validateUploadPath(filePath, allowedDirs) {
   const resolved = resolve(filePath);
 
