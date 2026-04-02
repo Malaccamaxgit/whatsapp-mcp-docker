@@ -64,6 +64,9 @@ This server runs inside a Docker container managed by [Docker MCP Toolkit](https
 > ```
 
 ```bash
+# 0. Find your profile name (Docker Desktop creates "default" on install)
+docker mcp profile list
+
 # 1. Clone and build
 git clone https://github.com/Malaccamaxgit/whatsapp-mcp-docker.git
 cd whatsapp-mcp-docker
@@ -73,23 +76,41 @@ docker compose build
 docker mcp catalog create my-mcp --title "My MCP Servers" \
   --server file://./whatsapp-mcp-docker-server.yaml
 
-# 3. Add to default profile
+# 3. Add to your profile (replace "default" with your profile name from step 0)
 docker mcp profile server add default \
   --server file://./whatsapp-mcp-docker-server.yaml
 
-# 4. Connect Cursor (or your MCP client)
+# 4. Connect your MCP client (replace "cursor" with your client — see table below)
 docker mcp client connect cursor --profile default
 
-# 5. In Cursor, type: "Authenticate WhatsApp with +1234567890"
+# 5. Restart / reload your MCP client so it picks up the new tools
+
+# 6. In your client, say: "Authenticate WhatsApp with +1234567890"
 ```
 
-**That's it!** You're now connected to WhatsApp. The server uses default settings (no encryption, standard rate limits). 
+**Supported clients for step 4:** `cursor`, `claude-code`, `claude-desktop`, `vscode`, `gemini`, `goose`, and [more](https://docs.docker.com/ai/mcp-catalog-and-toolkit/profiles/#using-profiles-with-clients). Run `docker mcp client connect --help` to see the full list.
+
+**That's it!** You're now connected to WhatsApp. The server uses default settings (no encryption, standard rate limits).
+
+> **Note:** After connecting, you must restart or reload your MCP client before the WhatsApp tools appear (see Step 5 in the Full Setup below for client-specific instructions). Running `docker mcp tools ls` in the terminal shows only 8 MCP Toolkit meta-tools — the 32 WhatsApp tools appear inside your client after the gateway starts the container on first use.
 
 **Next steps:** Set up encryption and recommended configuration (below) for secure use.
 
 ---
 
 ### 📋 Full Setup (Recommended Secure Configuration)
+
+### 0. Find Your Profile Name
+
+Docker Desktop creates a profile named `default` on install. Check yours before proceeding:
+
+```bash
+docker mcp profile list
+```
+
+Use the name shown there wherever `<your-profile>` appears in the steps below.
+
+> **Need a dedicated profile?** In Docker Desktop go to **MCP Toolkit → Profiles** and click **+** to create one, then use that name.
 
 ### 1. Build the Docker Image
 
@@ -99,11 +120,11 @@ cd whatsapp-mcp-docker
 docker compose build
 ```
 
-### 2. Set the Encryption Key and Configuration
+> **Stay in the `whatsapp-mcp-docker` directory** for all subsequent commands — the `file://./` path in catalog and profile commands is relative to your working directory.
 
-**Important:** Set the encryption key and all configuration values before adding the server to a profile. This ensures the server starts with proper security and settings from the first launch.
+### 2. Set the Encryption Key
 
-**Set the encryption key** (stored in OS Keychain):
+**Set the encryption key** (stored in OS Keychain — no `.env` files needed):
 
 ```bash
 # Option A: Using Node.js (if installed on host) — bash/zsh only
@@ -116,16 +137,73 @@ docker run --rm node:20-alpine node -e "console.log(require('crypto').randomByte
 > **Windows PowerShell users:** The pipe (`|`) and redirect (`<`) operators do not work with `docker mcp secret set` on PowerShell. Use this two-step approach instead:
 >
 > ```powershell
-> # Step 1 — generate a key and store it inline
 > $key = docker run --rm node:20-alpine node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 > docker mcp secret set "whatsapp-mcp-docker.data_encryption_key=$key"
 > ```
 >
 > If you see a "logon session does not exist" error but the key still appears in `docker mcp secret ls`, the key was stored successfully in the `docker-pass` backend — the error is a misleading warning from a secondary Windows Credential Manager backend and can be safely ignored.
 
+**Verify the key was stored** (`docker mcp secret set` produces no confirmation on success):
+
+```bash
+# bash/zsh
+docker mcp secret ls | grep whatsapp
+# PowerShell
+docker mcp secret ls | findstr whatsapp
+```
+
+You should see a line containing `whatsapp-mcp-docker.data_enc…`.
+
 > **Tip:** Keep the generated key safe! If you lose it, encrypted messages cannot be recovered. Back it up to a password manager.
 
-**Apply recommended configuration** to your profile (replace `<your-profile>` with your profile name, e.g., `default-with-portainer`):
+### 3. Create a Custom Catalog
+
+Register the server in a [custom catalog](https://docs.docker.com/ai/mcp-catalog-and-toolkit/catalog/#custom-catalogs) so it appears in Docker Desktop's **Catalog** tab alongside the official Docker MCP Catalog:
+
+> **PowerShell Users:** On Windows PowerShell, use backtick (`` ` ``) instead of backslash (`\`) for line continuation.
+>
+> ```powershell
+> docker mcp catalog create my-custom-mcp-servers `
+>   --title "My Custom MCP Servers" `
+>   --server file://./whatsapp-mcp-docker-server.yaml
+> ```
+
+```bash
+docker mcp catalog create my-custom-mcp-servers \
+  --title "My Custom MCP Servers" \
+  --server file://./whatsapp-mcp-docker-server.yaml
+```
+
+In Docker Desktop, go to **MCP Toolkit → Catalog** — the **WhatsApp MCP** server now appears under your custom catalog with all 32 tools, configuration options, and secrets.
+
+> **Tip:** To update the catalog after code changes, re-run the same command — it replaces the existing entry. To add more servers later, use multiple `--server` flags.
+
+### 4. Add to a Profile and Apply Configuration
+
+Add the server to a profile so MCP clients can use it.
+
+**Option A — From the Catalog UI:**
+
+1. In **MCP Toolkit → Catalog**, find **WhatsApp MCP** under your custom catalog.
+2. Select the checkbox on the server card.
+3. Choose a profile from the drop-down and confirm.
+
+**Option B — CLI:**
+
+```bash
+docker mcp profile server add <your-profile> \
+  --server file://./whatsapp-mcp-docker-server.yaml
+```
+
+**Option C — Docker Desktop Profiles tab:**
+
+1. Open Docker Desktop and go to **MCP Toolkit → Profiles**.
+2. Select an existing profile (or create a new one).
+3. In the **Servers** section, click **+** and add the server.
+
+All options register the server with `longLived: true` (persistent container), `secrets` (encryption key from OS Keychain), and all 32 tools.
+
+**After adding, apply the recommended configuration:**
 
 > **PowerShell Users:** Use backtick (`` ` ``) instead of backslash (`\`) for line continuation.
 >
@@ -157,85 +235,33 @@ docker mcp profile config <your-profile> \
 
 Or configure via Docker Desktop: **MCP Toolkit → WhatsApp MCP → Configuration / Secrets**.
 
-> **Why set this upfront?** The encryption key protects sensitive data at rest. Setting all configuration values ensures the server behaves consistently from first launch, and the Docker Desktop UI will show your values instead of blank fields.
-
-### 3. Create a Custom Catalog
-
-Register the server in a [custom catalog](https://docs.docker.com/ai/mcp-catalog-and-toolkit/catalog/#custom-catalogs) so it appears in Docker Desktop's **Catalog** tab alongside the official Docker MCP Catalog:
-
-> **PowerShell Users:** On Windows PowerShell, use backtick (`` ` ``) instead of backslash (`\`) for line continuation.
->
-> ```powershell
-> docker mcp catalog create my-custom-mcp-servers `
->   --title "My Custom MCP Servers" `
->   --server file://./whatsapp-mcp-docker-server.yaml
-> ```
-
-```bash
-docker mcp catalog create my-custom-mcp-servers \
-  --title "My Custom MCP Servers" \
-  --server file://./whatsapp-mcp-docker-server.yaml
-```
-
-In Docker Desktop, go to **MCP Toolkit → Catalog** — the **WhatsApp MCP** server now appears under your custom catalog with all 32 tools, configuration options, and secrets.
-
-> **Tip:** To update the catalog after code changes, re-run the same command — it replaces the existing entry. To add more servers later, use multiple `--server` flags.
-
-### 4. Add to a Profile
-
-Add the server to a profile so MCP clients can use it.
-
-**Option A — From the Catalog UI:**
-
-1. In **MCP Toolkit → Catalog**, find **WhatsApp MCP** under your custom catalog.
-2. Select the checkbox on the server card.
-3. Choose a profile from the drop-down and confirm.
-
-**Option B — CLI:**
-
-```bash
-docker mcp profile server add <your-profile> \
-  --server file://./whatsapp-mcp-docker-server.yaml
-```
-
-**Option C — Docker Desktop Profiles tab:**
-
-1. Open Docker Desktop and go to **MCP Toolkit → Profiles**.
-2. Select an existing profile (or create a new one).
-3. In the **Servers** section, click **+** and add the server.
-
-All options register the server with `longLived: true` (persistent container), `secrets` (encryption key from OS Keychain), and all 32 tools.
-
-**Apply default configuration** (recommended after first registration):
-
-```bash
-docker mcp profile config <your-profile> \
-  --set whatsapp-mcp-docker.rate_limit_per_min=60 \
-  --set whatsapp-mcp-docker.message_retention_days=90 \
-  --set whatsapp-mcp-docker.send_read_receipts=true \
-  --set whatsapp-mcp-docker.auto_read_receipts=true \
-  --set whatsapp-mcp-docker.presence_mode=available \
-  --set whatsapp-mcp-docker.welcome_group_name=WhatsAppMCP \
-  --set whatsapp-mcp-docker.auth_wait_for_link=false \
-  --set whatsapp-mcp-docker.auth_link_timeout_sec=120 \
-  --set whatsapp-mcp-docker.auth_poll_interval_sec=5
-```
-
 This populates the configuration fields in Docker Desktop so you can see and adjust them from the UI. Without this step, the server still works (defaults are applied at runtime), but the UI fields appear blank.
 
-The **`auth_*`** keys set defaults for the **`authenticate`** tool when you omit `waitForLink`, `linkTimeoutSec`, or `pollIntervalSec`: whether to wait for the device to link after showing the pairing code or QR, the maximum wait time (seconds), and how often to poll (seconds). `auth_wait_for_link=false` is the default and recommended setting for Cursor — it returns the pairing code immediately without blocking. Set `auth_wait_for_link=true` only in non-Cursor environments that don't have a tool-call timeout.
+The **`auth_*`** keys set defaults for the **`authenticate`** tool when you omit `waitForLink`, `linkTimeoutSec`, or `pollIntervalSec`: whether to wait for the device to link after showing the pairing code or QR, the maximum wait time (seconds), and how often to poll (seconds). `auth_wait_for_link=false` is the default and recommended setting for most clients — it returns the pairing code immediately without blocking, avoiding tool-call timeouts. Set `auth_wait_for_link=true` only in environments that have no tool-call timeout and where you want the tool to automatically confirm once the device links.
 
 ### 5. Connect Your MCP Client
 
-Connect your AI client to the profile with one command:
+Connect your AI client to the profile with one command, substituting your client name:
 
 ```bash
-docker mcp client connect cursor --profile <your-profile>
+docker mcp client connect <your-client> --profile <your-profile>
 ```
 
-This automatically configures Cursor's `mcp.json` with the MCP Gateway. Supported clients include `claude-code`, `claude-desktop`, `cursor`, `vscode`, `gemini`, `goose`, and [others](https://docs.docker.com/ai/mcp-catalog-and-toolkit/profiles/#using-profiles-with-clients).
+Supported client names: `cursor`, `claude-code`, `claude-desktop`, `vscode`, `gemini`, `goose`, and [others](https://docs.docker.com/ai/mcp-catalog-and-toolkit/profiles/#using-profiles-with-clients). Run `docker mcp client connect --help` to see the full list.
 
-To connect manually instead, add the following to `~/.cursor/mcp.json`:
+This automatically writes the MCP Gateway entry to your client's config file. **After connecting, restart or reload your client so it picks up the new server:**
+
+| Client | How to reload |
+|--------|---------------|
+| **Cursor** | `Ctrl+Shift+P` → **Reload Window** |
+| **Claude Desktop** | Quit and reopen the app |
+| **Claude Code** | Run `claude mcp restart` or restart the session |
+| **VS Code** | Reload the window or restart the MCP extension |
+| **Goose / Gemini CLI** | Restart the session |
+
+> **Why doesn't `docker mcp tools ls` show my 32 tools?** That command shows only the 8 MCP Toolkit meta-tools (e.g. `mcp-add`, `mcp-find`). The 32 WhatsApp tools appear inside your MCP client after the gateway starts the `whatsapp-mcp-docker` container on the first tool call. They are not visible from the terminal.
+
+To connect **manually** instead, add the MCP Gateway entry directly to your client's config file. Each client stores this in a different location — consult your client's documentation for the exact path. The entry format is:
 
 ```json
 {
@@ -247,6 +273,24 @@ To connect manually instead, add the following to `~/.cursor/mcp.json`:
   }
 }
 ```
+
+> **Windows users:** The `docker mcp client connect` command automatically injects required Windows environment variables (`LOCALAPPDATA`, `ProgramData`, `ProgramFiles`). If you edit the config file manually, you must add them yourself or the gateway cannot locate credentials:
+>
+> ```json
+> {
+>   "mcpServers": {
+>     "MCP_DOCKER": {
+>       "command": "docker",
+>       "args": ["mcp", "gateway", "run", "--profile", "<your-profile>"],
+>       "env": {
+>         "LOCALAPPDATA": "C:\\Users\\<you>\\AppData\\Local",
+>         "ProgramData": "C:\\ProgramData",
+>         "ProgramFiles": "C:\\Program Files"
+>       }
+>     }
+>   }
+> }
+> ```
 
 ### 6. Authenticate
 
@@ -260,7 +304,7 @@ The server returns an 8-digit pairing code. Enter it in:
 **WhatsApp → Settings → Linked Devices → Link a Device → Link with phone number instead**
 
 If pairing code fails (rate-limited or 400 error), the server falls back to QR code authentication:
-- **MCP image block** — displayed inline by clients that support image rendering (e.g., Cursor)
+- **MCP image block** — displayed inline by clients that support image rendering (e.g., Cursor, Claude Desktop)
 - **Data URI** — a `data:image/png;base64,...` string included in the text response; paste it into any browser's address bar to view the QR code — no host tools needed
 
 The session persists across container restarts in the `whatsapp-sessions` Docker volume.
@@ -518,7 +562,7 @@ Or configure via Docker Desktop: **MCP Toolkit → WhatsApp MCP → Configuratio
 | `AUTO_READ_RECEIPTS` | Auto-read incoming messages (senders see blue checkmarks immediately) | `true` |
 | `PRESENCE_MODE` | Online presence: `available` or `unavailable` | `available` |
 | `WELCOME_GROUP_NAME` | WhatsApp group created on first connection (empty = disable) | `WhatsAppMCP` |
-| `AUTH_WAIT_FOR_LINK` | Default: after `authenticate` shows code/QR, wait and poll until linked (`false` = return immediately, recommended for Cursor) | `false` |
+| `AUTH_WAIT_FOR_LINK` | Default: after `authenticate` shows code/QR, wait and poll until linked (`false` = return immediately; recommended for most clients to avoid tool-call timeouts) | `false` |
 | `AUTH_LINK_TIMEOUT_SEC` | Default max seconds to wait for link when waiting (15–600) | `120` |
 | `AUTH_POLL_INTERVAL_SEC` | Default seconds between connection checks when waiting (2–60) | `5` |
 
@@ -544,7 +588,7 @@ Or configure via Docker Desktop: **MCP Toolkit → WhatsApp MCP → Configuratio
 
 **`WELCOME_GROUP_NAME`** — On first connection, the server creates a WhatsApp group with this name and sends a hello message. Set to empty string to disable.
 
-**`AUTO_CONNECT_ON_STARTUP`** — When `true` (default), the server automatically reconnects to WhatsApp at container startup if a valid session exists, without needing to call `authenticate`. Set to `false` to start in disconnected mode and connect manually.
+**`AUTO_CONNECT_ON_STARTUP`** — When `true` (default), the server automatically reconnects to WhatsApp at container startup if a valid session exists, without needing to call `authenticate`. Set to `false` to start in disconnected mode and connect manually. **Note:** This variable is not exposed in the Docker MCP Toolkit profile config schema and cannot be set via Docker Desktop UI or `docker mcp profile config`. Set it via `.env` or the `environment:` block in `docker-compose.yml` only.
 
 **`AUTH_WAIT_FOR_LINK`**, **`AUTH_LINK_TIMEOUT_SEC`**, **`AUTH_POLL_INTERVAL_SEC`** — Defaults for the `authenticate` tool when the client omits `waitForLink`, `linkTimeoutSec`, or `pollIntervalSec`. In Docker MCP Toolkit they are driven by profile config `whatsapp-mcp-docker.auth_wait_for_link`, `auth_link_timeout_sec`, and `auth_poll_interval_sec`. Tool arguments always override these for that call.
 
@@ -571,11 +615,10 @@ Session data survives container restarts. Use `docker volume rm whatsapp-session
 
 **Backup WhatsApp sessions and messages:**
 
+bash/zsh:
 ```bash
-# Create backup directory
 mkdir -p whatsapp-backup
 
-# Backup session volume
 docker run --rm \
   -v whatsapp-sessions:/data \
   -v $(pwd)/whatsapp-backup:/backup \
@@ -588,12 +631,29 @@ docker run --rm \
   alpine tar czf /backup/audit-$(date +%Y%m%d).tar.gz /data
 ```
 
+PowerShell:
+```powershell
+New-Item -ItemType Directory -Force -Path whatsapp-backup
+
+$date = Get-Date -Format "yyyyMMdd"
+docker run --rm `
+  -v whatsapp-sessions:/data `
+  -v "${PWD}\whatsapp-backup:/backup" `
+  alpine tar czf /backup/sessions-$date.tar.gz /data
+
+# Backup audit volume (optional)
+docker run --rm `
+  -v whatsapp-audit:/data `
+  -v "${PWD}\whatsapp-backup:/backup" `
+  alpine tar czf /backup/audit-$date.tar.gz /data
+```
+
 **Backup encryption key:**
 
 ```bash
 # If using docker mcp secrets, export from OS Keychain manually
 # On macOS: security find-generic-password -s "docker-mcp" -a "whatsapp-mcp-docker.data_encryption_key" -w
-# On Windows: Stored in Windows Credential Manager
+# On Windows: Stored in Windows Credential Manager (search for "docker/mcp/whatsapp-mcp-docker")
 # On Linux: Stored in secret-service (GNOME Keyring or KWallet)
 
 # Save to password manager - DO NOT commit to git!
@@ -601,17 +661,27 @@ docker run --rm \
 
 ### Restore from Backup
 
+bash/zsh:
 ```bash
-# Stop the container
 docker compose down
 
-# Restore session volume
 docker run --rm \
   -v whatsapp-sessions:/data \
   -v $(pwd)/whatsapp-backup:/backup \
   alpine tar xzf /backup/sessions-20260331.tar.gz -C /
 
-# Start container
+docker compose up -d
+```
+
+PowerShell:
+```powershell
+docker compose down
+
+docker run --rm `
+  -v whatsapp-sessions:/data `
+  -v "${PWD}\whatsapp-backup:/backup" `
+  alpine tar xzf /backup/sessions-20260331.tar.gz -C /
+
 docker compose up -d
 ```
 
@@ -636,8 +706,11 @@ docker mcp secret set whatsapp-mcp-docker.data_encryption_key
 # Stop container and remove volumes
 docker compose down -v
 
-# Verify volumes are gone
-docker volume ls | grep whatsapp  # Should return nothing
+# Verify volumes are gone (bash/zsh)
+docker volume ls | grep whatsapp
+# Verify volumes are gone (PowerShell)
+docker volume ls | findstr whatsapp
+# Both should return nothing
 ```
 
 > **Warning:** This permanently deletes all WhatsApp sessions, messages, and audit logs. You'll need to re-authenticate.
@@ -752,14 +825,24 @@ docker volume ls | grep whatsapp  # Should return nothing
 ### ⚠️ Backup & Restore
 
 **Problem: Need to backup/restore sessions**
-- **Backup:**
+- **Backup (bash/zsh):**
   ```bash
   docker run --rm -v whatsapp-sessions:/data -v $(pwd):/backup alpine \
     tar czf /backup/whatsapp-backup.tar.gz /data
   ```
-- **Restore:**
+- **Backup (PowerShell):**
+  ```powershell
+  docker run --rm -v whatsapp-sessions:/data -v "${PWD}:/backup" alpine `
+    tar czf /backup/whatsapp-backup.tar.gz /data
+  ```
+- **Restore (bash/zsh):**
   ```bash
   docker run --rm -v whatsapp-sessions:/data -v $(pwd):/backup alpine \
+    tar xzf /backup/whatsapp-backup.tar.gz -C /data --strip-components 1
+  ```
+- **Restore (PowerShell):**
+  ```powershell
+  docker run --rm -v whatsapp-sessions:/data -v "${PWD}:/backup" alpine `
     tar xzf /backup/whatsapp-backup.tar.gz -C /data --strip-components 1
   ```
 
@@ -791,8 +874,11 @@ docker mcp catalog ls
 # List available profiles
 docker mcp profile list
 
-# List profile servers
+# List all servers across all profiles
 docker mcp profile server ls
+
+# List servers for a specific profile
+docker mcp profile server ls --filter profile=<your-profile>
 ```
 
 ### 📞 Getting Help
@@ -843,6 +929,8 @@ See [docs/guides/DEVELOPER.md](./docs/guides/DEVELOPER.md) for the full testing 
 
 Run the diagnostic script to check system health:
 
+> **Requires Node.js on the host.** If you don't have Node.js installed locally, use the manual diagnostics below instead — the server itself runs Node inside Docker and needs no host installation for normal use.
+
 ```bash
 # Quick status check
 node scripts/diagnostics.js
@@ -876,6 +964,12 @@ docker mcp secret ls | findstr whatsapp-mcp-docker
 # Check catalog registration
 docker mcp catalog ls
 
+# List all servers across all profiles
+docker mcp profile server ls
+
+# List servers for a specific profile (--profile flag does not exist; use --filter)
+docker mcp profile server ls --filter profile=<your-profile>
+
 # Test WhatsApp connection status (from MCP client)
 get_connection_status
 ```
@@ -896,7 +990,7 @@ get_connection_status
 - If pairing code fails, server automatically falls back to QR code
 - QR codes expire in ~20 seconds — request a fresh one if expired
 
-**Prevention:** Open WhatsApp → Settings → Linked Devices → "Link a Device" **before** calling `authenticate`, so you're ready to enter the code immediately. Pass `waitForLink: true` if you want the tool to poll until linked (note: this can time out in Cursor — see auth_wait_for_link config).
+**Prevention:** Open WhatsApp → Settings → Linked Devices → "Link a Device" **before** calling `authenticate`, so you're ready to enter the code immediately. Pass `waitForLink: true` if you want the tool to poll until linked (note: this can exceed tool-call timeouts on some MCP clients — see `auth_wait_for_link` config).
 
 ---
 
