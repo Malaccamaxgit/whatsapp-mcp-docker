@@ -1,7 +1,7 @@
 name: whatsapp-mcp-docker
 title: WhatsApp MCP
 type: server
-image: whatsapp-mcp-docker:latest
+image: malaccamax/whatsapp-mcp-docker:latest
 longLived: true
 description: |
   WhatsApp integration for any MCP client via Docker MCP Toolkit.

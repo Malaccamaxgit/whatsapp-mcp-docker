@@ -53,7 +53,7 @@ This server runs inside a Docker container managed by [Docker MCP Toolkit](https
 
 ### 🚀 Minimal Viable Setup (5 Minutes)
 
-**Want to try it fast?** Here's the absolute minimum to get started:
+**Want to try it fast?** No clone or build needed — the image is pulled automatically from Docker Hub.
 
 > **PowerShell Users:** Replace `\` (backslash) with `` ` `` (backtick) for line continuation in the commands below.
 >
@@ -67,10 +67,8 @@ This server runs inside a Docker container managed by [Docker MCP Toolkit](https
 # 0. Find your profile name (Docker Desktop creates "default" on install)
 docker mcp profile list
 
-# 1. Clone and build
-git clone https://github.com/Malaccamaxgit/whatsapp-mcp-docker.git
-cd whatsapp-mcp-docker
-docker compose build
+# 1. Download the server definition file (no full clone needed)
+curl -O https://raw.githubusercontent.com/Malaccamaxgit/whatsapp-mcp-docker/main/whatsapp-mcp-docker-server.yaml
 
 # 2. Create catalog (one-time setup)
 docker mcp catalog create my-mcp --title "My MCP Servers" \
@@ -90,7 +88,7 @@ docker mcp client connect cursor --profile default
 
 **Supported clients for step 4:** `cursor`, `claude-code`, `claude-desktop`, `vscode`, `gemini`, `goose`, and [more](https://docs.docker.com/ai/mcp-catalog-and-toolkit/profiles/#using-profiles-with-clients). Run `docker mcp client connect --help` to see the full list.
 
-**That's it!** You're now connected to WhatsApp. The server uses default settings (no encryption, standard rate limits).
+**That's it!** You're now connected to WhatsApp. The image (`malaccamax/whatsapp-mcp-docker:latest`) is pulled automatically from Docker Hub on first use — no build step required.
 
 > **Note:** After connecting, you must restart or reload your MCP client before the WhatsApp tools appear (see Step 5 in the Full Setup below for client-specific instructions). Running `docker mcp tools ls` in the terminal shows only 8 MCP Toolkit meta-tools — the 32 WhatsApp tools appear inside your client after the gateway starts the container on first use.
 
@@ -112,7 +110,19 @@ Use the name shown there wherever `<your-profile>` appears in the steps below.
 
 > **Need a dedicated profile?** In Docker Desktop go to **MCP Toolkit → Profiles** and click **+** to create one, then use that name.
 
-### 1. Build the Docker Image
+### 1. Get the Project
+
+**Option A — Just the server YAML (recommended for most users):**
+
+The image is pulled automatically from Docker Hub. You only need the server definition file:
+
+```bash
+curl -O https://raw.githubusercontent.com/Malaccamaxgit/whatsapp-mcp-docker/main/whatsapp-mcp-docker-server.yaml
+```
+
+**Option B — Full clone + local build (for developers or self-hosters):**
+
+Clone and build locally if you want to modify the source or run without Docker Hub:
 
 ```bash
 git clone https://github.com/Malaccamaxgit/whatsapp-mcp-docker.git
@@ -120,7 +130,7 @@ cd whatsapp-mcp-docker
 docker compose build
 ```
 
-> **Stay in the `whatsapp-mcp-docker` directory** for all subsequent commands — the `file://./` path in catalog and profile commands is relative to your working directory.
+> **Stay in the directory containing `whatsapp-mcp-docker-server.yaml`** for all subsequent commands — the `file://./` path in catalog and profile commands is relative to your working directory.
 
 ### 2. Set the Encryption Key
 

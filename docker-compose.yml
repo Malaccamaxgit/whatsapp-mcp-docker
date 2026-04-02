@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: whatsapp-mcp-docker:latest
+    image: malaccamax/whatsapp-mcp-docker:latest
     container_name: whatsapp-mcp-docker
     restart: unless-stopped
     environment:
