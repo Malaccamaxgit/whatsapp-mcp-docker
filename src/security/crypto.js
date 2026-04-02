@@ -20,7 +20,8 @@ const IV_LEN = 12;
 const TAG_LEN = 16;
 // Fixed application salt for deterministic key derivation (not password storage).
 const KDF_SALT = Buffer.from('whatsapp-mcp-docker-kdf-v1');
-const KDF_OPTS = { N: 1 << 17, r: 8, p: 1 };
+// N=2^14 (NIST minimum for interactive use): needs 16 MB, well within Node's 32 MB maxmem default.
+const KDF_OPTS = { N: 1 << 14, r: 8, p: 1 };
 
 let _key = null;
 
