@@ -94,7 +94,7 @@ The server automatically attempts reconnection for transient errors:
 
 | Error | Type | Code | Description | Recovery |
 |-------|------|------|-------------|----------|
-| `MEDIA_RATE_LIMITED` | `transient` | 429 | Exceeded 20 downloads/minute | Wait 1 minute; retry |
+| `MEDIA_RATE_LIMITED` | `transient` | 429 | Exceeded 30 downloads/minute | Wait 1 minute; retry |
 | `MEDIA_FILE_NOT_FOUND` | `client_error` | 404 | File path does not exist | Verify file path; ensure file is in allowed directory |
 | `MEDIA_PATH_TRAVERSAL` | `client_error` | 403 | Path outside allowed directories | Use absolute path within `/data/sessions/media/` or `/tmp` |
 | `MEDIA_DANGEROUS_EXTENSION` | `client_error` | 403 | Blocked extension (.exe, .bat, etc.) | Rename file; extension is blocklisted for security |
@@ -273,16 +273,16 @@ Authenticate WhatsApp with +1234567890
 - Counter resets every minute
 
 **Causes:**
-- Exceeded `RATE_LIMIT_PER_MIN` (default: 10)
+- Exceeded `RATE_LIMIT_PER_MIN` (default: 60)
 
 **Recovery:**
 1. Wait until next minute window
 2. Reduce message frequency
-3. Increase limit in configuration (not recommended)
+3. Adjust limit in configuration if needed
 
 ```bash
 docker mcp profile config <profile> \
-  --set whatsapp-mcp-docker.rate_limit_per_min=20
+  --set whatsapp-mcp-docker.rate_limit_per_min=60
 ```
 
 ---

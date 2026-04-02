@@ -131,7 +131,7 @@ docker run --rm node:20-alpine node -e "console.log(require('crypto').randomByte
 >
 > ```powershell
 > docker mcp profile config <your-profile> `
->   --set whatsapp-mcp-docker.rate_limit_per_min=10 `
+>   --set whatsapp-mcp-docker.rate_limit_per_min=60 `
 >   --set whatsapp-mcp-docker.message_retention_days=90 `
 >   --set whatsapp-mcp-docker.send_read_receipts=true `
 >   --set whatsapp-mcp-docker.auto_read_receipts=true `
@@ -144,7 +144,7 @@ docker run --rm node:20-alpine node -e "console.log(require('crypto').randomByte
 
 ```bash
 docker mcp profile config <your-profile> \
-  --set whatsapp-mcp-docker.rate_limit_per_min=10 \
+  --set whatsapp-mcp-docker.rate_limit_per_min=60 \
   --set whatsapp-mcp-docker.message_retention_days=90 \
   --set whatsapp-mcp-docker.send_read_receipts=true \
   --set whatsapp-mcp-docker.auto_read_receipts=true \
@@ -210,7 +210,7 @@ All options register the server with `longLived: true` (persistent container), `
 
 ```bash
 docker mcp profile config <your-profile> \
-  --set whatsapp-mcp-docker.rate_limit_per_min=10 \
+  --set whatsapp-mcp-docker.rate_limit_per_min=60 \
   --set whatsapp-mcp-docker.message_retention_days=90 \
   --set whatsapp-mcp-docker.send_read_receipts=true \
   --set whatsapp-mcp-docker.auto_read_receipts=true \
@@ -489,7 +489,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" | \
 # 2. Apply complete recommended configuration to your profile
 # Replace <your-profile> with your profile name (e.g., default-with-portainer)
 docker mcp profile config <your-profile> \
-  --set whatsapp-mcp-docker.rate_limit_per_min=10 \
+  --set whatsapp-mcp-docker.rate_limit_per_min=60 \
   --set whatsapp-mcp-docker.message_retention_days=90 \
   --set whatsapp-mcp-docker.send_read_receipts=true \
   --set whatsapp-mcp-docker.auto_read_receipts=true \
@@ -508,7 +508,8 @@ Or configure via Docker Desktop: **MCP Toolkit → WhatsApp MCP → Configuratio
 |----------|-------------|---------|
 | `STORE_PATH` | Session + message database directory | `/data/sessions` |
 | `AUDIT_DB_PATH` | Audit log database path | `/data/audit/audit.db` |
-| `RATE_LIMIT_PER_MIN` | Max outbound messages per minute | `10` |
+| `RATE_LIMIT_PER_MIN` | Max outbound messages per minute | `60` |
+| `DOWNLOAD_RATE_LIMIT_PER_MIN` | Max media downloads per minute | `30` |
 | `DATA_ENCRYPTION_KEY` | Passphrase for AES-256-GCM field encryption | *(set via `docker mcp secret set`)* |
 | `MESSAGE_RETENTION_DAYS` | Auto-delete messages/media older than N days (0 = keep forever) | `90` |
 | `ALLOWED_CONTACTS` | Comma-separated phone whitelist (empty = allow all) | `""` |
@@ -527,7 +528,9 @@ Or configure via Docker Desktop: **MCP Toolkit → WhatsApp MCP → Configuratio
 
 **`MESSAGE_RETENTION_DAYS`** — Runs on startup and then hourly. Deletes messages, associated media files, and expired approvals older than the configured number of days. Set to `0` to disable.
 
-**`RATE_LIMIT_PER_MIN`** — Applies to outbound messages (`send_message`, `send_file`). Media downloads are separately limited to 20 per minute. Authentication attempts are limited to 5 per 30 minutes with exponential backoff.
+**`RATE_LIMIT_PER_MIN`** — Applies to outbound messages (`send_message`, `send_file`). Default is 60 (1/sec sustained), comfortable for AI assistant conversations.
+
+**`DOWNLOAD_RATE_LIMIT_PER_MIN`** — Applies to media downloads (`download_media`). Default is 30/min. Authentication attempts are separately limited to 5 per 30 minutes with exponential backoff.
 
 **`ALLOWED_CONTACTS`** — Comma-separated E.164 phone numbers (e.g. `+15145551234,+353871234567`). When set, only these contacts can receive outbound messages.
 
@@ -706,8 +709,8 @@ docker volume ls | grep whatsapp  # Should return nothing
 ### ⚠️ Rate Limiting
 
 **Problem: "Rate limit exceeded" for messages**
-- **Default:** 10 messages per minute
-- **Solution:** Wait for the window to reset, or increase `RATE_LIMIT_PER_MIN` (risky)
+- **Default:** 60 messages per minute
+- **Solution:** Wait for the window to reset, or adjust `RATE_LIMIT_PER_MIN`
 - **Warning:** Sending too many messages too quickly can get your account banned by WhatsApp
 
 **Problem: "Authentication cooldown active"**
@@ -930,7 +933,7 @@ authenticate({ phoneNumber: "+1234567890" })
 
 #### 3. Rate Limiting
 
-**Problem:** "Rate limit exceeded (10 messages/min)"
+**Problem:** "Rate limit exceeded (60 messages/min)"
 
 **Cause:** WhatsApp may ban accounts that send too many messages too quickly
 

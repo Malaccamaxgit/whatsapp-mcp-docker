@@ -29,6 +29,8 @@ secrets:
 env:
   - name: RATE_LIMIT_PER_MIN
     value: "{{whatsapp-mcp-docker.rate_limit_per_min}}"
+  - name: DOWNLOAD_RATE_LIMIT_PER_MIN
+    value: "{{whatsapp-mcp-docker.download_rate_limit_per_min}}"
   - name: MESSAGE_RETENTION_DAYS
     value: "{{whatsapp-mcp-docker.message_retention_days}}"
   - name: ALLOWED_CONTACTS
@@ -69,8 +71,12 @@ config:
         default: /data/audit/audit.db
       rate_limit_per_min:
         type: number
-        description: Maximum outbound messages per minute
-        default: 10
+        description: Maximum outbound messages per minute (60 = 1/sec, comfortable for AI assistant use)
+        default: 60
+      download_rate_limit_per_min:
+        type: number
+        description: Maximum media downloads per minute
+        default: 30
       data_encryption_key:
         type: string
         description: Passphrase for AES-256-GCM field-level encryption (prefer docker mcp secret set)

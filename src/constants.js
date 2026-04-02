@@ -10,8 +10,8 @@ export const RATE_LIMITS = {
   // Outbound messages per minute. 60 (1/sec sustained) is comfortable for an
   // AI assistant; lower it via RATE_LIMIT_PER_MIN env if you want tighter control.
   MESSAGES_PER_MIN: 60,
-  // Media downloads per minute
-  DOWNLOADS_PER_MIN: 20,
+  // Media downloads per minute; override via DOWNLOAD_RATE_LIMIT_PER_MIN env.
+  DOWNLOADS_PER_MIN: 30,
   // Authentication attempts per window
   AUTH_ATTEMPTS_PER_WINDOW: 5,
   // Authentication rate limit window (30 minutes)

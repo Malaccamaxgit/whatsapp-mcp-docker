@@ -150,7 +150,7 @@ send_message({ to: "John Smith", message: "Hello!" })
 ```
 
 **Error Codes:**
-- `429` - Rate limited (10 messages/minute)
+- `429` - Rate limited (60 messages/minute)
 - `404` - Recipient not found
 - `409` - Ambiguous recipient (multiple matches)
 - `403` - Contact not whitelisted
@@ -324,7 +324,7 @@ download_media({ message_id: "msg-abc123", chat: "John" })
 ```
 
 **Error Codes:**
-- `429` - Rate limited (20 downloads/minute)
+- `429` - Rate limited (30 downloads/minute)
 - `404` - Media not found or expired
 - `413` - Media quota exceeded (512 MB)
 

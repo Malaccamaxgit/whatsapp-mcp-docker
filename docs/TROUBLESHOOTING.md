@@ -288,10 +288,10 @@ description: "Common issues, diagnostic steps, and recovery procedures for Whats
 
 **Symptoms:**
 - `send_message` returns error
-- Message: `Rate limit exceeded (10 messages/min). Try again in Xs.`
+- Message: `Rate limit exceeded (60 messages/min). Try again in Xs.`
 
 **Cause:**
-- Exceeded 10 messages per minute limit
+- Exceeded 60 messages per minute limit
 
 **Recovery:**
 - Wait for rate limit window to reset (60 seconds)
@@ -305,10 +305,10 @@ description: "Common issues, diagnostic steps, and recovery procedures for Whats
 
 **Symptoms:**
 - `download_media` returns error
-- Message: `Download rate limit exceeded (20/min)`
+- Message: `Download rate limit exceeded (30/min)`
 
 **Cause:**
-- Exceeded 20 downloads per minute
+- Exceeded 30 downloads per minute
 
 **Recovery:**
 - Wait for rate limit window to reset

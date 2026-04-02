@@ -29,6 +29,7 @@ export class PermissionManager {
       : [];
 
     this.rateLimit = parseInt(process.env.RATE_LIMIT_PER_MIN || String(RATE_LIMITS.MESSAGES_PER_MIN), 10);
+    this.downloadRateLimit = parseInt(process.env.DOWNLOAD_RATE_LIMIT_PER_MIN || String(RATE_LIMITS.DOWNLOADS_PER_MIN), 10);
 
     const disabledEnv = process.env.DISABLED_TOOLS || '';
     this.disabledTools = new Set(
@@ -119,12 +120,12 @@ export class PermissionManager {
 
     this._downloadTimestamps = this._downloadTimestamps.filter((ts) => ts > windowStart);
 
-    if (this._downloadTimestamps.length >= RATE_LIMITS.DOWNLOADS_PER_MIN) {
+    if (this._downloadTimestamps.length >= this.downloadRateLimit) {
       const oldestInWindow = this._downloadTimestamps[0];
       const retryAfterSec = Math.ceil((oldestInWindow + 60_000 - now) / 1000);
       return {
         allowed: false,
-        error: `Download rate limit exceeded (${RATE_LIMITS.DOWNLOADS_PER_MIN}/min). Try again in ${retryAfterSec}s.`
+        error: `Download rate limit exceeded (${this.downloadRateLimit}/min). Try again in ${retryAfterSec}s.`
       };
     }
 

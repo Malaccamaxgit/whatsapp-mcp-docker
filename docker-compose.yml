@@ -14,8 +14,10 @@ services:
       - AUDIT_DB_PATH=/data/audit/audit.db
 
       # ── Rate limiting ──────────────────────────────────────
-      # Max outbound WhatsApp messages per minute.
-      - RATE_LIMIT_PER_MIN=10
+      # Max outbound WhatsApp messages per minute (60 = 1/sec, comfortable for AI assistant use).
+      - RATE_LIMIT_PER_MIN=60
+      # Max media downloads per minute.
+      - DOWNLOAD_RATE_LIMIT_PER_MIN=30
 
       # ── Data protection ────────────────────────────────────
       # AES-256-GCM encryption for message bodies, sender names,

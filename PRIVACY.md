@@ -183,7 +183,7 @@ export_chat_data({ jid: "1234567890@s.whatsapp.net", format: "csv" })
 | Safeguard | Implementation |
 |-----------|----------------|
 | **Encryption at rest** | AES-256-GCM for sensitive database fields |
-| **Rate limiting** | 10 messages/min, 20 downloads/min, 5 auth attempts/30min |
+| **Rate limiting** | 60 messages/min, 30 downloads/min, 5 auth attempts/30min |
 | **Contact whitelist** | `ALLOWED_CONTACTS` env var restricts outbound messages |
 | **File security** | Path traversal prevention, dangerous extension blocking, magic bytes verification |
 | **Audit logging** | All tool invocations logged with timestamp and outcome |

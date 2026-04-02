@@ -87,7 +87,7 @@ docker mcp profile server add <your-profile> \
 
 # 4. Apply default config
 docker mcp profile config <your-profile> \
-  --set whatsapp-mcp-docker.rate_limit_per_min=10 \
+  --set whatsapp-mcp-docker.rate_limit_per_min=60 \
   --set whatsapp-mcp-docker.message_retention_days=90 \
   --set whatsapp-mcp-docker.send_read_receipts=true \
   --set whatsapp-mcp-docker.auto_read_receipts=true \

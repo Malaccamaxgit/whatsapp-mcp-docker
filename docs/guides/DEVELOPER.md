@@ -102,7 +102,7 @@ docker mcp profile server add <your-profile> \
 
 # Apply default configuration (populates the UI fields)
 docker mcp profile config <your-profile> \
-  --set whatsapp-mcp-docker.rate_limit_per_min=10 \
+  --set whatsapp-mcp-docker.rate_limit_per_min=60 \
   --set whatsapp-mcp-docker.message_retention_days=90 \
   --set whatsapp-mcp-docker.send_read_receipts=true \
   --set whatsapp-mcp-docker.auto_read_receipts=true \
@@ -210,7 +210,8 @@ Key settings in `docker-compose.yml`:
 |----------|-------------|---------|
 | `STORE_PATH` | Session + message database directory | `/data/sessions` |
 | `AUDIT_DB_PATH` | Audit log database path | `/data/audit/audit.db` |
-| `RATE_LIMIT_PER_MIN` | Max outbound messages per minute | `10` |
+| `RATE_LIMIT_PER_MIN` | Max outbound messages per minute | `60` |
+| `DOWNLOAD_RATE_LIMIT_PER_MIN` | Max media downloads per minute | `30` |
 | `DATA_ENCRYPTION_KEY` | Passphrase for AES-256-GCM field encryption | *(via `docker mcp secret set`)* |
 | `MESSAGE_RETENTION_DAYS` | Auto-delete data older than N days (0 = keep forever) | `90` |
 | `ALLOWED_CONTACTS` | Comma-separated E.164 phone whitelist (empty = all) | `""` |

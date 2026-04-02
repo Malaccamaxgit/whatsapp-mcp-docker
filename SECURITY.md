@@ -136,7 +136,8 @@ Configurable via Docker MCP Toolkit UI/CLI or `docker-compose.yml`. See [Configu
 |----------|---------|---------|
 | `STORE_PATH` | Session + message database directory | `/data/sessions` |
 | `AUDIT_DB_PATH` | Audit log database path | `/data/audit/audit.db` |
-| `RATE_LIMIT_PER_MIN` | Max outbound messages per minute | `10` |
+| `RATE_LIMIT_PER_MIN` | Max outbound messages per minute | `60` |
+| `DOWNLOAD_RATE_LIMIT_PER_MIN` | Max media downloads per minute | `30` |
 | `DATA_ENCRYPTION_KEY` | Passphrase for AES-256-GCM field encryption | *(via `docker mcp secret set`)* |
 | `MESSAGE_RETENTION_DAYS` | Auto-delete data older than N days | `90` |
 | `ALLOWED_CONTACTS` | Phone whitelist (comma-separated, empty = all) | `""` |
