@@ -1,0 +1,107 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '20'
+
+    - name: Cache npm dependencies
+      uses: actions/cache@v5
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json', 'package.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install dependencies
+      run: npm ci || npm install
+
+    - name: Run npm audit
+      run: |
+        echo "Running npm audit..."
+        npm audit --production --audit-level=moderate || exit 1
+
+    - name: Lint check
+      run: |
+        echo "Checking for common issues..."
+        node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          console.log('Package:', pkg.name, 'v' + pkg.version);
+          console.log('Dependencies:', Object.keys(pkg.dependencies || {}).length);
+          console.log('Type:', pkg.type);
+          if (!pkg.engines?.node) {
+            console.error('WARNING: No engine constraint');
+            process.exit(1);
+          }
+          console.log('Engine:', pkg.engines.node);
+        "
+
+    - name: Verify source loads
+      run: |
+        echo "Verifying source files parse..."
+        node --check src/index.js
+        node --check src/server.js
+        node --check src/whatsapp/client.js
+        node --check src/whatsapp/store.js
+        node --check src/tools/auth.js
+        node --check src/tools/status.js
+        node --check src/tools/messaging.js
+        node --check src/tools/chats.js
+        node --check src/tools/media.js
+        node --check src/tools/approvals.js
+        node --check src/security/audit.js
+        node --check src/security/crypto.js
+        node --check src/security/file-guard.js
+        node --check src/security/permissions.js
+        node --check src/utils/fuzzy-match.js
+        node --check src/utils/phone.js
+        echo "All source files parse successfully"
+
+    - name: Build test container
+      run: |
+        echo "Building test stage (no secrets baked in)..."
+        docker build --target test -t whatsapp-mcp-docker:test-stage .
+
+    - name: Run tests in container
+      run: |
+        echo "Running unit and integration tests inside tester-container..."
+        docker run --rm whatsapp-mcp-docker:test-stage
+
+    - name: Build production image
+      run: |
+        echo "Building production image..."
+        docker build -t whatsapp-mcp-docker:latest .
+        echo "Production build successful"
+        docker images whatsapp-mcp-docker:latest --format "Size: {{.Size}}"
+
+    - name: Security summary
+      if: success()
+      run: |
+        echo "Security Audit Passed"
+        echo ""
+        echo "All checks completed successfully:"
+        echo "  - No vulnerable npm dependencies"
+        echo "  - Package metadata valid"
+        echo "  - All source files parse"
+        echo "  - Tests passed in container (no secrets in image)"
+        echo "  - Production Docker build successful"

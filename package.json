@@ -1,0 +1,56 @@
+{
+  "name": "whatsapp-mcp-docker",
+  "version": "0.1.1",
+  "description": "WhatsApp MCP server for Docker MCP Toolkit — send messages, search chats, approval workflows, and remote agent control via any MCP client",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "_guard": "node -e \"if(process.env.NODE_ENV!=='test'){console.error('\\u26a0\\ufe0f  Run tests inside the container: docker compose run --rm tester-container npm run test:all');process.exit(1)}\"",
+    "test": "npm run _guard && node --test test/unit/*.test.js test/integration/*.test.js",
+    "test:unit": "npm run _guard && node --test test/unit/*.test.js",
+    "test:integration": "npm run _guard && node --test test/integration/*.test.js",
+    "test:all": "npm run _guard && node --test test/unit/*.test.js test/integration/*.test.js",
+    "test:auth": "npm run _guard && node test/e2e/setup-auth.js",
+    "test:e2e": "npm run _guard && node --test test/e2e/live.test.js",
+    "test:bench": "npm run _guard && node --test test/benchmarks/performance.test.js",
+    "docker:test": "docker compose build tester-container && docker compose run --rm tester-container npm run test:all",
+    "docker:test:auth": "docker compose run --rm tester-container npm run test:auth",
+    "docker:test:e2e": "docker compose run --rm tester-container npm run test:e2e",
+    "docker:status": "node scripts/diagnostics.js",
+    "docker:logs": "docker compose logs --tail 50 whatsapp-mcp-docker",
+    "healthcheck": "node src/healthcheck.js",
+    "lint": "npm run _guard && eslint src/ test/",
+    "lint:fix": "npm run _guard && eslint --fix src/ test/",
+    "format": "npm run _guard && prettier --write src/ test/",
+    "format:check": "npm run _guard && prettier --check src/ test/"
+  },
+  "keywords": [
+    "whatsapp",
+    "mcp",
+    "model-context-protocol",
+    "docker-mcp-toolkit",
+    "docker"
+  ],
+  "authors": ["Qwen3-Coder-Next", "MiniMax-M2.7", "Qwen3.5", "Nemotron-3-Super"],
+  "contributors": [
+    "Benjamin Alloul <Benjamin.Alloul@gmail.com> (Director)"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@whatsmeow-node/whatsmeow-node": "^0.5.3",
+    "@whatsmeow-node/linux-x64-musl": "^0.5.3",
+    "@modelcontextprotocol/sdk": "^1.28.0",
+    "zod": "^3.24.0",
+    "better-sqlite3": "^11.0.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

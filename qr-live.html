@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WhatsApp QR</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b141a;font-family:system-ui;color:#e9edef}
+.c{text-align:center;padding:40px}
+h1{font-size:24px;color:#00a884;margin-bottom:8px}
+p{font-size:14px;color:#8696a0;margin-bottom:24px}
+#q{background:#fff;border-radius:16px;padding:20px;display:inline-block}
+.n{margin-top:16px;font-size:12px;color:#667781}
+</style>
+</head>
+<body>
+<div class="c">
+<h1>Scan with WhatsApp</h1>
+<p>Linked Devices &rarr; Link a Device</p>
+<div id="q"><canvas id="v"></canvas></div>
+<p class="n">Scan NOW</p>
+</div>
+<script>
+var qrData = "2@AroC1WNLy+6PLqH/hw7nlE7xs4qqHwcau1bgVSYqtYqArG5gHUfZnOUNbd35k8wq+jtROD/PjZqv4Aee0wCns5Qw6Bo6i5VE/Bw=,dIdVt1ADKTdcktOgGTaOw9ioybo61YSO8D5t7PyTJjE=,AJibpvumQAZitD38fhuiy+N1TwbN7gcrxQOkgOXOMTA=,WFJ5/LnLA5mhgo/HD+wVR90bD2FZ1kGlFHTfyRmDaTI=";
+QRCode.toCanvas(document.getElementById('v'), qrData, {width:300, margin:1, color:{dark:'#000000',light:'#ffffff'}}, function(err){
+  if(err) document.querySelector('.n').textContent = 'Error: ' + err.message;
+});
+</script>
+</body>
+</html>

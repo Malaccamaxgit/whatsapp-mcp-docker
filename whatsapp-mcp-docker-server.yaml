@@ -1,0 +1,462 @@
+name: whatsapp-mcp-docker
+title: WhatsApp MCP
+type: server
+image: whatsapp-mcp-docker:latest
+longLived: true
+description: |
+  WhatsApp integration for any MCP client via Docker MCP Toolkit.
+  Send messages, search chats, approval workflows, and intelligent
+  activity summaries — all with fuzzy contact name matching.
+
+  32 tools: disconnect, authenticate, get_connection_status,
+  send_message, send_file, download_media, list_chats, list_messages,
+  search_messages, search_contacts, catch_up, mark_messages_read,
+  export_chat_data, request_approval, check_approvals,
+  create_group, get_group_info, get_joined_groups, get_group_invite_link,
+  join_group, leave_group, update_group_participants, set_group_name,
+  set_group_topic, send_reaction, edit_message, delete_message,
+  create_poll, get_user_info, is_on_whatsapp, get_profile_picture,
+  wait_for_message.
+
+  Uses whatsmeow-node for native WhatsApp protocol. Pairing-code
+  authentication works in any terminal. All data stored locally
+  in SQLite with optional AES-256-GCM field-level encryption.
+
+secrets:
+  - name: whatsapp-mcp-docker.data_encryption_key
+    env: DATA_ENCRYPTION_KEY
+
+env:
+  - name: RATE_LIMIT_PER_MIN
+    value: "{{whatsapp-mcp-docker.rate_limit_per_min}}"
+  - name: MESSAGE_RETENTION_DAYS
+    value: "{{whatsapp-mcp-docker.message_retention_days}}"
+  - name: ALLOWED_CONTACTS
+    value: "{{whatsapp-mcp-docker.allowed_contacts}}"
+  - name: DISABLED_TOOLS
+    value: "{{whatsapp-mcp-docker.disabled_tools}}"
+  - name: SEND_READ_RECEIPTS
+    value: "{{whatsapp-mcp-docker.send_read_receipts}}"
+  - name: AUTO_READ_RECEIPTS
+    value: "{{whatsapp-mcp-docker.auto_read_receipts}}"
+  - name: PRESENCE_MODE
+    value: "{{whatsapp-mcp-docker.presence_mode}}"
+  - name: WELCOME_GROUP_NAME
+    value: "{{whatsapp-mcp-docker.welcome_group_name}}"
+  - name: AUTH_WAIT_FOR_LINK
+    value: "{{whatsapp-mcp-docker.auth_wait_for_link}}"
+  - name: AUTH_LINK_TIMEOUT_SEC
+    value: "{{whatsapp-mcp-docker.auth_link_timeout_sec}}"
+  - name: AUTH_POLL_INTERVAL_SEC
+    value: "{{whatsapp-mcp-docker.auth_poll_interval_sec}}"
+
+volumes:
+  - whatsapp-sessions:/data/sessions
+  - whatsapp-audit:/data/audit
+
+config:
+  - name: whatsapp-mcp-docker
+    description: WhatsApp MCP Server configuration
+    type: object
+    properties:
+      store_path:
+        type: string
+        description: Path to store session and message data
+        default: /data/sessions
+      audit_db_path:
+        type: string
+        description: Path to audit log database
+        default: /data/audit/audit.db
+      rate_limit_per_min:
+        type: number
+        description: Maximum outbound messages per minute
+        default: 10
+      data_encryption_key:
+        type: string
+        description: Passphrase for AES-256-GCM field-level encryption (prefer docker mcp secret set)
+        default: ""
+      message_retention_days:
+        type: number
+        description: Auto-delete messages and media older than this many days (0 = keep forever)
+        default: 90
+      allowed_contacts:
+        type: string
+        description: Comma-separated E.164 phone numbers to whitelist (empty = allow all)
+        default: ""
+      disabled_tools:
+        type: string
+        description: Comma-separated tool names to disable (e.g. send_file,download_media)
+        default: ""
+      send_read_receipts:
+        type: boolean
+        description: Send read receipts to WhatsApp when mark_messages_read is called
+        default: true
+      auto_read_receipts:
+        type: boolean
+        description: Auto-mark incoming messages as read (senders see blue checkmarks immediately)
+        default: true
+      presence_mode:
+        type: string
+        description: Online presence status (available or unavailable)
+        default: available
+      welcome_group_name:
+        type: string
+        description: WhatsApp group created on first connection for testing (empty = disable)
+        default: WhatsAppMCP
+      auth_wait_for_link:
+        type: boolean
+        description: Default for authenticate waitForLink — poll until device links after showing code/QR (set false for immediate return, recommended for Cursor)
+        default: false
+      auth_link_timeout_sec:
+        type: number
+        description: Default max seconds to wait for link when waiting (15–600); tool argument overrides if passed
+        default: 120
+      auth_poll_interval_sec:
+        type: number
+        description: Default seconds between connection checks when waiting (2–60); tool argument overrides if passed
+        default: 5
+
+tools:
+  - name: disconnect
+    description: Log out and disconnect from WhatsApp, clearing the session
+    arguments: []
+
+  - name: authenticate
+    description: Link device to WhatsApp via 8-digit pairing code (QR fallback); optionally waits and polls until linked
+    arguments:
+      - name: phoneNumber
+        type: string
+        desc: Phone number with country code (e.g. +1234567890)
+      - name: waitForLink
+        type: boolean
+        desc: Poll until linked vs return immediately; omit to use profile auth_wait_for_link
+      - name: linkTimeoutSec
+        type: number
+        desc: Max wait seconds (15–600); omit to use profile auth_link_timeout_sec
+      - name: pollIntervalSec
+        type: number
+        desc: Poll interval seconds (2–60); omit to use profile auth_poll_interval_sec
+
+  - name: get_connection_status
+    description: Check connection state and database statistics
+    arguments: []
+
+  - name: send_message
+    description: Send a message with fuzzy contact/group name matching
+    arguments:
+      - name: to
+        type: string
+        desc: Recipient name, phone number, or JID
+      - name: message
+        type: string
+        desc: Message text to send
+
+  - name: send_file
+    description: Send image, video, audio, or document via WhatsApp
+    arguments:
+      - name: to
+        type: string
+        desc: Recipient name, phone number, or JID
+      - name: file_path
+        type: string
+        desc: Absolute path to file inside the container
+      - name: media_type
+        type: string
+        desc: "Type: image, video, audio, or document"
+      - name: caption
+        type: string
+        desc: Optional caption
+
+  - name: download_media
+    description: Download media from a message to persistent storage
+    arguments:
+      - name: message_id
+        type: string
+        desc: The message ID containing media
+      - name: chat
+        type: string
+        desc: The chat name, phone, or JID (optional)
+
+  - name: list_chats
+    description: List conversations sorted by recent activity
+    arguments:
+      - name: filter
+        type: string
+        desc: Filter chats by name
+      - name: groups_only
+        type: boolean
+        desc: Only show group chats
+      - name: limit
+        type: number
+        desc: Max chats to return (default 20)
+      - name: page
+        type: number
+        desc: Page number for pagination (default 0)
+
+  - name: list_messages
+    description: Get messages from a chat with date range filtering
+    arguments:
+      - name: chat
+        type: string
+        desc: Chat name, phone number, or JID
+      - name: limit
+        type: number
+        desc: Max messages (default 50)
+      - name: page
+        type: number
+        desc: Page number for pagination (default 0)
+      - name: before
+        type: string
+        desc: Messages before this date
+      - name: after
+        type: string
+        desc: Messages after this date
+      - name: include_context
+        type: boolean
+        desc: Include surrounding messages for context (default false)
+      - name: context_messages
+        type: number
+        desc: Number of context messages on each side (default 2)
+
+  - name: search_messages
+    description: Full-text search across all messages (FTS5)
+    arguments:
+      - name: query
+        type: string
+        desc: "Search query (max 200 chars)"
+      - name: chat
+        type: string
+        desc: Scope to specific chat
+      - name: limit
+        type: number
+        desc: Max results (default 20)
+      - name: page
+        type: number
+        desc: Page number for pagination (default 0)
+      - name: include_context
+        type: boolean
+        desc: Include surrounding messages for context (default false)
+
+  - name: search_contacts
+    description: Search contacts and groups by name or phone number
+    arguments:
+      - name: query
+        type: string
+        desc: Search term to match against contact names or phone numbers
+      - name: include_chats
+        type: boolean
+        desc: Also return all chats involving the matched contact
+      - name: limit
+        type: number
+        desc: Max results (default 20)
+
+  - name: catch_up
+    description: Intelligent summary of recent activity
+    arguments:
+      - name: since
+        type: string
+        desc: "Time window: 1h, 4h, today, 24h, this_week"
+
+  - name: mark_messages_read
+    description: Mark messages as read in a chat
+    arguments:
+      - name: chat
+        type: string
+        desc: Chat to mark as read
+      - name: message_ids
+        type: array
+        desc: Specific message IDs
+
+  - name: export_chat_data
+    description: Export complete chat history for a contact or group (JSON or CSV)
+    arguments:
+      - name: jid
+        type: string
+        desc: Chat JID to export (use list_chats to find JIDs)
+      - name: format
+        type: string
+        desc: "Export format: json or csv (default: json)"
+
+  - name: request_approval
+    description: Send approval request via WhatsApp
+    arguments:
+      - name: to
+        type: string
+        desc: Recipient name, phone number, or JID
+      - name: action
+        type: string
+        desc: Action requiring approval
+      - name: details
+        type: string
+        desc: Context and details
+      - name: timeout
+        type: number
+        desc: Timeout in seconds (default 300)
+
+  - name: check_approvals
+    description: Check approval status or list all pending
+    arguments:
+      - name: request_id
+        type: string
+        desc: Specific request ID (omit to list all pending)
+
+  - name: create_group
+    description: Create a new WhatsApp group with the given name and participants
+    arguments:
+      - name: name
+        type: string
+        desc: Group name (1–100 characters)
+      - name: participants
+        type: array
+        desc: Phone numbers (E.164) or JIDs to add as participants
+
+  - name: get_group_info
+    description: Get detailed info about a group — participants, admins, settings
+    arguments:
+      - name: group
+        type: string
+        desc: Group name (fuzzy match) or JID ending in @g.us
+
+  - name: get_joined_groups
+    description: List all groups this account is a member of
+    arguments: []
+
+  - name: get_group_invite_link
+    description: Get the invite link for a group (requires admin)
+    arguments:
+      - name: group
+        type: string
+        desc: Group name (fuzzy match) or JID ending in @g.us
+
+  - name: join_group
+    description: Join a WhatsApp group using an invite link or code
+    arguments:
+      - name: link
+        type: string
+        desc: Full invite URL or just the invite code
+
+  - name: leave_group
+    description: Leave a WhatsApp group permanently
+    arguments:
+      - name: group
+        type: string
+        desc: Group name (fuzzy match) or JID ending in @g.us
+
+  - name: update_group_participants
+    description: Add, remove, promote, or demote participants in a group (requires admin)
+    arguments:
+      - name: group
+        type: string
+        desc: Group name (fuzzy match) or JID ending in @g.us
+      - name: action
+        type: string
+        desc: "Action: add, remove, promote, or demote"
+      - name: participants
+        type: array
+        desc: Phone numbers (E.164) or JIDs of participants
+
+  - name: set_group_name
+    description: Change the name of a WhatsApp group (requires admin)
+    arguments:
+      - name: group
+        type: string
+        desc: Group name (fuzzy match) or JID ending in @g.us
+      - name: name
+        type: string
+        desc: New group name
+
+  - name: set_group_topic
+    description: Set or clear the description/topic of a group (requires admin)
+    arguments:
+      - name: group
+        type: string
+        desc: Group name (fuzzy match) or JID ending in @g.us
+      - name: topic
+        type: string
+        desc: New description (empty string to clear)
+
+  - name: send_reaction
+    description: React to a message with an emoji, or remove an existing reaction
+    arguments:
+      - name: chat
+        type: string
+        desc: Chat name, phone number, or JID
+      - name: message_id
+        type: string
+        desc: Message ID to react to (from list_messages output)
+      - name: emoji
+        type: string
+        desc: Emoji to react with, or empty string to remove
+
+  - name: edit_message
+    description: Edit a previously sent message (own messages only, within ~15 minutes)
+    arguments:
+      - name: chat
+        type: string
+        desc: Chat name, phone number, or JID
+      - name: message_id
+        type: string
+        desc: Message ID to edit
+      - name: new_text
+        type: string
+        desc: Replacement message text
+
+  - name: delete_message
+    description: Delete a sent message for everyone in the chat (revoke)
+    arguments:
+      - name: chat
+        type: string
+        desc: Chat name, phone number, or JID
+      - name: message_id
+        type: string
+        desc: Message ID to delete
+
+  - name: create_poll
+    description: Send a poll with a question and 2–12 answer options to a chat
+    arguments:
+      - name: to
+        type: string
+        desc: Recipient — contact name, group name, phone number, or JID
+      - name: question
+        type: string
+        desc: Poll question
+      - name: options
+        type: array
+        desc: Answer options (2–12 items)
+      - name: allow_multiple
+        type: boolean
+        desc: Allow multiple selections (default false)
+
+  - name: get_user_info
+    description: Get WhatsApp profile info for one or more phone numbers
+    arguments:
+      - name: phones
+        type: array
+        desc: Phone numbers in E.164 format
+
+  - name: is_on_whatsapp
+    description: Check whether phone numbers have WhatsApp accounts
+    arguments:
+      - name: phones
+        type: array
+        desc: Phone numbers to check in E.164 format
+
+  - name: get_profile_picture
+    description: Get the profile picture URL for a contact or group
+    arguments:
+      - name: target
+        type: string
+        desc: Phone number, contact name, group name, or JID
+
+  - name: wait_for_message
+    description: Block until an incoming WhatsApp message arrives, then return it. Use during interactive tests or workflows — tell the user to send a message, call this tool, and the AI receives the message automatically without the user typing in Cursor.
+    arguments:
+      - name: timeout
+        type: number
+        desc: Seconds to wait before timing out (1–300, default 60)
+      - name: chat
+        type: string
+        desc: Only match messages from this chat (name, phone, or JID). Omit for any chat.
+      - name: from_phone
+        type: string
+        desc: Only match messages from this sender phone number or JID. Omit for any sender.

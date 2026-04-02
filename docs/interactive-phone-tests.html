@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp MCP — Interactive Test Suite</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:       #0d0f0e;
+    --surface:  #141816;
+    --card:     #1a1f1c;
+    --border:   #252d27;
+    --green:    #25D366;
+    --green-dim:#1a9447;
+    --mint:     #aeffd4;
+    --amber:    #ffce45;
+    --red:      #ff5252;
+    --text:     #e8f0ea;
+    --muted:    #5c6b60;
+    --pass:     #25D366;
+    --fail:     #ff5252;
+    --skip:     #ffce45;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 2rem 1.5rem 4rem;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  header {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.25rem;
+    align-items: start;
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .wa-icon {
+    width: 52px; height: 52px;
+    background: var(--green);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 30px rgba(37,211,102,0.25);
+  }
+
+  header h1 {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--mint);
+    letter-spacing: -0.02em;
+  }
+  header p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Progress bar ── */
+  .progress-wrap { margin-bottom: 2.5rem; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+  #progress-count { color: var(--green); font-weight: 500; }
+  #fail-count     { color: var(--red);   font-weight: 500; }
+  .progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green-dim), var(--green));
+    border-radius: 99px;
+    transition: width 0.4s ease;
+    width: 0%;
+    position: absolute; left: 0;
+  }
+  .fail-fill {
+    height: 100%;
+    background: var(--red);
+    border-radius: 99px;
+    transition: width 0.4s ease;
+    width: 0%;
+    position: absolute; right: 0;
+    opacity: 0.6;
+  }
+
+  /* ── Phase sections ── */
+  .phase { margin-bottom: 2rem; }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .phase-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--green);
+    background: rgba(37,211,102,0.1);
+    border: 1px solid rgba(37,211,102,0.2);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+  }
+  .phase-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .phase-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  /* ── Test cards ── */
+  .test-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .test-card:hover { border-color: #303d33; }
+  .test-card.done   { border-color: rgba(37,211,102,0.3); background: rgba(37,211,102,0.04); }
+  .test-card.failed { border-color: rgba(255,82,82,0.3);  background: rgba(255,82,82,0.04); }
+
+  .test-row {
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1rem 1rem 0.75rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .checkbox {
+    width: 26px; height: 26px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    font-size: 0.9rem;
+  }
+  .test-card.done   .checkbox { background: var(--green); border-color: var(--green); color: #000; }
+  .test-card.failed .checkbox { background: var(--red);   border-color: var(--red);   color: #fff; }
+
+  .test-info {}
+  .test-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .test-card.done   .test-name { color: var(--muted); text-decoration: line-through; }
+  .test-card.failed .test-name { color: var(--red); }
+
+  .test-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    margin-top: 0.25rem;
+    display: inline-block;
+    letter-spacing: 0.04em;
+  }
+  .tag-send     { background: rgba(37,211,102,0.12);  color: var(--green); }
+  .tag-receive  { background: rgba(174,255,212,0.1);  color: var(--mint); }
+  .tag-media    { background: rgba(255,206,69,0.12);  color: var(--amber); }
+  .tag-approval { background: rgba(130,100,255,0.15); color: #b89bff; }
+  .tag-group    { background: rgba(37,150,211,0.12);  color: #64c8ff; }
+  .tag-edge     { background: rgba(255,82,82,0.1);    color: var(--red); }
+  .tag-contacts { background: rgba(255,160,80,0.12);  color: #ffaa55; }
+  .tag-action   { background: rgba(64,220,220,0.12);  color: #55dddd; }
+  .tag-live     { background: rgba(180,100,255,0.15); color: #cc88ff; }
+
+  .expand-btn {
+    font-size: 0.7rem;
+    color: var(--muted);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: none;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    align-self: start;
+    margin-top: 0.15rem;
+  }
+  .expand-btn:hover { background: var(--border); color: var(--text); }
+
+  .test-detail {
+    display: none;
+    padding: 0 1rem 1rem 3.35rem;
+    border-top: 1px solid var(--border);
+  }
+  .test-detail.open { display: block; }
+
+  .steps {
+    list-style: none;
+    padding-top: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .steps li {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #8ea090;
+  }
+  .steps li span.step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--green);
+    background: rgba(37,211,102,0.08);
+    border-radius: 4px;
+    padding: 0.1rem 0.35rem;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+  .steps li code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+    color: var(--mint);
+  }
+
+  .verify-box {
+    margin-top: 0.85rem;
+    background: rgba(37,211,102,0.06);
+    border: 1px solid rgba(37,211,102,0.15);
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem;
+    color: #5ca070;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .verify-box strong { color: var(--green); }
+
+  .note-box {
+    margin-top: 0.6rem;
+    background: rgba(255,206,69,0.06);
+    border: 1px solid rgba(255,206,69,0.15);
+    border-radius: 8px;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.76rem;
+    color: #9a8040;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .note-box strong { color: var(--amber); }
+
+  .action-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+  }
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.45rem 0.9rem;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .btn-pass  { background: var(--green); color: #000; }
+  .btn-pass:hover  { background: #2dff7a; }
+  .btn-fail  { background: rgba(255,82,82,0.15); color: var(--red); border: 1px solid rgba(255,82,82,0.3); }
+  .btn-fail:hover  { background: rgba(255,82,82,0.25); }
+  .btn-skip  { background: rgba(255,206,69,0.15); color: var(--amber); border: 1px solid rgba(255,206,69,0.3); }
+  .btn-skip:hover  { background: rgba(255,206,69,0.25); }
+  .btn-reset { background: var(--border); color: var(--muted); }
+  .btn-reset:hover { background: #303d33; color: var(--text); }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    padding: 0.85rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.72rem; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ── Summary ── */
+  #summary {
+    display: none;
+    margin-top: 2.5rem;
+    padding: 1.5rem;
+    background: var(--card);
+    border: 1px solid rgba(37,211,102,0.3);
+    border-radius: 14px;
+    text-align: center;
+    animation: fadeIn 0.4s ease;
+  }
+  #summary h2 { font-size: 1.5rem; color: var(--mint); margin-bottom: 0.5rem; }
+  #summary p  { font-size: 0.85rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .reset-all {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1.5rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wa-icon">📱</div>
+  <div>
+    <h1>Interactive Test Suite</h1>
+    <p>whatsapp-mcp-docker · 26 tests · 9 phases · from your phone</p>
+  </div>
+</header>
+
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span>PROGRESS</span>
+    <span><span id="progress-count">0 / 26 passed</span>&ensp;·&ensp;<span id="fail-count">0 failed</span></span>
+  </div>
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress-fill"></div>
+    <div class="fail-fill"     id="fail-fill"></div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#25D366"></div> send from phone</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#aeffd4"></div> receive on phone</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ffce45"></div> media</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#b89bff"></div> approval flow</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#64c8ff"></div> group</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ffaa55"></div> contacts</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#55dddd"></div> message action</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#cc88ff"></div> live / wait</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff5252"></div> edge case</div>
+</div>
+
+<div class="reset-all">
+  <button class="btn btn-reset" onclick="resetAll()">↺ Reset all</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 1 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 1</span>
+    <span class="phase-title">Basic Message Flow</span>
+    <span class="phase-count" id="pc-p1">0/3</span>
+  </div>
+
+  <!-- T1 -->
+  <div class="test-card" id="t1">
+    <div class="test-row" onclick="toggleDetail('t1')">
+      <div class="checkbox" id="chk-t1">—</div>
+      <div class="test-info">
+        <div class="test-name">Send a plain text message to the server</div>
+        <span class="test-tag tag-send">SEND → SERVER</span>
+      </div>
+      <button class="expand-btn" id="exp-t1">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t1">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Open WhatsApp on your phone → find the linked device chat</li>
+        <li><span class="step-num">2</span> Send: <code>Hello from Android!</code></li>
+        <li><span class="step-num">3</span> In Cursor, call <code>list_messages</code> with the chat name and verify your message appears</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> list_messages returns a message with body "Hello from Android!"</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t1','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t1','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t1','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T2 -->
+  <div class="test-card" id="t2">
+    <div class="test-row" onclick="toggleDetail('t2')">
+      <div class="checkbox" id="chk-t2">—</div>
+      <div class="test-info">
+        <div class="test-name">Server sends a message — appears on your phone</div>
+        <span class="test-tag tag-receive">RECEIVE ← SERVER</span>
+      </div>
+      <button class="expand-btn" id="exp-t2">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t2">
+      <ol class="steps">
+        <li><span class="step-num">1</span> In Cursor, call <code>send_message</code> targeting your own phone number</li>
+        <li><span class="step-num">2</span> Message: <code>Test ping from MCP server 🟢</code></li>
+        <li><span class="step-num">3</span> Check your Android phone — the message should appear within a few seconds</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Message notification appears on your phone and displays correctly</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t2','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t2','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t2','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T3 -->
+  <div class="test-card" id="t3">
+    <div class="test-row" onclick="toggleDetail('t3')">
+      <div class="checkbox" id="chk-t3">—</div>
+      <div class="test-info">
+        <div class="test-name">Read receipts — blue ticks appear on your phone</div>
+        <span class="test-tag tag-send">SEND → SERVER</span>
+      </div>
+      <button class="expand-btn" id="exp-t3">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t3">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Send a message from your phone to the server</li>
+        <li><span class="step-num">2</span> Wait 5–10 seconds and watch the ticks on your sent message</li>
+        <li><span class="step-num">3</span> They should advance from ✓ (sent) → ✓✓ (delivered) → 🔵🔵 (read)</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Ticks turn blue (read receipts are enabled by default)</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t3','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t3','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t3','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 2 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 2</span>
+    <span class="phase-title">Media Exchange</span>
+    <span class="phase-count" id="pc-p2">0/3</span>
+  </div>
+
+  <!-- T4 -->
+  <div class="test-card" id="t4">
+    <div class="test-row" onclick="toggleDetail('t4')">
+      <div class="checkbox" id="chk-t4">—</div>
+      <div class="test-info">
+        <div class="test-name">Send a photo from your phone → server downloads it</div>
+        <span class="test-tag tag-media">MEDIA UPLOAD</span>
+      </div>
+      <button class="expand-btn" id="exp-t4">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t4">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Send any photo from your phone gallery to the server chat</li>
+        <li><span class="step-num">2</span> In Cursor, call <code>list_messages</code> and find the message ID of the photo</li>
+        <li><span class="step-num">3</span> Call <code>download_media</code> with that message ID</li>
+        <li><span class="step-num">4</span> Verify a local file path is returned</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> download_media returns a path like <code>/data/store/media/image/…jpg</code></div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t4','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t4','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t4','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T5 -->
+  <div class="test-card" id="t5">
+    <div class="test-row" onclick="toggleDetail('t5')">
+      <div class="checkbox" id="chk-t5">—</div>
+      <div class="test-info">
+        <div class="test-name">Send a voice note — server detects audio media</div>
+        <span class="test-tag tag-media">MEDIA VOICE</span>
+      </div>
+      <button class="expand-btn" id="exp-t5">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t5">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Record and send a short voice note (2–3 seconds) from your phone</li>
+        <li><span class="step-num">2</span> Call <code>list_messages</code> and check the message — <code>hasMedia: true</code>, <code>mediaType: "audio"</code></li>
+        <li><span class="step-num">3</span> Optionally call <code>download_media</code> on that message ID</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Message shows hasMedia=true and mediaType="audio"</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t5','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t5','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t5','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T6 -->
+  <div class="test-card" id="t6">
+    <div class="test-row" onclick="toggleDetail('t6')">
+      <div class="checkbox" id="chk-t6">—</div>
+      <div class="test-info">
+        <div class="test-name">Server sends a file — appears on your phone</div>
+        <span class="test-tag tag-media">MEDIA DOWNLOAD</span>
+      </div>
+      <button class="expand-btn" id="exp-t6">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t6">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Use any media file downloaded in T4, or place a small test image at <code>/tmp/test.png</code> inside the container</li>
+        <li><span class="step-num">2</span> Call <code>send_file</code> with <code>file_path</code>, <code>media_type: "image"</code>, and your phone number as recipient</li>
+        <li><span class="step-num">3</span> Check your Android — the image should arrive</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Image notification appears on your phone and opens correctly</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t6','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t6','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t6','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 3 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 3</span>
+    <span class="phase-title">Approval Workflow</span>
+    <span class="phase-count" id="pc-p3">0/3</span>
+  </div>
+
+  <!-- T7 -->
+  <div class="test-card" id="t7">
+    <div class="test-row" onclick="toggleDetail('t7')">
+      <div class="checkbox" id="chk-t7">—</div>
+      <div class="test-info">
+        <div class="test-name">Approval request → reply APPROVE from phone</div>
+        <span class="test-tag tag-approval">APPROVAL ✓</span>
+      </div>
+      <button class="expand-btn" id="exp-t7">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t7">
+      <ol class="steps">
+        <li><span class="step-num">1</span> In Cursor, call <code>request_approval</code> with your phone number as recipient, action: <code>"Deploy to staging"</code></li>
+        <li><span class="step-num">2</span> A formatted approval request message arrives on your phone</li>
+        <li><span class="step-num">3</span> Reply: <code>APPROVE</code> (or <code>yes</code> / <code>✅</code>)</li>
+        <li><span class="step-num">4</span> Call <code>check_approvals</code> in Cursor — status should be <code>approved</code></li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> check_approvals shows status=approved with your response text</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t7','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t7','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t7','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T8 -->
+  <div class="test-card" id="t8">
+    <div class="test-row" onclick="toggleDetail('t8')">
+      <div class="checkbox" id="chk-t8">—</div>
+      <div class="test-info">
+        <div class="test-name">Approval request → reply DENY from phone</div>
+        <span class="test-tag tag-approval">APPROVAL ✗</span>
+      </div>
+      <button class="expand-btn" id="exp-t8">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t8">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>request_approval</code> with action: <code>"Delete production database"</code></li>
+        <li><span class="step-num">2</span> Approval request arrives on your phone</li>
+        <li><span class="step-num">3</span> Reply: <code>DENY</code> (or <code>no</code> / <code>❌</code>)</li>
+        <li><span class="step-num">4</span> Call <code>check_approvals</code> — status should be <code>denied</code></li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> check_approvals shows status=denied with your response text</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t8','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t8','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t8','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T9 -->
+  <div class="test-card" id="t9">
+    <div class="test-row" onclick="toggleDetail('t9')">
+      <div class="checkbox" id="chk-t9">—</div>
+      <div class="test-info">
+        <div class="test-name">Approval times out (no reply)</div>
+        <span class="test-tag tag-approval">APPROVAL TIMEOUT</span>
+      </div>
+      <button class="expand-btn" id="exp-t9">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t9">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>request_approval</code> with <code>timeout: 30</code> (30 seconds)</li>
+        <li><span class="step-num">2</span> Do NOT reply from your phone</li>
+        <li><span class="step-num">3</span> After 30+ seconds, call <code>check_approvals</code></li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Expired approval is no longer listed as pending after timeout</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t9','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t9','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t9','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 4 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 4</span>
+    <span class="phase-title">Search &amp; Intelligence</span>
+    <span class="phase-count" id="pc-p4">0/3</span>
+  </div>
+
+  <!-- T10 -->
+  <div class="test-card" id="t10">
+    <div class="test-row" onclick="toggleDetail('t10')">
+      <div class="checkbox" id="chk-t10">—</div>
+      <div class="test-info">
+        <div class="test-name">Full-text search finds earlier messages</div>
+        <span class="test-tag tag-send">SEARCH</span>
+      </div>
+      <button class="expand-btn" id="exp-t10">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t10">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>search_messages</code> with <code>query: "Android"</code></li>
+        <li><span class="step-num">2</span> The "Hello from Android!" message from T1 should appear in results</li>
+        <li><span class="step-num">3</span> Try <code>query: "staging"</code> — should find the approval message from T7</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Both queries return matching messages from the correct chats</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t10','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t10','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t10','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T11 -->
+  <div class="test-card" id="t11">
+    <div class="test-row" onclick="toggleDetail('t11')">
+      <div class="checkbox" id="chk-t11">—</div>
+      <div class="test-info">
+        <div class="test-name">catch_up reflects today's activity</div>
+        <span class="test-tag tag-receive">CATCH-UP</span>
+      </div>
+      <button class="expand-btn" id="exp-t11">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t11">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>catch_up</code> with <code>since: "today"</code></li>
+        <li><span class="step-num">2</span> The summary should mention active chats and messages sent during this test run</li>
+        <li><span class="step-num">3</span> Verify unread counts look correct</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> catch_up summary mentions at least the chats used in this session</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t11','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t11','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t11','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T12 -->
+  <div class="test-card" id="t12">
+    <div class="test-row" onclick="toggleDetail('t12')">
+      <div class="checkbox" id="chk-t12">—</div>
+      <div class="test-info">
+        <div class="test-name">export_chat_data returns a complete history</div>
+        <span class="test-tag tag-receive">EXPORT</span>
+      </div>
+      <button class="expand-btn" id="exp-t12">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t12">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>list_chats</code> to find the JID for your personal chat (the one used in T1–T3)</li>
+        <li><span class="step-num">2</span> Call <code>export_chat_data</code> with that JID and <code>format: "json"</code></li>
+        <li><span class="step-num">3</span> Verify the export includes the messages sent earlier in this session</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> JSON export contains at least the T1 message body and correct timestamps</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t12','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t12','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t12','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 5 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 5</span>
+    <span class="phase-title">Contacts &amp; Profiles</span>
+    <span class="phase-count" id="pc-p5">0/3</span>
+  </div>
+
+  <!-- T13 -->
+  <div class="test-card" id="t13">
+    <div class="test-row" onclick="toggleDetail('t13')">
+      <div class="checkbox" id="chk-t13">—</div>
+      <div class="test-info">
+        <div class="test-name">is_on_whatsapp confirms your own number</div>
+        <span class="test-tag tag-contacts">CONTACTS</span>
+      </div>
+      <button class="expand-btn" id="exp-t13">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t13">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>is_on_whatsapp</code> with <code>phones: ["+your_number"]</code></li>
+        <li><span class="step-num">2</span> Also pass a clearly fake number like <code>"+10000000000"</code> in the same call</li>
+        <li><span class="step-num">3</span> Verify your number shows ✅ and the fake number shows ❌</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Your number returns exists=true, fake number returns exists=false</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t13','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t13','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t13','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T14 -->
+  <div class="test-card" id="t14">
+    <div class="test-row" onclick="toggleDetail('t14')">
+      <div class="checkbox" id="chk-t14">—</div>
+      <div class="test-info">
+        <div class="test-name">get_user_info returns profile details</div>
+        <span class="test-tag tag-contacts">CONTACTS</span>
+      </div>
+      <button class="expand-btn" id="exp-t14">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t14">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>get_user_info</code> with <code>phones: ["+your_number"]</code></li>
+        <li><span class="step-num">2</span> Check the response for name and/or status fields</li>
+        <li><span class="step-num">3</span> If your WhatsApp status is set, verify it appears in the output</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Response includes your display name or status without an error</div>
+      <div class="note-box"><strong>Note:</strong> WhatsApp may return limited info for your own number vs. contacts</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t14','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t14','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t14','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T15 -->
+  <div class="test-card" id="t15">
+    <div class="test-row" onclick="toggleDetail('t15')">
+      <div class="checkbox" id="chk-t15">—</div>
+      <div class="test-info">
+        <div class="test-name">get_profile_picture returns a URL</div>
+        <span class="test-tag tag-contacts">CONTACTS</span>
+      </div>
+      <button class="expand-btn" id="exp-t15">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t15">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>get_profile_picture</code> with your phone number or a known contact name</li>
+        <li><span class="step-num">2</span> A CDN URL starting with <code>https://</code> should be returned</li>
+        <li><span class="step-num">3</span> Open the URL in a browser to confirm the image loads</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> A valid https:// CDN URL is returned and the image is viewable</div>
+      <div class="note-box"><strong>Note:</strong> Returns "No profile picture set" if the contact has no picture — that is also a valid pass if confirmed intentional</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t15','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t15','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t15','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 6 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 6</span>
+    <span class="phase-title">Message Actions</span>
+    <span class="phase-count" id="pc-p6">0/4</span>
+  </div>
+
+  <!-- T16 -->
+  <div class="test-card" id="t16">
+    <div class="test-row" onclick="toggleDetail('t16')">
+      <div class="checkbox" id="chk-t16">—</div>
+      <div class="test-info">
+        <div class="test-name">send_reaction — emoji appears on your phone</div>
+        <span class="test-tag tag-action">REACTION</span>
+      </div>
+      <button class="expand-btn" id="exp-t16">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t16">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>list_messages</code> on your personal chat and grab the ID of any message you sent from your phone</li>
+        <li><span class="step-num">2</span> Call <code>send_reaction</code> with that message ID, your chat name, and <code>emoji: "👍"</code></li>
+        <li><span class="step-num">3</span> Check your phone — a 👍 reaction should appear on that message</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Reaction 👍 is visible on the message on your phone</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t16','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t16','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t16','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T17 -->
+  <div class="test-card" id="t17">
+    <div class="test-row" onclick="toggleDetail('t17')">
+      <div class="checkbox" id="chk-t17">—</div>
+      <div class="test-info">
+        <div class="test-name">edit_message — correction appears on your phone</div>
+        <span class="test-tag tag-action">EDIT</span>
+      </div>
+      <button class="expand-btn" id="exp-t17">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t17">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>send_message</code> with text: <code>Original text — will edit</code></li>
+        <li><span class="step-num">2</span> Note the message ID from the response</li>
+        <li><span class="step-num">3</span> Immediately call <code>edit_message</code> with that ID and <code>new_text: "Edited text ✏️"</code></li>
+        <li><span class="step-num">4</span> Check your phone — message should show the edited text with an "Edited" indicator</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Message on phone shows "Edited text ✏️" with a "Edited" label</div>
+      <div class="note-box"><strong>Note:</strong> WhatsApp only allows editing within ~15 minutes of sending</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t17','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t17','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t17','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T18 -->
+  <div class="test-card" id="t18">
+    <div class="test-row" onclick="toggleDetail('t18')">
+      <div class="checkbox" id="chk-t18">—</div>
+      <div class="test-info">
+        <div class="test-name">delete_message — revoked on your phone</div>
+        <span class="test-tag tag-action">DELETE</span>
+      </div>
+      <button class="expand-btn" id="exp-t18">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t18">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>send_message</code> with text: <code>This message will self-destruct</code></li>
+        <li><span class="step-num">2</span> Note the message ID</li>
+        <li><span class="step-num">3</span> Call <code>delete_message</code> with that ID and the chat name</li>
+        <li><span class="step-num">4</span> Check your phone — the message should show "This message was deleted"</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Message on phone shows the standard deleted message placeholder</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t18','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t18','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t18','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T19 -->
+  <div class="test-card" id="t19">
+    <div class="test-row" onclick="toggleDetail('t19')">
+      <div class="checkbox" id="chk-t19">—</div>
+      <div class="test-info">
+        <div class="test-name">create_poll — appears and is voteable on your phone</div>
+        <span class="test-tag tag-action">POLL</span>
+      </div>
+      <button class="expand-btn" id="exp-t19">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t19">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>create_poll</code> with your phone number as recipient</li>
+        <li><span class="step-num">2</span> Question: <code>"Best test framework?"</code>, options: <code>["Jest", "Mocha", "Vitest"]</code></li>
+        <li><span class="step-num">3</span> Check your phone — a poll message should arrive</li>
+        <li><span class="step-num">4</span> Vote for any option from your phone</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Poll appears on phone, all 3 options are listed, and you can vote</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t19','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t19','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t19','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 7 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 7</span>
+    <span class="phase-title">Group Management</span>
+    <span class="phase-count" id="pc-p7">0/4</span>
+  </div>
+
+  <!-- T20 -->
+  <div class="test-card" id="t20">
+    <div class="test-row" onclick="toggleDetail('t20')">
+      <div class="checkbox" id="chk-t20">—</div>
+      <div class="test-info">
+        <div class="test-name">get_joined_groups lists all your groups</div>
+        <span class="test-tag tag-group">GROUP</span>
+      </div>
+      <button class="expand-btn" id="exp-t20">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t20">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>get_joined_groups</code> (no parameters)</li>
+        <li><span class="step-num">2</span> A list of all groups this account belongs to is returned</li>
+        <li><span class="step-num">3</span> Verify the count is plausible and groups you recognize appear in the list</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> At least one group is listed with name, member count, and JID</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t20','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t20','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t20','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T21 -->
+  <div class="test-card" id="t21">
+    <div class="test-row" onclick="toggleDetail('t21')">
+      <div class="checkbox" id="chk-t21">—</div>
+      <div class="test-info">
+        <div class="test-name">get_group_info shows participants and settings</div>
+        <span class="test-tag tag-group">GROUP</span>
+      </div>
+      <button class="expand-btn" id="exp-t21">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t21">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Pick any group JID from the T20 output</li>
+        <li><span class="step-num">2</span> Call <code>get_group_info</code> with that group name or JID</li>
+        <li><span class="step-num">3</span> Verify participants list, admin status, and any description are returned</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Response includes participant JIDs, at least one admin, and correct member count</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t21','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t21','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t21','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T22 -->
+  <div class="test-card" id="t22">
+    <div class="test-row" onclick="toggleDetail('t22')">
+      <div class="checkbox" id="chk-t22">—</div>
+      <div class="test-info">
+        <div class="test-name">get_group_invite_link returns a joinable link</div>
+        <span class="test-tag tag-group">GROUP</span>
+      </div>
+      <button class="expand-btn" id="exp-t22">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t22">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Choose a group where you are admin (from T20 output — look for <code>[admin]</code>)</li>
+        <li><span class="step-num">2</span> Call <code>get_group_invite_link</code> with that group name or JID</li>
+        <li><span class="step-num">3</span> A URL like <code>https://chat.whatsapp.com/XXXXXX</code> is returned</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> A valid https://chat.whatsapp.com/ link is returned</div>
+      <div class="note-box"><strong>Note:</strong> Requires admin privileges in that group. Skip (use ↺) if you have no admin groups.</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t22','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t22','failed')">✗ Fail</button>
+        <button class="btn btn-skip"  onclick="markTest('t22','skip')">— Skip</button>
+        <button class="btn btn-reset" onclick="markTest('t22','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T23 -->
+  <div class="test-card" id="t23">
+    <div class="test-row" onclick="toggleDetail('t23')">
+      <div class="checkbox" id="chk-t23">—</div>
+      <div class="test-info">
+        <div class="test-name">create_group — new group with you as participant</div>
+        <span class="test-tag tag-group">GROUP CREATE</span>
+      </div>
+      <button class="expand-btn" id="exp-t23">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t23">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>create_group</code> with <code>name: "MCP Test Group"</code> and <code>participants: ["+your_number"]</code></li>
+        <li><span class="step-num">2</span> A group JID and optional invite link are returned</li>
+        <li><span class="step-num">3</span> Check your phone — a "MCP Test Group" group should appear in your chats</li>
+        <li><span class="step-num">4</span> Call <code>send_message</code> to the new group to confirm it works</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> New group appears on phone and accepts a test message</div>
+      <div class="note-box"><strong>Cleanup:</strong> After passing, optionally call <code>leave_group</code> with the returned JID to clean up</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t23','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t23','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t23','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 8 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 8</span>
+    <span class="phase-title">Live Interaction (wait_for_message)</span>
+    <span class="phase-count" id="pc-p8">0/3</span>
+  </div>
+
+  <!-- T24 -->
+  <div class="test-card" id="t24">
+    <div class="test-row" onclick="toggleDetail('t24')">
+      <div class="checkbox" id="chk-t24">—</div>
+      <div class="test-info">
+        <div class="test-name">wait_for_message catches your reply in real time</div>
+        <span class="test-tag tag-live">WAIT · LIVE</span>
+      </div>
+      <button class="expand-btn" id="exp-t24">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t24">
+      <ol class="steps">
+        <li><span class="step-num">1</span> In Cursor, call <code>wait_for_message</code> with <code>timeout: 60</code></li>
+        <li><span class="step-num">2</span> While it is waiting, send <code>Caught you! 🎣</code> from your phone</li>
+        <li><span class="step-num">3</span> The tool should return immediately with your message body, sender, and timestamp</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> wait_for_message returns the message without polling list_messages manually</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t24','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t24','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t24','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T25 -->
+  <div class="test-card" id="t25">
+    <div class="test-row" onclick="toggleDetail('t25')">
+      <div class="checkbox" id="chk-t25">—</div>
+      <div class="test-info">
+        <div class="test-name">wait_for_message with chat filter — ignores other chats</div>
+        <span class="test-tag tag-live">WAIT · FILTER</span>
+      </div>
+      <button class="expand-btn" id="exp-t25">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t25">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>wait_for_message</code> with <code>timeout: 60</code> and <code>chat: "&lt;your personal chat name&gt;"</code></li>
+        <li><span class="step-num">2</span> First send a message from a different chat (group or another contact) — the tool should NOT trigger</li>
+        <li><span class="step-num">3</span> Then send from the filtered chat — the tool should immediately return</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Tool ignores off-chat messages and only resolves on the filtered chat</div>
+      <div class="note-box"><strong>Note:</strong> If you only have one chat active, skip the cross-chat noise test and just verify it triggers on the correct chat</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t25','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t25','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t25','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T26 -->
+  <div class="test-card" id="t26">
+    <div class="test-row" onclick="toggleDetail('t26')">
+      <div class="checkbox" id="chk-t26">—</div>
+      <div class="test-info">
+        <div class="test-name">wait_for_message timeout path — returns graceful error</div>
+        <span class="test-tag tag-live">WAIT · TIMEOUT</span>
+      </div>
+      <button class="expand-btn" id="exp-t26">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t26">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Call <code>wait_for_message</code> with <code>timeout: 10</code></li>
+        <li><span class="step-num">2</span> Do NOT send anything from your phone</li>
+        <li><span class="step-num">3</span> After 10 seconds the tool should return with <code>isError: true</code> and a "No message received within…" message</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Tool returns a clear timeout error after ~10 seconds without hanging</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t26','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t26','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t26','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ PHASE 9 -->
+
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">PHASE 9</span>
+    <span class="phase-title">Edge Cases</span>
+    <span class="phase-count" id="pc-p9">0/3</span>
+  </div>
+
+  <!-- T27 — was T13 -->
+  <div class="test-card" id="t27">
+    <div class="test-row" onclick="toggleDetail('t27')">
+      <div class="checkbox" id="chk-t27">—</div>
+      <div class="test-info">
+        <div class="test-name">Emoji-only message is stored correctly</div>
+        <span class="test-tag tag-edge">EDGE</span>
+      </div>
+      <button class="expand-btn" id="exp-t27">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t27">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Send from your phone: <code>🔥🚀✅🧪💬</code> (emojis only)</li>
+        <li><span class="step-num">2</span> Call <code>list_messages</code> and find the message</li>
+        <li><span class="step-num">3</span> Verify the body field contains the emoji string intact, not garbled</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Message body is "🔥🚀✅🧪💬" exactly — no encoding artifacts</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t27','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t27','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t27','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T28 — was T14 -->
+  <div class="test-card" id="t28">
+    <div class="test-row" onclick="toggleDetail('t28')">
+      <div class="checkbox" id="chk-t28">—</div>
+      <div class="test-info">
+        <div class="test-name">Quoted reply — body extraction is correct</div>
+        <span class="test-tag tag-edge">EDGE</span>
+      </div>
+      <button class="expand-btn" id="exp-t28">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t28">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Long-press one of the previous messages on your phone and choose <strong>Reply</strong></li>
+        <li><span class="step-num">2</span> Send: <code>This is a quoted reply test</code></li>
+        <li><span class="step-num">3</span> Call <code>list_messages</code> and find the reply</li>
+        <li><span class="step-num">4</span> The body should contain only <em>your</em> reply text, not the quoted text prepended</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> body = "This is a quoted reply test" — quoted context is not duplicated into body</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t28','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t28','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t28','')">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- T29 — new: mark_messages_read -->
+  <div class="test-card" id="t29">
+    <div class="test-row" onclick="toggleDetail('t29')">
+      <div class="checkbox" id="chk-t29">—</div>
+      <div class="test-info">
+        <div class="test-name">mark_messages_read clears unread count in catch_up</div>
+        <span class="test-tag tag-edge">EDGE</span>
+      </div>
+      <button class="expand-btn" id="exp-t29">▼ steps</button>
+    </div>
+    <div class="test-detail" id="detail-t29">
+      <ol class="steps">
+        <li><span class="step-num">1</span> Send 2–3 messages from your phone and do NOT call <code>list_messages</code> yet</li>
+        <li><span class="step-num">2</span> Call <code>catch_up</code> — confirm the chat shows unread messages</li>
+        <li><span class="step-num">3</span> Call <code>mark_messages_read</code> with that chat name</li>
+        <li><span class="step-num">4</span> Call <code>catch_up</code> again — unread count for that chat should drop to 0</li>
+      </ol>
+      <div class="verify-box"><strong>✓ Pass when:</strong> Second catch_up no longer shows those messages as unread</div>
+      <div class="action-row">
+        <button class="btn btn-pass"  onclick="markTest('t29','done')">✓ Pass</button>
+        <button class="btn btn-fail"  onclick="markTest('t29','failed')">✗ Fail</button>
+        <button class="btn btn-reset" onclick="markTest('t29','')">↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+
+<div id="summary">
+  <h2>All tests passed!</h2>
+  <p id="summary-text">29 / 29 · whatsapp-mcp-docker is working end-to-end from your Android device</p>
+</div>
+
+<script>
+  const TOTAL = 29;
+  // Tests that count as "passed" even when skipped (optional tests)
+  const SKIP_OK = new Set(['t22']);
+
+  const state = {};
+
+  // Phase membership for per-phase counters
+  const phaseMap = {
+    'p1': ['t1','t2','t3'],
+    'p2': ['t4','t5','t6'],
+    'p3': ['t7','t8','t9'],
+    'p4': ['t10','t11','t12'],
+    'p5': ['t13','t14','t15'],
+    'p6': ['t16','t17','t18','t19'],
+    'p7': ['t20','t21','t22','t23'],
+    'p8': ['t24','t25','t26'],
+    'p9': ['t27','t28','t29'],
+  };
+
+  function markTest(id, status) {
+    state[id] = status;
+    const card = document.getElementById(id);
+    card.classList.remove('done', 'failed', 'skipped');
+    const chk = document.getElementById('chk-' + id);
+
+    if (status === 'done') {
+      card.classList.add('done');
+      chk.textContent = '✓';
+    } else if (status === 'failed') {
+      card.classList.add('failed');
+      chk.textContent = '✗';
+    } else if (status === 'skip') {
+      card.classList.add('done');          // Visually done
+      chk.textContent = '—';
+      chk.style.color = 'var(--amber)';
+    } else {
+      chk.textContent = '—';
+      chk.style.color = '';
+    }
+
+    if (status !== 'skip') chk.style.color = '';
+    updateProgress();
+  }
+
+  function toggleDetail(id) {
+    const detail = document.getElementById('detail-' + id);
+    const btn    = document.getElementById('exp-' + id);
+    const open   = detail.classList.toggle('open');
+    btn.textContent = open ? '▲ steps' : '▼ steps';
+  }
+
+  function updateProgress() {
+    const passed = Object.values(state).filter(v => v === 'done' || v === 'skip').length;
+    const failed = Object.values(state).filter(v => v === 'failed').length;
+
+    document.getElementById('progress-count').textContent = `${passed} / ${TOTAL} passed`;
+    document.getElementById('fail-count').textContent = failed > 0 ? `${failed} failed` : '0 failed';
+    document.getElementById('progress-fill').style.width = `${(passed / TOTAL) * 100}%`;
+    document.getElementById('fail-fill').style.width    = `${(failed / TOTAL) * 100}%`;
+
+    // Per-phase counters
+    for (const [phase, tests] of Object.entries(phaseMap)) {
+      const pPassed = tests.filter(t => state[t] === 'done' || state[t] === 'skip').length;
+      const pTotal  = tests.length;
+      const el = document.getElementById('pc-' + phase);
+      if (el) el.textContent = `${pPassed}/${pTotal}`;
+    }
+
+    document.getElementById('summary').style.display = passed === TOTAL ? 'block' : 'none';
+  }
+
+  function resetAll() {
+    for (let i = 1; i <= TOTAL; i++) markTest('t' + i, '');
+  }
+
+  // Open first card by default
+  toggleDetail('t1');
+</script>
+</body>
+</html>

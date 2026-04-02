@@ -1,0 +1,123 @@
+# WhatsApp MCP Server - Example Client Configurations
+# These configurations show how to connect various MCP clients to the WhatsApp MCP server.
+
+# ──────────────────────────────────────────────────────────────
+# Cursor IDE
+# ──────────────────────────────────────────────────────────────
+# File: ~/.cursor/mcp.json (user-level) or .cursor/mcp.json (project-level)
+{
+  "mcpServers": {
+    "MCP_DOCKER": {
+      "command": "docker",
+      "args": ["mcp", "gateway", "run", "--profile", "default"]
+    }
+  }
+}
+
+# ──────────────────────────────────────────────────────────────
+# Claude Code (CLI)
+# ──────────────────────────────────────────────────────────────
+# File: ~/.claude/settings.json
+{
+  "mcpServers": [
+    {
+      "name": "MCP_DOCKER",
+      "command": "docker",
+      "args": ["mcp", "gateway", "run", "--profile", "default"]
+    }
+  ]
+}
+
+# Or via environment variable:
+# export CLAUDE_MCP_SERVERS='[{"name":"MCP_DOCKER","command":"docker","args":["mcp","gateway","run","--profile","default"]}]'
+
+# ──────────────────────────────────────────────────────────────
+# VS Code with MCP Extension
+# ──────────────────────────────────────────────────────────────
+# File: .vscode/mcp.json (workspace) or ~/.vscode/mcp.json (user)
+{
+  "servers": {
+    "whatsapp-mcp": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["mcp", "gateway", "run", "--profile", "default"]
+    }
+  }
+}
+
+# ──────────────────────────────────────────────────────────────
+# Gemini CLI
+# ──────────────────────────────────────────────────────────────
+# File: ~/.gemini/settings.json
+{
+  "mcp": {
+    "servers": [
+      {
+        "name": "whatsapp",
+        "command": "docker",
+        "args": ["mcp", "gateway", "run", "--profile", "default"]
+      }
+    ]
+  }
+}
+
+# ──────────────────────────────────────────────────────────────
+# Cline (VS Code Extension)
+# ──────────────────────────────────────────────────────────────
+# Configure via VS Code settings (settings.json):
+{
+  "cline.mcpServers": [
+    {
+      "name": "WhatsApp MCP",
+      "command": "docker",
+      "args": ["mcp", "gateway", "run", "--profile", "default"]
+    }
+  ]
+}
+
+# ──────────────────────────────────────────────────────────────
+# Goose (CLI)
+# ──────────────────────────────────────────────────────────────
+# File: ~/.config/goose/config.yaml
+mcp_servers:
+  - name: whatsapp
+    command: docker
+    args:
+      - mcp
+      - gateway
+      - run
+      - --profile
+      - default
+
+# ──────────────────────────────────────────────────────────────
+# Direct Docker Compose (without MCP Toolkit)
+# ──────────────────────────────────────────────────────────────
+# For users who want to test without Docker Desktop MCP Toolkit:
+#
+# 1. Build and start the container:
+#    docker compose up -d
+#
+# 2. Connect via stdio using a wrapper script:
+#
+# File: scripts/whatsapp-mcp-stdio.sh
+#!/bin/bash
+docker exec -i whatsapp-mcp-docker node src/index.js
+#
+# 3. Configure your MCP client to use:
+#    command: /path/to/scripts/whatsapp-mcp-stdio.sh
+#
+# Note: This bypasses the MCP Gateway and connects directly to the container.
+#       You lose multi-client gateway features but can test the server.
+
+# ──────────────────────────────────────────────────────────────
+# Notes
+# ──────────────────────────────────────────────────────────────
+#
+# 1. Replace "default" with your actual profile name
+# 2. All clients must use the MCP Gateway for multi-client support
+# 3. The gateway allows multiple AI clients to share one server instance
+# 4. Without the gateway, each client would need its own WhatsApp session
+#
+# For more information, see:
+# - Docker MCP Toolkit documentation: https://docs.docker.com/ai/mcp-catalog-and-toolkit/
+# - Model Context Protocol: https://modelcontextprotocol.io/

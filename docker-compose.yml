@@ -1,0 +1,118 @@
+services:
+  whatsapp-mcp-docker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: whatsapp-mcp-docker:latest
+    container_name: whatsapp-mcp-docker
+    restart: unless-stopped
+    environment:
+      # ── Storage paths ──────────────────────────────────────
+      # /data/sessions is auto-provisioned by Docker MCP Toolkit;
+      # docker-compose maps whatsapp-sessions to the same path.
+      - STORE_PATH=/data/sessions
+      - AUDIT_DB_PATH=/data/audit/audit.db
+
+      # ── Rate limiting ──────────────────────────────────────
+      # Max outbound WhatsApp messages per minute.
+      - RATE_LIMIT_PER_MIN=10
+
+      # ── Data protection ────────────────────────────────────
+      # AES-256-GCM encryption for message bodies, sender names,
+      # and media metadata at rest. Set in .env file (see .env.example).
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}
+
+      # Auto-delete messages and media older than this many days.
+      # Reduces exposure if the container or volumes are left behind.
+      - MESSAGE_RETENTION_DAYS=90
+
+      # ── Read receipts & presence ─────────────────────────
+      # Send read receipts to WhatsApp when mark_messages_read is called.
+      - SEND_READ_RECEIPTS=true
+      # Auto-mark incoming messages as read (senders see blue checkmarks).
+      - AUTO_READ_RECEIPTS=true
+      # Online status: "available" or "unavailable".
+      - PRESENCE_MODE=available
+
+      # ── authenticate tool defaults (match Docker MCP profile auth_* config) ──
+      - AUTH_WAIT_FOR_LINK=true
+      - AUTH_LINK_TIMEOUT_SEC=120
+      - AUTH_POLL_INTERVAL_SEC=5
+
+      # ── Startup behavior ─────────────────────────────────
+      # Auto-connect to WhatsApp on container startup (default: true).
+      # Set to "false" to disable automatic connection — useful for testing
+      # or when you want to control authentication manually.
+      # - AUTO_CONNECT_ON_STARTUP=false
+
+      # ── Welcome group ──────────────────────────────────────
+      # On first connection, create a WhatsApp group with this name
+      # and send a hello message. Set to empty to disable.
+      - WELCOME_GROUP_NAME=WhatsAppMCP
+
+      # ── Access control (optional) ──────────────────────────
+      # Restrict outbound messages to specific phone numbers.
+      # Empty or omitted = allow all contacts.
+      # - ALLOWED_CONTACTS=+15145551234,+353871234567
+
+      # Disable specific tools by name (comma-separated).
+      # - DISABLED_TOOLS=send_file,download_media
+
+    volumes:
+      - whatsapp-sessions:/data/sessions
+      - whatsapp-audit:/data/audit
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+
+    # ── Security hardening ─────────────────────────────────
+    read_only: true
+    cap_drop:
+      - ALL
+    privileged: false
+    user: "1001:1001"
+    security_opt:
+      - no-new-privileges:true
+
+    # ── Resource limits ────────────────────────────────────
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    # NOTE: No network_mode: none — whatsmeow needs to reach WhatsApp servers
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Test Runner ────────────────────────────────────────────
+  # Generic test container — same compiled deps, includes test/ files.
+  # Only starts when explicitly invoked:
+  #   docker compose run --rm tester-container npm test
+  #   docker compose run --rm tester-container npm run test:all
+  #   docker compose run --rm tester-container npm run test:e2e
+  tester-container:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    container_name: tester-container
+    profiles:
+      - test
+    environment:
+      - STORE_PATH=/data/store
+      - AUDIT_DB_PATH=/data/audit/audit.db
+    volumes:
+      # Persistent session for e2e tests (bind-mount from host)
+      - ./.test-data:/app/.test-data
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+
+volumes:
+  whatsapp-sessions:
+  whatsapp-audit:

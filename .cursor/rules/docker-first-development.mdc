@@ -1,0 +1,259 @@
+# WhatsApp MCP Docker - Cursor Rules
+
+## 🐳 Docker-First Development
+
+### ⚠️ CRITICAL: NEVER RUN `npm test` ON HOST
+
+**This project has Linux-only dependencies (`@whatsmeow-node/linux-x64-musl`) that will fail on Windows/macOS.**
+
+**ALWAYS use the Docker test container:**
+```bash
+docker compose run --rm tester-container npm run test:all
+```
+
+### Tool Containment Rule
+
+**ALL development, testing, formatting, and linting tools MUST run inside the Docker test container.**
+
+#### ✅ DO:
+- Use `docker compose run --rm tester-container npm run <command>` for all dev tasks
+- Run tests, linting, and formatting inside the container
+- Keep host machine clean of project dependencies
+- Use npx for one-off commands (they download temporarily)
+
+#### ❌ DON'T:
+- Install eslint, prettier, or other dev tools globally on host
+- Run `npm install` on host for dev dependencies
+- Run lint/format/inspect tools directly on host
+- Commit node_modules or .npmrc files
+
+#### Rationale:
+- Platform compatibility (Linux-only dependencies like `@whatsmeow-node/linux-x64-musl`)
+- Consistent environment across all developers
+- No host pollution with project-specific tooling
+- Reproducible builds and tests
+
+---
+
+## Available Docker Commands
+
+### Testing
+
+**⚠️ CRITICAL RULE: ALWAYS rebuild the test container before running tests.**
+
+The test container copies source files during build. Without rebuilding, you'll test stale code from the previous build.
+
+#### ✅ Recommended: Use Helper Script
+
+**PowerShell (Windows):**
+```powershell
+.\scripts\test.ps1
+```
+
+**Bash (Linux/macOS):**
+```bash
+./scripts/test.sh
+```
+
+**npm (cross-platform):**
+```bash
+npm run docker:test
+```
+
+These automatically rebuild before running tests.
+
+#### Manual Commands
+
+```bash
+# Step 1: ALWAYS rebuild first
+docker compose build tester-container
+
+# Step 2: Run tests
+docker compose run --rm tester-container npm run test:all
+
+# Run specific test file
+docker compose run --rm tester-container node --test test/integration/tools-approvals.test.js
+
+# Run unit tests only
+docker compose run --rm tester-container npm test
+
+# Run integration tests only
+docker compose run --rm tester-container npm run test:integration
+```
+
+#### Why Rebuild is Mandatory
+
+1. **Source files are copied at build time** - Changes on host aren't visible in container
+2. **Test helpers may change** - New exports or functions won't be available
+3. **Dependencies may update** - package.json changes require rebuild
+4. **Prevents false failures** - Stale code causes confusing test failures
+
+**Rule of thumb:** If you changed ANY `.js`, `.test.js`, or `package.json` file, rebuild first.
+
+### Code Quality
+```bash
+# Format all code
+docker compose run --rm tester-container npm run format
+
+# Check formatting (CI/CD)
+docker compose run --rm tester-container npm run format:check
+
+# Lint code
+docker compose run --rm tester-container npm run lint
+
+# Auto-fix lint issues
+docker compose run --rm tester-container npm run lint:fix
+```
+
+### Diagnostics
+```bash
+# Run diagnostics (host OK for this - uses Docker CLI)
+node scripts/diagnostics.js
+
+# Check container health
+docker compose ps
+docker compose logs --tail 50 whatsapp-mcp-docker
+```
+
+---
+
+## Package Management
+
+### Installing New Dependencies
+
+**Runtime dependencies:**
+```bash
+# Edit package.json manually
+# Then rebuild container
+docker compose build
+```
+
+**Dev dependencies (tests, linting, formatting):**
+```bash
+# Edit package.json devDependencies manually
+# Rebuild test container
+docker compose build tester-container
+```
+
+### Why Manual Editing?
+
+The project uses platform-specific dependencies that conflict between Windows (host) and Linux (container). Always edit `package.json` directly and rebuild the container instead of running `npm install` on the host.
+
+---
+
+## File Permissions
+
+If you encounter permission errors in the container:
+
+```bash
+# Fix ownership in test container
+docker compose run --rm tester-container chown -R node:node /app
+```
+
+---
+
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| **Test all** | `docker compose run --rm tester-container npm run test:all` |
+| **Test unit** | `docker compose run --rm tester-container npm test` |
+| **Test integration** | `docker compose run --rm tester-container npm run test:integration` |
+| **Format code** | `docker compose run --rm tester-container npm run format` |
+| **Check format** | `docker compose run --rm tester-container npm run format:check` |
+| **Lint code** | `docker compose run --rm tester-container npm run lint` |
+| **Fix lint** | `docker compose run --rm tester-container npm run lint:fix` |
+| **Build container** | `docker compose build` |
+| **Rebuild test container** | `docker compose build tester-container` |
+
+---
+
+## Exceptions
+
+The following are acceptable to run on the host:
+
+- ✅ `docker compose` commands (build, up, down, run)
+- ✅ `node scripts/*.js` diagnostic scripts
+- ✅ `npx <tool>` for one-off utilities that don't modify code
+- ✅ Git operations (commit, push, pull)
+- ✅ File editing and code navigation
+
+---
+
+## Troubleshooting
+
+### "Cannot find module" errors in container
+```bash
+# Rebuild test container
+docker compose build tester-container
+```
+
+### Permission denied errors
+```bash
+# Fix file ownership
+docker compose run --rm tester-container chown -R node:node /app
+```
+
+### Tests failing due to missing dependencies
+```bash
+# Clean rebuild
+docker compose build --no-cache tester-container
+```
+
+### Container won't start
+```bash
+# Check Docker is running
+docker ps
+
+# Verify compose file
+docker compose config
+
+# Rebuild everything
+docker compose build --no-cache
+```
+
+---
+
+## Environment Setup
+
+### Prerequisites
+- Docker Desktop with MCP Toolkit enabled
+- Git
+- Node.js 20+ (host, for scripts only)
+
+### First-Time Setup
+```bash
+# Clone repository
+git clone https://github.com/Malaccamaxgit/whatsapp-mcp-docker.git
+cd whatsapp-mcp-docker
+
+# Build containers
+docker compose build
+
+# Verify setup
+docker compose run --rm tester-container npm run format:check
+```
+
+---
+
+## AI Assistant Notes
+
+When suggesting code quality improvements:
+
+1. **Always** use Docker container commands
+2. **Never** suggest `npm install` on host
+3. **Always** mention platform compatibility if user asks about host installation
+4. **Prefer** `docker compose run --rm` over persistent containers for dev tasks
+5. **Remind** users that npx is OK for read-only tools
+
+Example response template:
+> "Let me run that inside the test container to keep the host clean:
+> ```bash
+> docker compose run --rm tester-container npm run <command>
+> ```"
+
+---
+
+**Last Updated:** March 31, 2026  
+**Rule Version:** 1.0  
+**Applies To:** All development, testing, and code quality tasks

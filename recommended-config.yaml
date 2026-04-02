@@ -1,0 +1,32 @@
+# Recommended Configuration for WhatsApp MCP Server
+# Apply with: docker mcp profile config <your-profile> --from-file recommended-config.yaml
+# Or manually: docker mcp profile config <your-profile> --file recommended-config.yaml
+
+# This configuration provides a balanced setup for most users:
+# - Reasonable rate limits to avoid WhatsApp bans
+# - 90-day message retention for compliance
+# - Auto-read receipts for seamless agent experience
+# - Welcome group for testing connectivity
+# - Smart authentication wait behavior
+
+whatsapp-mcp-docker:
+  rate_limit_per_min: 10
+  message_retention_days: 90
+  send_read_receipts: true
+  auto_read_receipts: true
+  presence_mode: available
+  welcome_group_name: WhatsAppMCP
+  auth_wait_for_link: true
+  auth_link_timeout_sec: 120
+  auth_poll_interval_sec: 5
+  allowed_contacts: ""
+  disabled_tools: ""
+  store_path: /data/sessions
+  audit_db_path: /data/audit/audit.db
+
+# Notes:
+# - rate_limit_per_min: WhatsApp may ban accounts that send too many messages too quickly
+# - message_retention_days: Set to 0 to disable auto-purge (keep all messages forever)
+# - auth_wait_for_link: When true, authenticate() waits until device is linked
+# - allowed_contacts: Comma-separated E.164 numbers (e.g., "+15145551234,+353871234567")
+# - disabled_tools: Comma-separated tool names to disable (e.g., "send_file,download_media")
