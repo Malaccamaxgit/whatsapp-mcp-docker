@@ -23,6 +23,7 @@ At the start of each session, figure out where the migration stands:
 
 - **No `any` escape hatches** — use proper types, `unknown`, or generics. `any` is only acceptable for genuinely untyped third-party callbacks where no `@types/` package exists.
 - **No logic changes** — a conversion commit must ONLY rename the file + add type annotations. Do not refactor, restructure, or "improve" code while converting.
+  - **Exception — `server.tool()` → `server.registerTool()`**: the remaining `.js` tool files use `server.tool()` (old MCP SDK v1 positional API). All already-converted `.ts` files use `server.registerTool()` (current API). When converting Steps 4d–4g, migrate each call as part of the conversion — this is a required consistency fix, not a logic change. See the transformation recipe in **Known Type Pitfalls** below.
 - **No import path changes** — `.js` extensions in imports resolve to `.ts` automatically via `NodeNext`. Leave all import paths exactly as they are.
 - **No new abstractions** — don't introduce interfaces, type aliases, or utility types unless they directly annotate existing code.
 - **Preserve JSDoc** — keep existing JSDoc comments; they serve as documentation even after adding TS types.
@@ -112,6 +113,30 @@ let fh: import('node:fs').FileHandle;
 // ✓ fix:
 let fh: import('node:fs/promises').FileHandle;
 ```
+
+**`server.tool()` → `server.registerTool()` — required migration for Steps 4d–4g**
+
+The remaining `.js` tool files use the old MCP SDK v1 positional API. Convert each call to the current API as part of the TS conversion:
+```typescript
+// ❌ old: server.tool(name, description, schema, handler)
+server.tool(
+  'send_message',
+  'Send a WhatsApp message.',
+  { to: z.string(), message: z.string() },
+  async ({ to, message }) => { /* ... */ }
+);
+
+// ✓ new: server.registerTool(name, { description, inputSchema }, handler)
+server.registerTool(
+  'send_message',
+  {
+    description: 'Send a WhatsApp message.',
+    inputSchema: { to: z.string(), message: z.string() }
+  },
+  async ({ to, message }) => { /* ... */ }
+);
+```
+Key differences: `description` moves from positional arg → object key; third positional `schema` → `inputSchema` inside the config object; handler stays as the last positional arg.
 
 ## Operator Guide — Copy-Paste Prompts
 
