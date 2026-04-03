@@ -23,14 +23,14 @@ const KDF_SALT = Buffer.from('whatsapp-mcp-docker-kdf-v1');
 // N=2^14 (NIST minimum for interactive use): needs 16 MB, well within Node's 32 MB maxmem default.
 const KDF_OPTS = { N: 1 << 14, r: 8, p: 1 };
 
-let _key = null;
+let _key: Buffer | null = null;
 
 /**
  * Initialize encryption with a passphrase.
  * Derives a 32-byte AES key using scrypt (memory-hard KDF).
  * Returns true if encryption is active.
  */
-export function initEncryption(passphrase) {
+export function initEncryption(passphrase: string): boolean {
   if (!passphrase) {
     _key = null;
     return false;
@@ -40,7 +40,7 @@ export function initEncryption(passphrase) {
   return true;
 }
 
-export function isEncryptionEnabled() {
+export function isEncryptionEnabled(): boolean {
   return _key !== null;
 }
 
@@ -48,7 +48,7 @@ export function isEncryptionEnabled() {
  * Encrypt a plaintext string. Returns prefixed ciphertext.
  * Returns the original value unchanged if encryption is off or value is empty.
  */
-export function encrypt(plaintext) {
+export function encrypt(plaintext: string): string {
   if (!_key || !plaintext) return plaintext;
 
   const iv = randomBytes(IV_LEN);
@@ -64,7 +64,7 @@ export function encrypt(plaintext) {
  * encrypted values from legacy plaintext (allows gradual migration).
  * Returns the original value if encryption is off or value is not encrypted.
  */
-export function decrypt(value) {
+export function decrypt(value: string): string {
   if (!value || typeof value !== 'string' || !value.startsWith(PREFIX)) {
     return value;
   }
@@ -82,7 +82,7 @@ export function decrypt(value) {
     decipher.setAuthTag(tag);
     return decipher.update(data) + decipher.final('utf8');
   } catch (e) {
-    console.error('[CRYPTO] Decryption failed, returning raw value:', e.message);
+    console.error('[CRYPTO] Decryption failed, returning raw value:', (e as Error).message);
     return value;
   }
 }
