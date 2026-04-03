@@ -26,6 +26,7 @@ At the start of each session, figure out where the migration stands:
 - **No import path changes** — `.js` extensions in imports resolve to `.ts` automatically via `NodeNext`. Leave all import paths exactly as they are.
 - **No new abstractions** — don't introduce interfaces, type aliases, or utility types unless they directly annotate existing code.
 - **Preserve JSDoc** — keep existing JSDoc comments; they serve as documentation even after adding TS types.
+- **Do NOT delete the `.js` file until the verification gate passes** — keep the original `.js` alongside the new `.ts` until `tsc --noEmit` and the full test suite both pass. If a test fails you will need to read the original `.js` to diagnose what changed. Only delete the `.js` after a green build and test run.
 
 ## Error Recovery
 
@@ -223,4 +224,9 @@ Step 9: Update CI/CD workflows. Replace node --check with tsc --noEmit in securi
 ```
 ```
 Step 10: Final cleanup — remove any remaining .js source files, verify dist/ in .gitignore and .dockerignore, verify healthcheck. Read JS-to-TS-Migration-Plan.md Step 10. Follow CLAUDE.md rules.
+```
+
+### Step 11 — ESLint 8 → 9
+```
+Step 11: Migrate ESLint 8 → 9. Bump `eslint` to `^9.x` and add `@eslint/js@^9.x` in package.json devDependencies. Create `eslint.config.js` (flat config, ESM) from the exact template in JS-to-TS-Migration-Plan.md Step 11. Delete `.eslintrc.json`. Verify inside Docker: `npm run lint` must pass with no errors. Follow CLAUDE.md rules.
 ```

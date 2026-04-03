@@ -554,6 +554,100 @@ CMD ["node", "dist/index.js"]
 
 ---
 
+### Step 11: ESLint 8 → 9 Migration
+
+ESLint 8 is EOL. ESLint 9 drops the legacy `.eslintrc.*` format entirely and requires a **flat config** (`eslint.config.js`).
+
+**1. Update `package.json` devDependencies:**
+
+| Package | Change |
+|---|---|
+| `eslint` | `^8.57.0` → `^9.x` |
+| `@eslint/js` | Add `^9.x` (new — needed for `js.configs.recommended` in flat config) |
+| `@typescript-eslint/parser` | Unchanged — v8 supports ESLint 9 |
+| `@typescript-eslint/eslint-plugin` | Unchanged — v8 supports ESLint 9 |
+
+**2. Create `eslint.config.js`** (ESM — project is `"type": "module"`):
+
+```js
+import js from '@eslint/js';
+import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+
+export default [
+  js.configs.recommended,
+  {
+    files: ['**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module',
+        project: null,
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
+    rules: {
+      ...tsPlugin.configs.recommended.rules,
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': 'off',
+      'no-console': 'off',
+      'curly': ['error', 'all'],
+      'eqeqeq': ['error', 'always'],
+      'no-var': 'error',
+      'prefer-const': 'error',
+      'no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0 }],
+      'no-trailing-spaces': 'error',
+      'eol-last': 'error',
+      'semi': ['error', 'always'],
+      'quotes': ['error', 'single', { avoidEscape: true }],
+      'indent': ['error', 2, { SwitchCase: 1 }],
+      'comma-dangle': ['error', 'never'],
+      'space-before-function-paren': ['error', 'always'],
+      'space-in-parens': ['error', 'never'],
+      'array-bracket-spacing': 'error',
+      'object-curly-spacing': ['error', 'always'],
+      'key-spacing': 'error',
+      'no-multi-spaces': 'error',
+      'space-infix-ops': 'error',
+      'space-unary-ops': 'error',
+      'func-call-spacing': 'error',
+      'keyword-spacing': 'error',
+      'space-before-blocks': 'error',
+      'no-floating-decimal': 'error',
+      'no-implicit-coercion': 'error',
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+      'no-return-await': 'error',
+      'require-await': 'error',
+    },
+  },
+  {
+    ignores: ['node_modules/', 'dist/', 'build/', 'coverage/'],
+  },
+];
+```
+
+Notes:
+- `*.test.js` is removed from ignores — all test files are `.ts` by this step
+- `no-spaced-func` is **removed** — it was dropped in ESLint 9 (superseded by `func-call-spacing`, already present)
+
+**3. Delete `.eslintrc.json`**
+
+**4. Verification:**
+
+```
+docker compose build --no-cache tester-container
+docker compose run --rm tester-container npm run lint
+```
+
+No lint errors and no ESLint deprecation warnings in the build output = pass.
+
+---
+
 ## Critical Files to Modify
 
 | File | Nature of change |
@@ -562,7 +656,8 @@ CMD ["node", "dist/index.js"]
 | `tsconfig.test.json` | New — Test-specific TS config |
 | `src/env.d.ts` | New — ProcessEnv type augmentation |
 | `package.json` | Add devDeps, update scripts, update main |
-| `.eslintrc.json` | Add TS parser and plugin |
+| `.eslintrc.json` | Add TS parser and plugin → deleted in Step 11 |
+| `eslint.config.js` | New (Step 11) — flat config replacing `.eslintrc.json` |
 | `.gitignore` | Ensure `dist/` is excluded |
 | `.dockerignore` | Ensure `dist/` is excluded |
 | `Dockerfile` | Add `tsc` build step, change CMD to `dist/` |
