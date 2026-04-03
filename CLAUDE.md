@@ -55,6 +55,8 @@ If the test suite fails after a conversion:
 3. Commit with stage-summary message
 4. Output status: files converted, tests passing/failing, deferred issues
 
+**Lint is NOT a per-stage gate check.** Pre-existing formatting errors in original JS carry over into converted TS files and will not be fixed during conversion (that would violate the "no logic changes" rule). A single `npm run lint:fix` pass is deferred until after Step 11 (ESLint 9 migration), so fixes are made against the final linter config. If `npm run lint` fails at a stage boundary, note it as a known-deferred issue and continue.
+
 ## Import Path Convention
 
 ESM imports use `.js` extensions. TypeScript `NodeNext` module resolution auto-resolves `.js` imports to `.ts` files — **no import paths need to change**.

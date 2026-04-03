@@ -646,6 +646,8 @@ docker compose run --rm tester-container npm run lint
 
 No lint errors and no ESLint deprecation warnings in the build output = pass.
 
+**Note:** Pre-existing formatting issues from the original JS files carry over into converted TS files. These are intentionally deferred — fixing them during conversion would mix formatting commits with type-annotation commits. Step 11 is the right place to resolve them: after switching to the final ESLint 9 config, run `npm run lint:fix` to auto-fix all formatting issues in one commit, then verify manually for any that require a hand-fix.
+
 ---
 
 ## Critical Files to Modify
