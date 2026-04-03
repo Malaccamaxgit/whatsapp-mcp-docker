@@ -22,8 +22,13 @@ At the start of each session, figure out where the migration stands:
 ## Conversion Guardrails
 
 - **No `any` escape hatches** — use proper types, `unknown`, or generics. `any` is only acceptable for genuinely untyped third-party callbacks where no `@types/` package exists.
-- **No logic changes** — a conversion commit must ONLY rename the file + add type annotations. Do not refactor, restructure, or "improve" code while converting.
+- **No logic changes** — a conversion commit must ONLY rename the file + add type annotations. Do not refactor, restructure, or "improve" code while converting. The following are logic changes and are **NOT** allowed:
+  - Extracting inline handlers into factory functions or named functions
+  - Removing `isError: false` from success responses (even if redundant, leave it)
+  - Adding defensive `instanceof Error` guards that weren't in the original JS
+  - Touching any file other than the one being converted (see "No cross-file changes" below)
   - **Exception — `server.tool()` → `server.registerTool()`**: the remaining `.js` tool files use `server.tool()` (old MCP SDK v1 positional API). All already-converted `.ts` files use `server.registerTool()` (current API). When converting Steps 4d–4g, migrate each call as part of the conversion — this is a required consistency fix, not a logic change. See the transformation recipe in **Known Type Pitfalls** below.
+- **No cross-file changes** — converting `foo.js` must only produce `foo.ts`. If you discover that another file needs a change to make `foo.ts` compile (e.g. adding a getter to a class), that change goes in a **separate commit**. Do not silently bundle changes to unrelated files. If truly blocked, note the dependency and ask for guidance.
 - **No import path changes** — `.js` extensions in imports resolve to `.ts` automatically via `NodeNext`. Leave all import paths exactly as they are.
 - **No new abstractions** — don't introduce interfaces, type aliases, or utility types unless they directly annotate existing code.
 - **Preserve JSDoc** — keep existing JSDoc comments; they serve as documentation even after adding TS types.
@@ -137,6 +142,21 @@ server.registerTool(
 );
 ```
 Key differences: `description` moves from positional arg → object key; third positional `schema` → `inputSchema` inside the config object; handler stays as the last positional arg.
+
+**External API call signature errors — cast vs fix**
+
+When `tsc` reports a type error on a `waClient` or SDK method call, follow this decision tree:
+
+1. **Read the reference `.js` file first.** If the original `.js` uses *different* arguments than the `.ts` you're writing, the `.ts` has a bug from an earlier conversion — fix the call to match the `.js`.
+2. **If both `.js` and `.ts` use the same arguments** and `tsc` still complains, the type definition is stricter than the runtime. Use a type cast; **do not change the arguments**:
+   ```typescript
+   // ❌ changes runtime behavior — args are now different
+   await waClient.sendMessage(jid, message);
+   // ✓ cast — same args as the original JS, just compiles cleanly
+   await (waClient as unknown as { sendMessage(j: string, m: unknown): Promise<void> })
+     .sendMessage(jid, { conversation: message });
+   ```
+3. **Never rename a method** (e.g. `sendPollCreation` → `createPoll`) during conversion. If a method is missing from the type definitions, cast the client to `unknown` first and call it. If the method genuinely no longer exists in the library, that is a separate fix commit — not part of the type conversion.
 
 ## Operator Guide — Copy-Paste Prompts
 
