@@ -12,8 +12,8 @@ import { LIMITS, RATE_LIMITS } from '../constants.js';
 
 const STORE_PATH = process.env.STORE_PATH || '/data/store';
 
-// Add UPLOAD_ALLOWED_DIRS to LIMITS (runtime-dependent)
-LIMITS.UPLOAD_ALLOWED_DIRS = [`${STORE_PATH}/media`, '/tmp'];
+// Add UPLOAD_ALLOWED_DIRS to LIMITS (runtime-dependent, not in the as-const type)
+(LIMITS as Record<string, unknown>).UPLOAD_ALLOWED_DIRS = [`${STORE_PATH}/media`, '/tmp'];
 
 // Re-export LIMITS for use by tools
 export { LIMITS };
@@ -157,12 +157,13 @@ export class PermissionManager {
       const retryAfterSec = Math.ceil((oldestInWindow + 60_000 - now) / 1000);
       return {
         allowed: false,
-        error: `Download rate limit exceeded (${this.downloadRateLimit}/min). Try again in ${retryAfterSec}s.`
+        error: `Download rate limit exceeded (${this.downloadRateLimit}/min). Try again in ${retryAfterSec}s.`,
+        retryAfterSec
       };
     }
 
     this._downloadTimestamps.push(now);
-    return { allowed: true, error: null };
+    return { allowed: true, error: null, retryAfterSec: 0 };
   }
 
   /**

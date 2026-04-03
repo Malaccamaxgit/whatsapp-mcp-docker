@@ -317,7 +317,7 @@ export class WhatsAppClient {
     this.client = createClient({
       store: `${this.storePath}/session.db`,
       binaryPath: resolveMuslBinary()
-    }) as WhatsmeowClient;
+    }) as unknown as WhatsmeowClient;
 
     this._registerEvents();
 
@@ -384,7 +384,7 @@ export class WhatsAppClient {
     this.client = createClient({
       store: `${this.storePath}/session.db`,
       binaryPath: resolveMuslBinary()
-    }) as WhatsmeowClient;
+    }) as unknown as WhatsmeowClient;
     this._registerEvents();
     const { jid } = await this.client.init();
     this._sessionExists = !!jid;

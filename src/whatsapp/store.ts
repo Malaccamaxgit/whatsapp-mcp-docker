@@ -52,7 +52,7 @@ type ApprovalRow = {
 };
 
 export class MessageStore {
-  db: Database;
+  db: Database.Database;
   private dbPath: string;
   private _purgeTimer: NodeJS.Timeout | null = null;
 
@@ -195,21 +195,22 @@ export class MessageStore {
 
   // ── Decrypt helpers ─────────────────────────────────────────
 
-  private _decryptRow<T extends Record<string, unknown>>(row: T | null): T | null {
-    if (!row) return row;
-    if (row.body) row.body = decrypt(row.body as string);
-    if (row.sender_name) row.sender_name = decrypt(row.sender_name as string);
-    if (row.media_raw_json) row.media_raw_json = decrypt(row.media_raw_json as string);
-    if (row.last_message_preview) row.last_message_preview = decrypt(row.last_message_preview as string);
-    if (row.action) row.action = decrypt(row.action as string);
-    if (row.details) row.details = decrypt(row.details as string);
-    if (row.response_text) row.response_text = decrypt(row.response_text as string);
-    return row;
+  private _decryptRow<T extends Record<string, unknown>>(row: unknown): T | null {
+    if (!row || typeof row !== 'object') return null;
+    const r = row as Record<string, unknown>;
+    if (r['body']) r['body'] = decrypt(r['body'] as string);
+    if (r['sender_name']) r['sender_name'] = decrypt(r['sender_name'] as string);
+    if (r['media_raw_json']) r['media_raw_json'] = decrypt(r['media_raw_json'] as string);
+    if (r['last_message_preview']) r['last_message_preview'] = decrypt(r['last_message_preview'] as string);
+    if (r['action']) r['action'] = decrypt(r['action'] as string);
+    if (r['details']) r['details'] = decrypt(r['details'] as string);
+    if (r['response_text']) r['response_text'] = decrypt(r['response_text'] as string);
+    return r as T;
   }
 
-  private _decryptRows<T extends Record<string, unknown>>(rows: T[]): T[] {
+  private _decryptRows<T extends Record<string, unknown>>(rows: unknown[]): T[] {
     for (const row of rows) this._decryptRow(row);
-    return rows;
+    return rows as T[];
   }
 
   /**
@@ -257,7 +258,7 @@ export class MessageStore {
   }
 
   public getAllChatsForMatching(): { jid: string; name: string | null }[] {
-    return this.db.prepare('SELECT jid, name FROM chats ORDER BY last_message_at DESC').all();
+    return this.db.prepare('SELECT jid, name FROM chats ORDER BY last_message_at DESC').all() as { jid: string; name: string | null }[];
   }
 
   public incrementUnread(chatJid: string): void {
@@ -324,9 +325,9 @@ export class MessageStore {
     }
   }
 
-  public listMessages({ chatJid, limit = 50, offset = 0, before, after }: { chatJid: string; limit?: number; offset?: number; before?: number; after?: number } = {}): MessageRow[] {
+  public listMessages({ chatJid, limit = 50, offset = 0, before, after }: { chatJid: string; limit?: number; offset?: number; before?: number; after?: number }): MessageRow[] {
     let sql = 'SELECT * FROM messages WHERE chat_jid = ?';
-    const params = [chatJid];
+    const params: (string | number)[] = [chatJid];
 
     if (before) {
       sql += ' AND timestamp < ?';
@@ -360,21 +361,21 @@ export class MessageStore {
           'SELECT * FROM messages WHERE chat_jid = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT ?'
         )
         .all(target.chat_jid, target.timestamp, contextBefore)
-        .reverse() as MessageRow[]
-    );
+        .reverse()
+    ) as MessageRow[];
 
     const after = this._decryptRows(
       this.db
         .prepare(
           'SELECT * FROM messages WHERE chat_jid = ? AND timestamp > ? ORDER BY timestamp ASC LIMIT ?'
         )
-        .all(target.chat_jid, target.timestamp, contextAfter) as MessageRow[]
-    );
+        .all(target.chat_jid, target.timestamp, contextAfter)
+    ) as MessageRow[];
 
     return { before, message: target, after };
   }
 
-  public searchMessages({ query, chatJid, limit = 20, offset = 0 }: { query: string; chatJid?: string; limit?: number; offset?: number } = {}): MessageRow[] {
+  public searchMessages({ query, chatJid, limit = 20, offset = 0 }: { query: string; chatJid?: string; limit?: number; offset?: number }): MessageRow[] {
     let sql = `
       SELECT m.* FROM messages_fts fts
       JOIN messages m ON m.rowid = fts.rowid
@@ -519,9 +520,9 @@ export class MessageStore {
   public exportChatData(jid: string, format: 'json' | 'csv' = 'json'): {
     format: string;
     jid: string;
-    chatName: string | null;
-    exportedAt: string;
-    messageCount: number;
+    chatName?: string | null;
+    exportedAt?: string;
+    messageCount?: number;
     data?: string;
     messages?: {
       id: string;
@@ -664,15 +665,15 @@ export class MessageStore {
     pendingApprovals: number;
     lastSync: number | null;
   } {
-    const chatCount = this.db.prepare('SELECT COUNT(*) as count FROM chats').get().count as number;
-    const messageCount = this.db.prepare('SELECT COUNT(*) as count FROM messages').get().count as number;
-    const unreadCount = this.db
+    const chatCount = (this.db.prepare('SELECT COUNT(*) as count FROM chats').get() as { count: number }).count;
+    const messageCount = (this.db.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number }).count;
+    const unreadCount = (this.db
       .prepare('SELECT COUNT(*) as count FROM messages WHERE is_read = 0')
-      .get().count as number;
-    const pendingApprovals = this.db
+      .get() as { count: number }).count;
+    const pendingApprovals = (this.db
       .prepare("SELECT COUNT(*) as count FROM approvals WHERE status = 'pending'")
-      .get().count as number;
-    const lastSync = this.db.prepare('SELECT MAX(timestamp) as ts FROM messages').get().ts as number | null;
+      .get() as { count: number }).count;
+    const lastSync = (this.db.prepare('SELECT MAX(timestamp) as ts FROM messages').get() as { ts: number | null }).ts;
 
     return { chatCount, messageCount, unreadCount, pendingApprovals, lastSync };
   }
@@ -699,8 +700,8 @@ export class MessageStore {
       LIMIT 20
     `
         )
-        .all(sinceTimestamp, sinceTimestamp) as (ChatRow & { recent_messages: number })[]
-    );
+        .all(sinceTimestamp, sinceTimestamp)
+    ) as (ChatRow & { recent_messages: number })[];
 
     const recentUnread = this._decryptRows(
       this.db
@@ -714,8 +715,8 @@ export class MessageStore {
       LIMIT 50
     `
         )
-        .all(sinceTimestamp) as (MessageRow & { chat_name: string | null })[]
-    );
+        .all(sinceTimestamp)
+    ) as (MessageRow & { chat_name: string | null })[];
 
     const questions = recentUnread.filter((m) => m.body && m.body.includes('?'));
 

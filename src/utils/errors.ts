@@ -86,7 +86,7 @@ interface ErrorClassification {
  * @returns ErrorClassification object with type, code, and retry flag
  */
 export function classifyError(err: Error | string): ErrorClassification {
-  const message = (err?.message || err?.toString() || '').toLowerCase();
+  const message = (err instanceof Error ? err.message : String(err || '')).toLowerCase();
 
   // Check for transient errors (auto-retry)
   if (TRANSIENT_PATTERNS.some((p) => message.includes(p))) {
@@ -115,7 +115,7 @@ export function classifyError(err: Error | string): ErrorClassification {
 export function getErrorCode(err: Error | string): number {
   if (!err) return 500;
 
-  const message = (err?.message || err?.toString() || '').toLowerCase();
+  const message = (err instanceof Error ? err.message : String(err || '')).toLowerCase();
 
   // Check for specific patterns
   if (message.includes('authentication') || message.includes('authorized') || message.includes('banned')) {
@@ -162,7 +162,7 @@ export function createErrorResponse(
   error: Error | string,
   context: ErrorContext = {}
 ): ErrorResponse {
-  const message = error?.message || error?.toString() || 'Unknown error';
+  const message = error instanceof Error ? error.message : String(error || 'Unknown error');
   const classification = classifyError(error);
 
   const response: ErrorResponse = {

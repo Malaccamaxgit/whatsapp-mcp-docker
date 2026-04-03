@@ -139,7 +139,7 @@ export function checkExtension(filePath: string): CheckExtensionResult {
  * Returns { valid, detectedLabel, warning }.
  */
 export async function verifyMagicBytes(filePath: string, declaredType: string): Promise<VerifyMagicBytesResult> {
-  let fh: import('node:fs').FileHandle | undefined;
+  let fh: import('node:fs/promises').FileHandle | undefined;
   try {
     fh = await open(filePath, 'r');
     const buf = Buffer.alloc(16);
