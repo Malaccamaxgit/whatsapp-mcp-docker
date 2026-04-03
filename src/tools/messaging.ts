@@ -5,27 +5,87 @@
  */
 
 import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { resolveRecipient } from '../utils/fuzzy-match.js';
 import { toJid } from '../utils/phone.js';
 import { LIMITS } from '../security/permissions.js';
+import type { PermissionManager } from '../security/permissions.js';
+import type { MessageStore } from '../whatsapp/store.js';
+import type { WhatsAppClient } from '../whatsapp/client.js';
+import type { AuditLogger } from '../security/audit.js';
 
-export function registerMessagingTools(server, waClient, store, permissions, audit) {
+interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+interface McpResult {
+  content: TextContent[];
+  isError?: boolean;
+}
+
+interface MessageWithContext {
+  id: string;
+  chat_jid: string;
+  sender_jid: string | null;
+  sender_name: string | null;
+  body: string | null;
+  timestamp: number;
+  is_from_me: number;
+  has_media: number;
+  media_type: string | null;
+}
+
+interface MessageContext {
+  before: MessageRow[];
+  message: MessageRow | null;
+  after: MessageRow[];
+}
+
+interface MessageRow {
+  id: string;
+  chat_jid: string;
+  sender_jid: string | null;
+  sender_name: string | null;
+  body: string | null;
+  timestamp: number;
+  is_from_me: number;
+  has_media: number;
+  media_type: string | null;
+}
+
+interface ChatInfo {
+  jid: string;
+  name: string | null;
+  is_group: number;
+}
+
+export function registerMessagingTools(
+  server: McpServer,
+  waClient: WhatsAppClient,
+  store: MessageStore,
+  permissions: PermissionManager,
+  audit: AuditLogger
+): void {
   // ── send_message ─────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'send_message',
-    "Send a WhatsApp message. Supports fuzzy matching on contact or group names — you don't need the exact name or phone number. If multiple matches are found, returns candidates for disambiguation.",
     {
-      to: z
-        .string()
-        .max(200)
-        .describe('Recipient: contact name, group name, phone number (e.g. +1234567890), or JID'),
-      message: z
-        .string()
-        .max(LIMITS.MAX_MESSAGE_LENGTH)
-        .describe(`The message text to send (max ${LIMITS.MAX_MESSAGE_LENGTH} chars)`)
+      description: "Send a WhatsApp message. Supports fuzzy matching on contact or group names — you don't need the exact name or phone number. If multiple matches are found, returns candidates for disambiguation.",
+      inputSchema: {
+        to: z
+          .string()
+          .max(200)
+          .describe('Recipient: contact name, group name, phone number (e.g. +1234567890), or JID'),
+        message: z
+          .string()
+          .max(LIMITS.MAX_MESSAGE_LENGTH)
+          .describe(`The message text to send (max ${LIMITS.MAX_MESSAGE_LENGTH} chars)`)
+      }
     },
-    async ({ to, message }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (async ({ to, message }: { to: string; message: string }) => {
       const toolCheck = permissions.isToolEnabled('send_message');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -78,7 +138,7 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
         const result = await waClient.sendMessage(jid, message);
         audit.log('send_message', 'sent', { to: jid, messageId: result.id });
 
-        const chatName = store.getChatByJid(jid)?.name || to;
+        const chatName = (store.getChatByJid(jid) as ChatInfo | null)?.name || to;
         return {
           content: [
             {
@@ -88,54 +148,57 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
           ]
         };
       } catch (error) {
-        audit.log('send_message', 'failed', { to: jid, error: error.message }, false);
+        const errorMsg = error instanceof Error ? error.message : String(error || '');
+        audit.log('send_message', 'failed', { to: jid, error: errorMsg }, false);
         return {
-          content: [{ type: 'text', text: `Failed to send message: ${error.message}` }],
+          content: [{ type: 'text', text: `Failed to send message: ${errorMsg}` }],
           isError: true
         };
       }
-    },
-    { annotations: { openWorldHint: true, readOnlyHint: false } }
+    }) as any
   );
 
   // ── list_messages ────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'list_messages',
-    'Get messages from a specific WhatsApp chat. Supports date range filtering. Returns messages in chronological order with sender info. Use fuzzy name matching to find the chat.',
     {
-      chat: z
-        .string()
-        .max(200)
-        .describe('Chat to read: contact name, group name, phone number, or JID'),
-      limit: z
-        .number()
-        .default(50)
-        .describe('Maximum messages to return (default 50, max 200)')
-        .optional(),
-      page: z.number().default(0).describe('Page number for pagination (default 0)').optional(),
-      before: z
-        .string()
-        .describe('Only messages before this date/time (ISO 8601 or natural like "2026-03-28")')
-        .optional(),
-      after: z
-        .string()
-        .describe('Only messages after this date/time (ISO 8601 or natural like "2026-03-01")')
-        .optional(),
-      include_context: z
-        .boolean()
-        .default(false)
-        .describe('Include surrounding messages for each result for conversational context')
-        .optional(),
-      context_messages: z
-        .number()
-        .default(2)
-        .describe(
-          'Number of messages to include before and after each result when include_context is true'
-        )
-        .optional()
+      description: 'Get messages from a specific WhatsApp chat. Supports date range filtering. Returns messages in chronological order with sender info. Use fuzzy name matching to find the chat.',
+      inputSchema: {
+        chat: z
+          .string()
+          .max(200)
+          .describe('Chat to read: contact name, group name, phone number, or JID'),
+        limit: z
+          .number()
+          .default(50)
+          .describe('Maximum messages to return (default 50, max 200)')
+          .optional(),
+        page: z.number().default(0).describe('Page number for pagination (default 0)').optional(),
+        before: z
+          .string()
+          .describe('Only messages before this date/time (ISO 8601 or natural like "2026-03-28")')
+          .optional(),
+        after: z
+          .string()
+          .describe('Only messages after this date/time (ISO 8601 or natural like "2026-03-01")')
+          .optional(),
+        include_context: z
+          .boolean()
+          .default(false)
+          .describe('Include surrounding messages for each result for conversational context')
+          .optional(),
+        context_messages: z
+          .number()
+          .default(2)
+          .describe(
+            'Number of messages to include before and after each result when include_context is true'
+          )
+          .optional()
+      }
     },
-    async ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (async ({
       chat,
       limit = 50,
       page = 0,
@@ -143,6 +206,14 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
       after,
       include_context = false,
       context_messages = 2
+    }: {
+      chat: string;
+      limit?: number;
+      page?: number;
+      before?: string;
+      after?: string;
+      include_context?: boolean;
+      context_messages?: number;
     }) => {
       const toolCheck = permissions.isToolEnabled('list_messages');
       if (!toolCheck.allowed) {
@@ -183,9 +254,9 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
       }
 
       const chatInfo = store.getChatByJid(resolved);
-      const chatName = chatInfo?.name || resolved;
+      const chatName = (chatInfo as ChatInfo | null)?.name || resolved;
 
-      const formatMsg = (m, prefix = '') => {
+      const formatMsg = (m: MessageRow, prefix = '') => {
         const dir = m.is_from_me
           ? 'You'
           : m.sender_name || m.sender_jid?.split('@')[0] || 'Unknown';
@@ -198,14 +269,14 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
         return `${prefix}[${time}] ${dir}: ${body}`;
       };
 
-      let output;
+      let output: string;
       if (include_context) {
-        const contextLines = [];
+        const contextLines: string[] = [];
         for (const m of messages) {
-          const ctx = store.getMessageContext(m.id, context_messages, context_messages);
+          const ctx = store.getMessageContext(m.id, context_messages, context_messages) as MessageContext | null;
           if (ctx) {
             for (const b of ctx.before) contextLines.push(formatMsg(b, '  '));
-            contextLines.push(formatMsg(ctx.message, '→ '));
+            contextLines.push(formatMsg(ctx.message as MessageRow, '→ '));
             for (const a of ctx.after) contextLines.push(formatMsg(a, '  '));
             contextLines.push('');
           } else {
@@ -233,40 +304,54 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
           }
         ]
       };
-    },
-    { annotations: { readOnlyHint: true } }
+    }) as any
   );
 
   // ── search_messages ──────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'search_messages',
-    'Full-text search across all WhatsApp messages using SQLite FTS5. Supports keywords, phrases, and boolean operators (AND, OR, NOT). Optionally scope the search to a specific chat.',
     {
-      query: z
-        .string()
-        .max(LIMITS.MAX_SEARCH_QUERY_LENGTH)
-        .describe('Search query — keywords, "exact phrase", or boolean (word1 AND word2)'),
-      chat: z
-        .string()
-        .max(200)
-        .describe('Optional: scope search to a specific chat (name, number, or JID)')
-        .optional(),
-      limit: z.number().default(20).describe('Maximum results to return (default 20)').optional(),
-      page: z.number().default(0).describe('Page number for pagination (default 0)').optional(),
-      include_context: z
-        .boolean()
-        .default(false)
-        .describe('Include surrounding messages for conversational context')
-        .optional()
+      description: 'Full-text search across all WhatsApp messages using SQLite FTS5. Supports keywords, phrases, and boolean operators (AND, OR, NOT). Optionally scope the search to a specific chat.',
+      inputSchema: {
+        query: z
+          .string()
+          .max(LIMITS.MAX_SEARCH_QUERY_LENGTH)
+          .describe('Search query — keywords, "exact phrase", or boolean (word1 AND word2)'),
+        chat: z
+          .string()
+          .max(200)
+          .describe('Optional: scope search to a specific chat (name, number, or JID)')
+          .optional(),
+        limit: z.number().default(20).describe('Maximum results to return (default 20)').optional(),
+        page: z.number().default(0).describe('Page number for pagination (default 0)').optional(),
+        include_context: z
+          .boolean()
+          .default(false)
+          .describe('Include surrounding messages for conversational context')
+          .optional()
+      }
     },
-    async ({ query, chat, limit = 20, page = 0, include_context = false }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (async ({
+      query,
+      chat,
+      limit = 20,
+      page = 0,
+      include_context = false
+    }: {
+      query: string;
+      chat?: string;
+      limit?: number;
+      page?: number;
+      include_context?: boolean;
+    }) => {
       const toolCheck = permissions.isToolEnabled('search_messages');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
       }
 
-      let chatJid = null;
+      let chatJid: string | null = null;
       if (chat) {
         const chats = store.getAllChatsForMatching();
         const result = resolveRecipient(chat, chats);
@@ -278,7 +363,7 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
 
       const messages = store.searchMessages({
         query,
-        chatJid,
+        chatJid: chatJid || undefined,
         limit: safeLimit,
         offset
       });
@@ -294,13 +379,13 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
         };
       }
 
-      let lines;
+      let lines: string[];
       if (include_context) {
         lines = [];
         for (const m of messages) {
-          const ctx = store.getMessageContext(m.id, 1, 1);
+          const ctx = store.getMessageContext(m.id, 1, 1) as MessageContext | null;
           const chatInfo = store.getChatByJid(m.chat_jid);
-          const chatName = chatInfo?.name || m.chat_jid;
+          const chatName = (chatInfo as ChatInfo | null)?.name || m.chat_jid;
           if (ctx) {
             for (const b of ctx.before) {
               const s = b.is_from_me ? 'You' : b.sender_name || b.sender_jid?.split('@')[0] || '?';
@@ -321,7 +406,7 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
       } else {
         lines = messages.map((m) => {
           const chatInfo = store.getChatByJid(m.chat_jid);
-          const chatName = chatInfo?.name || m.chat_jid;
+          const chatName = (chatInfo as ChatInfo | null)?.name || m.chat_jid;
           const sender = m.is_from_me ? 'You' : m.sender_name || m.sender_jid?.split('@')[0] || '?';
           const time = new Date(m.timestamp * 1000).toLocaleString();
           return `[${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150)}`;
@@ -344,7 +429,6 @@ export function registerMessagingTools(server, waClient, store, permissions, aud
           }
         ]
       };
-    },
-    { annotations: { readOnlyHint: true } }
+    }) as any
   );
 }
