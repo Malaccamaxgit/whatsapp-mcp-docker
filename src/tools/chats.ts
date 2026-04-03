@@ -7,8 +7,28 @@
 import { z } from 'zod';
 import { resolveRecipient } from '../utils/fuzzy-match.js';
 import { LIMITS } from '../security/permissions.js';
+import type { MessageStore } from '../whatsapp/store.js';
+import { WhatsAppClient } from '../whatsapp/client.js';
+import type { AuditLogger } from '../security/audit.js';
+import { PermissionManager } from '../security/permissions.js';
 
-export function registerChatTools(server, waClient, store, permissions, audit) {
+interface ChatToolDependencies {
+  server: {
+    tool: (name: string, description: string, schema: Record<string, unknown>, handler: (...args: unknown[]) => unknown, options?: { annotations?: Record<string, unknown> }) => void;
+  };
+  waClient: WhatsAppClient;
+  store: MessageStore;
+  permissions: PermissionManager;
+  audit: AuditLogger;
+}
+
+export function registerChatTools(
+  server: ChatToolDependencies['server'],
+  waClient: WhatsAppClient,
+  store: MessageStore,
+  permissions: PermissionManager,
+  audit: AuditLogger
+): void {
   // ── list_chats ───────────────────────────────────────────────
 
   server.tool(
@@ -99,7 +119,7 @@ export function registerChatTools(server, waClient, store, permissions, audit) {
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const sinceMap = {
+      const sinceMap: Record<string, number> = {
         '1h': now - 3600,
         '4h': now - 14400,
         today: now - (now % 86400),
@@ -109,7 +129,7 @@ export function registerChatTools(server, waClient, store, permissions, audit) {
       const sinceTs = sinceMap[since] || sinceMap['today'];
 
       const data = store.getCatchUpData(sinceTs);
-      const sections = [];
+      const sections: string[] = [];
 
       // Active chats
       if (data.activeChats.length > 0) {
@@ -130,7 +150,7 @@ export function registerChatTools(server, waClient, store, permissions, audit) {
           const sender = m.sender_name || m.sender_jid?.split('@')[0] || '?';
           const chatName = m.chat_name || m.chat_jid;
           const time = new Date(m.timestamp * 1000).toLocaleTimeString();
-          return `  - [${chatName}] ${sender} (${time}): ${m.body.substring(0, 120)}`;
+          return `  - [${chatName}] ${sender} (${time}): ${m.body?.substring(0, 120) || ''}`;
         });
         sections.push(
           `Questions Awaiting Response (${data.questions.length}):\n${qLines.join('\n')}`
@@ -287,7 +307,7 @@ export function registerChatTools(server, waClient, store, permissions, audit) {
         };
       }
 
-      let chatJid = null;
+      let chatJid: string | null = null;
       if (chat) {
         const chats = store.getAllChatsForMatching();
         const result = resolveRecipient(chat, chats);
@@ -307,7 +327,7 @@ export function registerChatTools(server, waClient, store, permissions, audit) {
         }
       }
 
-      const count = await waClient.markMessagesRead({ chatJid, messageIds: message_ids });
+      const count = await waClient.markMessagesRead({ chatJid, messageIds: message_ids ?? [], senderJid: null });
       audit.log('mark_messages_read', 'marked', { chat: chatJid, count });
 
       return {
@@ -345,7 +365,7 @@ export function registerChatTools(server, waClient, store, permissions, audit) {
       }
 
       try {
-        const exportData = store.exportChatData(jid, format);
+        const exportData = store.exportChatData(jid, format as 'json' | 'csv');
 
         if (exportData.error) {
           return {
@@ -361,13 +381,13 @@ export function registerChatTools(server, waClient, store, permissions, audit) {
         });
 
         const chatInfo = `${exportData.chatName || jid} (${exportData.messageCount} messages)`;
-        
+
         if (format === 'csv') {
           return {
             content: [
               {
                 type: 'text',
-                text: `Chat data exported to CSV format:\n\nChat: ${chatInfo}\nExported: ${exportData.exportedAt}\n\nPreview (first 500 chars):\n${exportData.data.substring(0, 500)}...`
+                text: `Chat data exported to CSV format:\n\nChat: ${chatInfo}\nExported: ${exportData.exportedAt}\n\nPreview (first 500 chars):\n${exportData.data?.substring(0, 500) || ''}...`
               }
             ]
           };
@@ -383,9 +403,9 @@ export function registerChatTools(server, waClient, store, permissions, audit) {
           ]
         };
       } catch (error) {
-        audit.log('export_chat_data', 'failed', { jid, format, error: error.message }, false);
+        audit.log('export_chat_data', 'failed', { jid, format, error: (error as Error).message }, false);
         return {
-          content: [{ type: 'text', text: `Export failed: ${error.message}` }],
+          content: [{ type: 'text', text: `Export failed: ${(error as Error).message}` }],
           isError: true
         };
       }
