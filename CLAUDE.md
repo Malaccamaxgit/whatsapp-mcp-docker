@@ -42,8 +42,15 @@ If the test suite fails after a conversion:
 
 ## Verification Gate (run at every stage boundary)
 
-1. `tsc --noEmit` in Docker — must pass
-2. Full test suite via `tsx --test` in Docker — must pass
+1. Rebuild with `--no-cache` — must pass:
+   ```
+   docker compose build --no-cache tester-container
+   ```
+   **Why `--no-cache`**: the builder stage runs `RUN npx tsc` with real `node_modules`. A cached image may hide new type errors introduced by the latest conversion. Always rebuild from scratch at stage boundaries.
+2. Full test suite — must pass:
+   ```
+   docker compose run --rm tester-container npm run test:all
+   ```
 3. Commit with stage-summary message
 4. Output status: files converted, tests passing/failing, deferred issues
 
@@ -56,6 +63,52 @@ ESM imports use `.js` extensions. TypeScript `NodeNext` module resolution auto-r
 - **Test command**: `docker compose run --rm tester-container npm run test:all`
 - **Lint command**: `docker compose run --rm tester-container npm run lint`
 - **Type patterns**: Use `z.infer<typeof schema>` for Zod types; MCP SDK and whatsmeow-node ship `.d.ts` files
+
+## Known Type Pitfalls (discovered during migration)
+
+These patterns appeared during Steps 1-3 and are likely to recur in Steps 4-6:
+
+**`better-sqlite3` — `.get()` returns `unknown`, can't chain property access**
+```typescript
+// ❌ fails: Property 'count' does not exist on type 'unknown'
+const n = db.prepare('SELECT COUNT(*) as count FROM t').get().count;
+// ✓ fix: cast the get() result
+const n = (db.prepare('SELECT COUNT(*) as count FROM t').get() as { count: number }).count;
+```
+
+**Generic functions with `unknown[]` parameter — cast the RESULT, not the argument**
+```typescript
+// ❌ fails: TypeScript can't infer T from unknown[] param; local variable stays Record<string,unknown>[]
+const rows = this._decryptRows(stmt.all() as MessageRow[]);   // cast inside → ignored
+// ✓ fix: cast the return value
+const rows = this._decryptRows(stmt.all()) as MessageRow[];   // cast outside → works
+// Note: return-statement context (e.g. `return this._decryptRows(...)`) DOES propagate T correctly.
+// The issue only bites local `const` variables used downstream.
+```
+
+**`err?.message` on `Error | string` union**
+```typescript
+// ❌ fails: Property 'message' does not exist on type 'string'
+const msg = err?.message || String(err);
+// ✓ fix:
+const msg = err instanceof Error ? err.message : String(err || '');
+```
+
+**Conflicting package type — use double cast**
+```typescript
+// ❌ fails: neither type is sufficiently related to the other
+const client = createClient(opts) as WhatsmeowClient;
+// ✓ fix:
+const client = createClient(opts) as unknown as WhatsmeowClient;
+```
+
+**`FileHandle` — import from the right module**
+```typescript
+// ❌ fails: Namespace '"node:fs"' has no exported member 'FileHandle'
+let fh: import('node:fs').FileHandle;
+// ✓ fix:
+let fh: import('node:fs/promises').FileHandle;
+```
 
 ## Operator Guide — Copy-Paste Prompts
 
