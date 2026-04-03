@@ -52,7 +52,7 @@ type ApprovalRow = {
 };
 
 export class MessageStore {
-  private db: Database;
+  db: Database;
   private dbPath: string;
   private _purgeTimer: NodeJS.Timeout | null = null;
 

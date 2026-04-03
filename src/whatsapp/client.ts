@@ -23,12 +23,180 @@ import { assertPathWithin, sanitizeFilename, checkExtension } from '../security/
 import { decrypt } from '../security/crypto.js';
 import { classifyError } from '../utils/errors.js';
 import { PERMANENT_LOGOUT_REASONS, APPROVAL_KEYWORDS } from '../constants.js';
+import type { MessageStore } from './store.js';
+
+// ── Type declarations for @whatsmeow-node/whatsmeow-node (no bundled .d.ts) ──
+
+export interface WhatsmeowClient {
+  init(): Promise<{ jid: string | null }>;
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  close(): Promise<void>;
+  on(event: 'connected', cb: (data: { jid: string }) => void): void;
+  on(event: 'logged_out', cb: (data: { reason: string }) => void): void;
+  on(event: 'qr', cb: (data: { code: string }) => void): void;
+  on(event: 'message', cb: (evt: WaMessageEvent) => void): void;
+  on(event: 'history_sync', cb: (evt: HistorySyncEvent) => void): void;
+  on(event: string, cb: (data: unknown) => void): void;
+  isConnected?(): boolean;
+  isLoggedIn?(): boolean;
+  getQRChannel(): Promise<void>;
+  pairCode(digits: string): Promise<string>;
+  sendPresence(mode: string): Promise<void>;
+  setForceActiveDeliveryReceipts(enabled: boolean): Promise<void>;
+  markRead(ids: string[], chatJid: string, senderJid: string | null | undefined): Promise<void>;
+  sendMessage(jid: string, message: { conversation: string }): Promise<SendResult>;
+  sendRawMessage(jid: string, message: object): Promise<SendResult>;
+  getChats(): Promise<unknown[]>;
+  getGroupInfo(jid: string): Promise<{ subject?: string; name?: string } | null>;
+  getContact(jid: string): Promise<{ fullName?: string; pushName?: string } | null>;
+  createGroup(name: string, participants: string[]): Promise<{ jid: string }>;
+  getJoinedGroups(): Promise<unknown[]>;
+  getGroupInviteLink(jid: string): Promise<string>;
+  joinGroupWithLink(code: string): Promise<unknown>;
+  leaveGroup(jid: string): Promise<void>;
+  updateGroupParticipants(jid: string, participants: string[], action: string): Promise<unknown>;
+  setGroupName(jid: string, name: string): Promise<void>;
+  setGroupTopic(jid: string, topic: string): Promise<void>;
+  sendReaction(jid: string, messageId: string, emoji: string): Promise<unknown>;
+  editMessage(jid: string, messageId: string, message: { conversation: string }): Promise<unknown>;
+  revokeMessage(jid: string, messageId: string): Promise<unknown>;
+  sendPollCreation(jid: string, question: string, options: string[], maxSelections: number): Promise<SendResult>;
+  getUserInfo(jids: string[]): Promise<unknown>;
+  isOnWhatsApp(phones: string[]): Promise<unknown>;
+  getProfilePicture(jid: string): Promise<unknown>;
+  uploadMedia(filePath: string, mediaType: string): Promise<object>;
+  downloadAny(message: object): Promise<string>;
+}
+
+interface SendResult {
+  id?: string;
+  key?: { id?: string };
+  timestamp?: number;
+}
+
+interface WaMessageEvent {
+  info?: {
+    id?: string;
+    chat?: string;
+    sender?: string;
+    pushName?: string;
+    timestamp?: number;
+    isFromMe?: boolean;
+  };
+  id?: string;
+  key?: { id?: string; remoteJID?: string; participant?: string; fromMe?: boolean };
+  from?: string;
+  chatJID?: string;
+  senderJID?: string;
+  pushName?: string;
+  senderName?: string;
+  text?: string;
+  body?: string;
+  message?: {
+    conversation?: string;
+    extendedTextMessage?: { text?: string };
+    imageMessage?: { mimetype?: string };
+    videoMessage?: { mimetype?: string };
+    audioMessage?: { mimetype?: string };
+    documentMessage?: { mimetype?: string; fileName?: string; title?: string };
+    stickerMessage?: { mimetype?: string };
+  };
+  timestamp?: number;
+  isFromMe?: boolean;
+  mediaType?: string;
+  hasMedia?: boolean;
+  chatName?: string;
+}
+
+interface HistorySyncConversation {
+  id?: string;
+  displayName?: string;
+  name?: string;
+  messages?: WaMessageEvent[];
+}
+
+interface HistorySyncEvent {
+  conversations?: HistorySyncConversation[];
+  messages?: WaMessageEvent[];
+}
+
+export interface StoredMessage {
+  id: string;
+  chatJid: string | null;
+  senderJid: string | null;
+  senderName: string | null;
+  body: string;
+  timestamp: number;
+  isFromMe: boolean;
+  hasMedia: boolean;
+  mediaType: string | null;
+}
+
+interface MediaInfo {
+  type: string;
+  mimetype: string | undefined;
+  filename: string | null;
+}
+
+interface MediaDbRow {
+  media_raw_json: string | null;
+  media_type: string | null;
+  chat_jid: string;
+}
+
+export interface WaitReadyResult {
+  connected: boolean;
+  jid?: string;
+}
+
+interface MessageWaiter {
+  filter: ((msg: StoredMessage) => boolean) | null;
+  resolve: (msg: StoredMessage | null) => void;
+}
+
+interface RecentError {
+  time: number;
+  message: string;
+}
+
+export interface HealthStats {
+  uptime: number;
+  recentErrorCount: number;
+  reconnecting: boolean;
+  logoutReason: string | null;
+}
+
+interface ClientConfig {
+  STORE_PATH?: string;
+  SEND_READ_RECEIPTS?: string | boolean;
+  AUTO_READ_RECEIPTS?: string | boolean;
+  PRESENCE_MODE?: string;
+}
+
+export interface WhatsAppClientOptions {
+  storePath?: string;
+  messageStore: MessageStore;
+  onMessage?: (msg: StoredMessage) => void;
+  onConnected?: () => void;
+  onDisconnected?: (info: { reason: string | null; permanent: boolean }) => void;
+  client?: WhatsmeowClient | null;
+  config?: ClientConfig;
+  logger?: { error: (...args: unknown[]) => void };
+}
+
+type PairingCodeResult =
+  | { alreadyConnected: true; jid: string }
+  | { alreadyConnected: false; code: string; waitForConnection: Promise<WaitReadyResult> }
+  | { alreadyConnected: false; qrCode: string; qrImageBase64: string };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
  * Match text against approval keywords using word boundaries for text keywords
  * and substring match for emoji, preventing false positives like "nobody" → "no".
  */
-function matchesApprovalKeywords(text, keywords) {
+function matchesApprovalKeywords(text: string, keywords: readonly string[]): boolean {
   return keywords.some((k) => {
     // Emoji characters: use simple substring match (they don't form partial words)
     if (/\p{Emoji_Presentation}|\p{Extended_Pictographic}/u.test(k)) return text.includes(k);
@@ -37,7 +205,7 @@ function matchesApprovalKeywords(text, keywords) {
   });
 }
 
-function resolveMuslBinary() {
+function resolveMuslBinary(): string | undefined {
   try {
     const require = createRequire(import.meta.url);
     return require.resolve('@whatsmeow-node/linux-x64-musl/bin/whatsmeow-node');
@@ -46,17 +214,60 @@ function resolveMuslBinary() {
   }
 }
 
+// ── Class ─────────────────────────────────────────────────────────────────────
+
 export class WhatsAppClient {
-  constructor({ 
-    storePath, 
-    messageStore, 
-    onMessage, 
-    onConnected, 
+  storePath: string;
+  messageStore: MessageStore;
+  onMessage: (msg: StoredMessage) => void;
+  onConnected: () => void;
+  onDisconnected: (info: { reason: string | null; permanent: boolean }) => void;
+  logger: { error: (...args: unknown[]) => void };
+
+  client: WhatsmeowClient | null;
+  jid: string | null;
+  _connected: boolean;
+  _pendingPairResolve: (() => void) | null;
+  _lastQrCode: string | null;
+
+  // Session lifecycle
+  _logoutReason: string | null;
+  _reconnecting: boolean;
+  _connectedAt: number | null;
+
+  // Health monitoring
+  _healthInterval: ReturnType<typeof setInterval> | null;
+  _recentErrors: RecentError[];
+
+  // Auth state tracking
+  _lastQrTimestamp: number | null;
+  _authInProgress: boolean;
+  _qrWaiters: ((code: string) => void)[];
+  _readyWaiters: ((result: WaitReadyResult) => void)[];
+  _connectCalled: boolean;
+  _sessionExists: boolean;
+
+  // Message waiters for wait_for_message tool
+  _messageWaiters: MessageWaiter[];
+
+  // Track message IDs sent by THIS server process
+  _sentMessageIds: Set<string>;
+
+  // Presence & receipts config
+  _sendReadReceipts: string | boolean;
+  _autoReadReceipts: string | boolean;
+  _presenceMode: string;
+
+  constructor({
+    storePath,
+    messageStore,
+    onMessage,
+    onConnected,
     onDisconnected,
     client,           // Optional: inject mock client for testing
     config = {},      // Optional: config object to override process.env
     logger = console  // Optional: inject logger for testing
-  }) {
+  }: WhatsAppClientOptions) {
     this.storePath = storePath || config.STORE_PATH || process.env.STORE_PATH || '/data/store';
     this.messageStore = messageStore;
     this.onMessage = onMessage || (() => {});
@@ -102,11 +313,11 @@ export class WhatsAppClient {
 
   // ── Initialization ──────────────────────────────────────────
 
-  async initialize({ autoConnect = true } = {}) {
+  async initialize({ autoConnect = true } = {}): Promise<void> {
     this.client = createClient({
       store: `${this.storePath}/session.db`,
       binaryPath: resolveMuslBinary()
-    });
+    }) as WhatsmeowClient;
 
     this._registerEvents();
 
@@ -141,39 +352,39 @@ export class WhatsAppClient {
     }
   }
 
-  async _connectWithRetry(maxAttempts = 5) {
+  async _connectWithRetry(maxAttempts = 5): Promise<void> {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        await this.client.connect();
+        await this.client!.connect();
         return;
       } catch (err) {
         // The Go subprocess dies permanently after logout() calls client.close().
         // Recreate the entire client on the first such failure so re-authentication
         // works without requiring a container restart.
-        if (err.message?.includes('Go process exited') && attempt === 1) {
+        if ((err as Error).message?.includes('Go process exited') && attempt === 1) {
           console.error('[WA] Go subprocess dead — reinitializing client for re-authentication...');
           try {
             await this._reinitializeClient();
             continue;
           } catch (reinitErr) {
-            console.error('[WA] Reinitialize failed:', reinitErr.message);
+            console.error('[WA] Reinitialize failed:', (reinitErr as Error).message);
           }
         }
         if (attempt === maxAttempts) throw err;
         const delay = Math.min(2000 * Math.pow(2, attempt - 1), 30000);
         console.error(
-          `[WA] Connect attempt ${attempt}/${maxAttempts} failed (${err.message}), retrying in ${delay}ms...`
+          `[WA] Connect attempt ${attempt}/${maxAttempts} failed (${(err as Error).message}), retrying in ${delay}ms...`
         );
         await new Promise((r) => setTimeout(r, delay));
       }
     }
   }
 
-  async _reinitializeClient() {
+  async _reinitializeClient(): Promise<void> {
     this.client = createClient({
       store: `${this.storePath}/session.db`,
       binaryPath: resolveMuslBinary()
-    });
+    }) as WhatsmeowClient;
     this._registerEvents();
     const { jid } = await this.client.init();
     this._sessionExists = !!jid;
@@ -186,8 +397,8 @@ export class WhatsAppClient {
    * Resolves immediately if already connected; otherwise waits for the
    * connected event or times out.
    */
-  async waitForReady(timeoutMs = 5000) {
-    if (this.isConnected()) return { connected: true, jid: this.jid };
+  async waitForReady(timeoutMs = 5000): Promise<WaitReadyResult> {
+    if (this.isConnected()) return { connected: true, jid: this.jid! };
 
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -196,7 +407,7 @@ export class WhatsAppClient {
         resolve({ connected: false });
       }, timeoutMs);
 
-      const wrappedResolve = (result) => {
+      const wrappedResolve = (result: WaitReadyResult) => {
         clearTimeout(timer);
         resolve(result);
       };
@@ -209,7 +420,7 @@ export class WhatsAppClient {
    * is already available, returns it immediately. Otherwise waits up to
    * timeoutMs for the next qr event from the Go bridge.
    */
-  async waitForFreshQR(timeoutMs = 30000) {
+  async waitForFreshQR(timeoutMs = 30000): Promise<string | null> {
     if (this._lastQrCode && this._lastQrTimestamp && Date.now() - this._lastQrTimestamp < 15000) {
       return this._lastQrCode;
     }
@@ -221,7 +432,7 @@ export class WhatsAppClient {
         resolve(null);
       }, timeoutMs);
 
-      const wrappedResolve = (code) => {
+      const wrappedResolve = (code: string) => {
         clearTimeout(timer);
         resolve(code);
       };
@@ -234,8 +445,8 @@ export class WhatsAppClient {
    * If connect() was already called but we are not yet authenticated, waits
    * for the connected event. If connect() was never called, initiates it.
    */
-  async reconnect() {
-    if (this.isConnected()) return { connected: true, jid: this.jid };
+  async reconnect(): Promise<WaitReadyResult> {
+    if (this.isConnected()) return { connected: true, jid: this.jid! };
 
     if (!this._connectCalled) {
       console.error('[WA] Initiating connection for session restore...');
@@ -250,8 +461,8 @@ export class WhatsAppClient {
 
   // ── Event Handling ──────────────────────────────────────────
 
-  _registerEvents() {
-    this.client.on('connected', ({ jid }) => {
+  _registerEvents(): void {
+    this.client!.on('connected', ({ jid }) => {
       this.jid = jid;
       this._connected = true;
       this._logoutReason = null;
@@ -275,7 +486,7 @@ export class WhatsAppClient {
       }
     });
 
-    this.client.on('logged_out', ({ reason }) => {
+    this.client!.on('logged_out', ({ reason }) => {
       console.error('[WA] Logged out:', reason);
       this._connected = false;
       this.jid = null;
@@ -292,7 +503,7 @@ export class WhatsAppClient {
       }
     });
 
-    this.client.on('qr', ({ code }) => {
+    this.client!.on('qr', ({ code }) => {
       this._lastQrCode = code;
       this._lastQrTimestamp = Date.now();
 
@@ -314,17 +525,18 @@ export class WhatsAppClient {
       }
     });
 
-    this.client.on('message', (evt) => {
-      this._handleIncomingMessage(evt);
+    this.client!.on('message', (evt) => {
+      this._handleIncomingMessage(evt as WaMessageEvent);
     });
 
-    this.client.on('history_sync', (evt) => {
+    this.client!.on('history_sync', (evt) => {
+      const hsEvt = evt as HistorySyncEvent;
       let count = 0;
       const recentThreshold = Math.floor(Date.now() / 1000) - 120;
-      const recentIncoming = [];
+      const recentIncoming: StoredMessage[] = [];
 
-      if (evt.conversations) {
-        for (const conv of evt.conversations) {
+      if (hsEvt.conversations) {
+        for (const conv of hsEvt.conversations) {
           if (!conv.id) continue;
           const chatJid = conv.id;
           const name = conv.displayName || conv.name || null;
@@ -346,8 +558,8 @@ export class WhatsAppClient {
         }
       }
 
-      if (evt.messages) {
-        for (const rawMsg of evt.messages) {
+      if (hsEvt.messages) {
+        for (const rawMsg of hsEvt.messages) {
           const msg = this._persistMessage(rawMsg, true);
           count++;
           if (msg && msg.timestamp >= recentThreshold) {
@@ -372,27 +584,27 @@ export class WhatsAppClient {
 
   // ── Session Lifecycle ───────────────────────────────────────
 
-  _isPermanentLogout(reason) {
+  _isPermanentLogout(reason: string): boolean {
     if (!reason) return false;
     const lower = reason.toLowerCase();
     return PERMANENT_LOGOUT_REASONS.some((r) => lower.includes(r));
   }
 
-  async _cleanupSession() {
+  async _cleanupSession(): Promise<void> {
     const sessionPath = `${this.storePath}/session.db`;
     try {
       await unlink(sessionPath);
       console.error('[WA] session.db removed');
     } catch (err) {
-      if (err.code !== 'ENOENT') {
-        console.error('[WA] Failed to remove session.db:', err.message);
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error('[WA] Failed to remove session.db:', (err as Error).message);
       }
     }
     this._sessionExists = false;
     this.jid = null;
   }
 
-  async _attemptReconnect() {
+  async _attemptReconnect(): Promise<void> {
     if (this._reconnecting) return;
     this._reconnecting = true;
 
@@ -401,10 +613,10 @@ export class WhatsAppClient {
     await new Promise((r) => setTimeout(r, delay));
 
     try {
-      await this.client.connect();
+      await this.client!.connect();
       console.error('[WA] Reconnect succeeded');
     } catch (err) {
-      console.error('[WA] Reconnect failed:', err.message);
+      console.error('[WA] Reconnect failed:', (err as Error).message);
       this._reconnecting = false;
       this.onDisconnected({ reason: this._logoutReason || 'reconnect_failed', permanent: false });
     }
@@ -412,24 +624,24 @@ export class WhatsAppClient {
 
   // ── Health Monitoring ───────────────────────────────────────
 
-  _startHealthCheck() {
+  _startHealthCheck(): void {
     this._stopHealthCheck();
     this._healthInterval = setInterval(() => this._heartbeat(), 60_000);
   }
 
-  _stopHealthCheck() {
+  _stopHealthCheck(): void {
     if (this._healthInterval) {
       clearInterval(this._healthInterval);
       this._healthInterval = null;
     }
   }
 
-  async _heartbeat() {
+  async _heartbeat(): Promise<void> {
     if (!this._connected) return;
 
     try {
       const alive = await this._withTimeout(
-        Promise.resolve(this.client.isConnected?.() ?? this.client.isLoggedIn?.() ?? true),
+        Promise.resolve(this.client!.isConnected?.() ?? this.client!.isLoggedIn?.() ?? true),
         10_000,
         'health check'
       );
@@ -441,18 +653,18 @@ export class WhatsAppClient {
         this._attemptReconnect();
       }
     } catch (err) {
-      console.error('[WA] Health check error:', err.message);
-      this._recordError(err);
+      console.error('[WA] Health check error:', (err as Error).message);
+      this._recordError(err as Error);
     }
   }
 
-  _recordError(err) {
+  _recordError(err: Error): void {
     const now = Date.now();
     this._recentErrors.push({ time: now, message: err.message });
     this._recentErrors = this._recentErrors.filter((e) => e.time > now - 300_000);
   }
 
-  getHealthStats() {
+  getHealthStats(): HealthStats {
     const now = Date.now();
     return {
       uptime: this._connectedAt ? Math.floor((now - this._connectedAt) / 1000) : 0,
@@ -464,44 +676,48 @@ export class WhatsAppClient {
 
   // ── Presence & Receipts ─────────────────────────────────────
 
-  async _setupPresence() {
+  async _setupPresence(): Promise<void> {
     try {
-      await this.client.setForceActiveDeliveryReceipts(true);
+      await this.client!.setForceActiveDeliveryReceipts(true);
       console.error('[WA] Delivery receipts enabled');
     } catch (err) {
-      console.error('[WA] Failed to enable delivery receipts:', err.message);
+      console.error('[WA] Failed to enable delivery receipts:', (err as Error).message);
     }
 
     try {
-      await this.client.sendPresence(this._presenceMode);
+      await this.client!.sendPresence(this._presenceMode);
       console.error(`[WA] Presence set to "${this._presenceMode}"`);
     } catch (err) {
       // On a fresh link WhatsApp hasn't propagated the PushName yet — retry once
       // after a short delay rather than logging a confusing permanent error.
-      if (err.message?.toLowerCase().includes('pushname')) {
+      if ((err as Error).message?.toLowerCase().includes('pushname')) {
         console.error('[WA] Presence deferred — PushName not set yet, retrying in 10s...');
         setTimeout(async () => {
           try {
-            await this.client.sendPresence(this._presenceMode);
+            await this.client!.sendPresence(this._presenceMode);
             console.error(`[WA] Presence set to "${this._presenceMode}" (deferred)`);
           } catch (retryErr) {
-            console.error('[WA] Failed to set presence (deferred retry):', retryErr.message);
+            console.error('[WA] Failed to set presence (deferred retry):', (retryErr as Error).message);
           }
         }, 10_000);
       } else {
-        console.error('[WA] Failed to set presence:', err.message);
+        console.error('[WA] Failed to set presence:', (err as Error).message);
       }
     }
   }
 
-  async markMessagesRead({ chatJid, messageIds, senderJid }) {
+  async markMessagesRead({ chatJid, messageIds, senderJid }: {
+    chatJid: string;
+    messageIds: string[] | null | undefined;
+    senderJid: string | null | undefined;
+  }): Promise<unknown> {
     const ids = messageIds || [];
 
     if (ids.length > 0 && this._sendReadReceipts && this.isConnected()) {
       try {
-        await this.client.markRead(ids, chatJid, senderJid);
+        await this.client!.markRead(ids, chatJid, senderJid);
       } catch (err) {
-        console.error('[WA] Failed to send read receipts:', err.message);
+        console.error('[WA] Failed to send read receipts:', (err as Error).message);
       }
     }
 
@@ -510,33 +726,33 @@ export class WhatsAppClient {
 
   // ── Retry & Timeout Helpers ─────────────────────────────────
 
-  async _withTimeout(promise, ms, label) {
-    let timer;
-    const timeout = new Promise((_, reject) => {
+  async _withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
     });
     try {
       return await Promise.race([promise, timeout]);
     } finally {
-      clearTimeout(timer);
+      clearTimeout(timer!);
     }
   }
 
-  async _withRetry(fn, label, maxRetries = 1) {
-    let lastErr;
+  async _withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 1): Promise<T> {
+    let lastErr: Error | undefined;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await fn();
       } catch (err) {
-        lastErr = err;
-        this._recordError(err);
-        const errType = classifyError(err);
+        lastErr = err as Error;
+        this._recordError(lastErr);
+        const errType = classifyError(lastErr);
         if (errType.type !== 'transient' || attempt === maxRetries) {
           throw err;
         }
         const isMediaUpload = label === 'uploadMedia';
         const delay = isMediaUpload ? 4000 * (attempt + 1) : 2000 * (attempt + 1);
-        console.error(`[WA] ${label} failed (${err.message}), retrying in ${delay}ms...`);
+        console.error(`[WA] ${label} failed (${lastErr.message}), retrying in ${delay}ms...`);
         await new Promise((r) => setTimeout(r, delay));
       }
     }
@@ -545,7 +761,7 @@ export class WhatsAppClient {
 
   // ── Message Handling ────────────────────────────────────────
 
-  _trackSentId(id) {
+  _trackSentId(id: string | undefined): void {
     if (!id) return;
     this._sentMessageIds.add(id);
     if (this._sentMessageIds.size > 1000) {
@@ -554,7 +770,7 @@ export class WhatsAppClient {
     }
   }
 
-  _handleIncomingMessage(evt) {
+  _handleIncomingMessage(evt: WaMessageEvent): void {
     const msg = this._persistMessage(evt, false);
     if (!msg) return;
 
@@ -569,7 +785,7 @@ export class WhatsAppClient {
     this._checkApprovalResponse(msg);
 
     if (!msg.isFromMe && this._autoReadReceipts && msg.id && msg.chatJid) {
-      this.client.markRead([msg.id], msg.chatJid, msg.senderJid).catch(() => {});
+      this.client!.markRead([msg.id], msg.chatJid, msg.senderJid).catch(() => {});
     }
 
     this.onMessage(msg);
@@ -581,12 +797,12 @@ export class WhatsAppClient {
    * @param {Function|null} filter - Predicate (msg) => boolean, or null to match any
    * @param {Function} resolve - Called with the matching message object
    */
-  addMessageWaiter(filter, resolve) {
+  addMessageWaiter(filter: ((msg: StoredMessage) => boolean) | null, resolve: (msg: StoredMessage | null) => void): void {
     this._messageWaiters.push({ filter, resolve });
   }
 
-  _notifyMessageWaiters(msg) {
-    const remaining = [];
+  _notifyMessageWaiters(msg: StoredMessage): void {
+    const remaining: MessageWaiter[] = [];
     for (const w of this._messageWaiters) {
       if (!w.filter || w.filter(msg)) {
         w.resolve(msg);
@@ -597,13 +813,13 @@ export class WhatsAppClient {
     this._messageWaiters = remaining;
   }
 
-  _persistMessage(evt, isHistorySync) {
+  _persistMessage(evt: WaMessageEvent, isHistorySync: boolean): StoredMessage | null {
     try {
       const info = evt.info;
       const rawMessage = evt.message || null;
       const mediaInfo = rawMessage ? this._extractMediaInfo(rawMessage) : null;
 
-      const msg = {
+      const msg: StoredMessage = {
         id:
           info?.id ||
           evt.id ||
@@ -663,23 +879,23 @@ export class WhatsAppClient {
 
       return msg;
     } catch (e) {
-      console.error('[WA] Failed to persist message:', e.message);
+      console.error('[WA] Failed to persist message:', (e as Error).message);
       return null;
     }
   }
 
-  async _resolveAndUpdateName(jid, isGroup) {
+  async _resolveAndUpdateName(jid: string, isGroup: boolean): Promise<void> {
     try {
       const name = isGroup ? await this.resolveGroupName(jid) : await this.resolveContactName(jid);
       if (name) {
         this.messageStore.updateChatName(jid, name);
       }
     } catch (error) {
-      this.logger.error(`[WA] Name resolution failed for ${jid}:`, error.message);
+      this.logger.error(`[WA] Name resolution failed for ${jid}:`, (error as Error).message);
     }
   }
 
-  async _ensureWelcomeGroup() {
+  async _ensureWelcomeGroup(): Promise<void> {
     const groupName = process.env.WELCOME_GROUP_NAME || 'WhatsAppMCP';
     try {
       const existing = this.messageStore
@@ -692,7 +908,7 @@ export class WhatsAppClient {
       }
 
       console.error(`[WA] Creating welcome group "${groupName}"...`);
-      const group = await this.client.createGroup(groupName, []);
+      const group = await this.client!.createGroup(groupName, []);
       console.error(`[WA] Group created: ${group.jid}`);
 
       this.messageStore.upsertChat(group.jid, groupName, true, Math.floor(Date.now() / 1000), null);
@@ -703,11 +919,11 @@ export class WhatsAppClient {
       );
       console.error(`[WA] Welcome message sent to ${groupName}`);
     } catch (err) {
-      console.error(`[WA] Welcome group setup failed: ${err.message}`);
+      console.error(`[WA] Welcome group setup failed: ${(err as Error).message}`);
     }
   }
 
-  _checkApprovalResponse(msg) {
+  _checkApprovalResponse(msg: StoredMessage): void {
     if (!msg.body) return;
 
     const text = msg.body.toLowerCase().trim();
@@ -739,12 +955,12 @@ export class WhatsAppClient {
 
   // ── Public API ───────────────────────────────────────────────
 
-  isConnected() {
+  isConnected(): boolean {
     return this._connected && !!this.jid;
   }
 
   /** True if a session was loaded from disk at startup or is currently authenticated. */
-  get hasSession() {
+  get hasSession(): boolean {
     return this._sessionExists || !!this.jid;
   }
 
@@ -753,7 +969,7 @@ export class WhatsAppClient {
    * Verifies actual WhatsApp connectivity, not just file existence
    * @returns {Promise<{healthy: boolean, reason?: string}>}
    */
-  async checkHealth() {
+  async checkHealth(): Promise<{ healthy: boolean; reason?: string }> {
     if (!this._connected || !this.jid) {
       return { healthy: false, reason: 'not_connected' };
     }
@@ -772,17 +988,17 @@ export class WhatsAppClient {
 
       // For long-running connections, verify we can get basic info
       try {
-        await this.client.getContact(this.jid);
+        await this.client!.getContact(this.jid);
         return { healthy: true };
       } catch (err) {
         return { healthy: false, reason: 'contact_check_failed' };
       }
     } catch (err) {
-      return { healthy: false, reason: `health_check_error: ${err.message}` };
+      return { healthy: false, reason: `health_check_error: ${(err as Error).message}` };
     }
   }
 
-  async generateQrImage(data) {
+  async generateQrImage(data: string): Promise<string> {
     const buf = await QRCode.toBuffer(data, {
       width: 256,
       margin: 40,
@@ -791,9 +1007,9 @@ export class WhatsAppClient {
     return buf.toString('base64');
   }
 
-  async requestPairingCode(phoneNumber) {
+  async requestPairingCode(phoneNumber: string): Promise<PairingCodeResult> {
     if (this.isConnected()) {
-      return { alreadyConnected: true, jid: this.jid };
+      return { alreadyConnected: true, jid: this.jid! };
     }
 
     // Cancel any previous pending pair resolve to prevent timer/callback leaks
@@ -824,7 +1040,7 @@ export class WhatsAppClient {
       const ready = await this.waitForReady(5000);
       if (ready.connected) {
         this._authInProgress = false;
-        return { alreadyConnected: true, jid: ready.jid };
+        return { alreadyConnected: true, jid: ready.jid! };
       }
     }
 
@@ -832,13 +1048,13 @@ export class WhatsAppClient {
     console.error(`[WA] Requesting pairing code for ${digits}`);
 
     try {
-      const code = await this.client.pairCode(digits);
+      const code = await this.client!.pairCode(digits);
 
-      let pairingTimeoutId;
-      const waitForConnection = new Promise((resolve) => {
+      let pairingTimeoutId: ReturnType<typeof setTimeout>;
+      const waitForConnection = new Promise<WaitReadyResult>((resolve) => {
         let settled = false;
         const onConnected = () => finish({ connected: true });
-        const finish = (result) => {
+        const finish = (result: WaitReadyResult) => {
           if (settled) return;
           settled = true;
           clearTimeout(pairingTimeoutId);
@@ -852,23 +1068,23 @@ export class WhatsAppClient {
           if (this._pendingPairResolve === onConnected) {
             this._pendingPairResolve = null;
           }
-          finish({ connected: false, reason: 'pairing_wait_timeout' });
+          finish({ connected: false, jid: undefined });
         }, 120_000);
       });
 
       return { alreadyConnected: false, code, waitForConnection };
     } catch (pairErr) {
-      console.error(`[WA] Pairing code failed (${pairErr.message}), switching to QR code mode`);
+      console.error(`[WA] Pairing code failed (${(pairErr as Error).message}), switching to QR code mode`);
 
       // Switch to QR mode: close current unauthenticated connection, set up QR channel,
       // then reconnect. getQRChannel() must be called before connect() for QR events to flow.
       try {
-        await this.client.disconnect();
-        await this.client.getQRChannel();
+        await this.client!.disconnect();
+        await this.client!.getQRChannel();
         await this._connectWithRetry();
         console.error('[WA] Switched to QR code mode — waiting for QR code...');
       } catch (switchErr) {
-        console.error('[WA] Failed to switch to QR mode:', switchErr.message);
+        console.error('[WA] Failed to switch to QR mode:', (switchErr as Error).message);
       }
 
       // Wait for a fresh QR code from the Go bridge (up to 30 seconds)
@@ -883,13 +1099,13 @@ export class WhatsAppClient {
     }
   }
 
-  async sendMessage(jid, text) {
+  async sendMessage(jid: string, text: string): Promise<{ id: string | undefined; timestamp: number }> {
     if (!this.isConnected()) {
       throw new Error('WhatsApp not connected. Use the authenticate tool first.');
     }
 
     return this._withRetry(async () => {
-      const result = await this.client.sendMessage(jid, { conversation: text });
+      const result = await this.client!.sendMessage(jid, { conversation: text });
       const id = result?.id || result?.key?.id;
       const timestamp = result?.timestamp || Math.floor(Date.now() / 1000);
       this._trackSentId(id);
@@ -922,38 +1138,38 @@ export class WhatsAppClient {
     }, 'sendMessage');
   }
 
-  async getChats() {
+  async getChats(): Promise<unknown[]> {
     if (!this.isConnected()) {
       throw new Error('WhatsApp not connected.');
     }
     try {
-      return await this.client.getChats();
+      return await this.client!.getChats();
     } catch {
       return [];
     }
   }
 
-  async resolveGroupName(jid) {
+  async resolveGroupName(jid: string): Promise<string | null> {
     if (!this.isConnected() || typeof jid !== 'string' || !jid.endsWith('@g.us')) return null;
     try {
-      const info = await this.client.getGroupInfo(jid);
+      const info = await this.client!.getGroupInfo(jid);
       return info?.subject || info?.name || null;
     } catch {
       return null;
     }
   }
 
-  async resolveContactName(jid) {
+  async resolveContactName(jid: string): Promise<string | null> {
     if (!this.isConnected()) return null;
     try {
-      const contact = await this.client.getContact(jid);
+      const contact = await this.client!.getContact(jid);
       return contact?.fullName || contact?.pushName || null;
     } catch {
       return null;
     }
   }
 
-  _extractMediaInfo(message) {
+  _extractMediaInfo(message: NonNullable<WaMessageEvent['message']>): MediaInfo | null {
     if (!message) return null;
     if (message.imageMessage) {
       return { type: 'image', mimetype: message.imageMessage.mimetype, filename: null };
@@ -977,14 +1193,14 @@ export class WhatsAppClient {
     return null;
   }
 
-  async downloadMedia(messageId) {
+  async downloadMedia(messageId: string): Promise<{ path: string; mediaType: string | null; chatJid: string }> {
     if (!this.isConnected()) {
       throw new Error('WhatsApp not connected.');
     }
 
     const dbMsg = this.messageStore.db
       .prepare('SELECT media_raw_json, media_type, chat_jid FROM messages WHERE id = ?')
-      .get(messageId);
+      .get(messageId) as MediaDbRow | undefined;
 
     if (!dbMsg?.media_raw_json) {
       throw new Error(
@@ -995,7 +1211,7 @@ export class WhatsAppClient {
     const rawMessage = JSON.parse(decrypt(dbMsg.media_raw_json));
 
     const tempPath = await this._withRetry(
-      () => this.client.downloadAny(rawMessage),
+      () => this.client!.downloadAny(rawMessage),
       'downloadMedia'
     );
 
@@ -1026,19 +1242,23 @@ export class WhatsAppClient {
     return { path: dest, mediaType: dbMsg.media_type, chatJid: dbMsg.chat_jid };
   }
 
-  async uploadAndSendMedia(jid, filePath, mediaType, caption) {
+  async uploadAndSendMedia(jid: string, filePath: string, mediaType: string, caption: string): Promise<{
+    id: string | undefined;
+    timestamp: number;
+    mediaType: string;
+  }> {
     if (!this.isConnected()) {
       throw new Error('WhatsApp not connected. Use the authenticate tool first.');
     }
 
     const uploadResult = await this._withRetry(
-      () => this.client.uploadMedia(filePath, mediaType),
+      () => this.client!.uploadMedia(filePath, mediaType),
       'uploadMedia',
       3
     );
 
     const filename = path.basename(filePath);
-    const mimeMap = {
+    const mimeMap: Record<string, string> = {
       image: 'image/jpeg',
       video: 'video/mp4',
       audio: 'audio/ogg',
@@ -1046,7 +1266,7 @@ export class WhatsAppClient {
     };
     const mimetype = mimeMap[mediaType] || 'application/octet-stream';
 
-    let message;
+    let message: object;
     switch (mediaType) {
       case 'image':
         message = { imageMessage: { caption, mimetype, ...uploadResult } };
@@ -1077,7 +1297,7 @@ export class WhatsAppClient {
     }
 
     const result = await this._withRetry(
-      () => this.client.sendRawMessage(jid, message),
+      () => this.client!.sendRawMessage(jid, message),
       'sendRawMessage'
     );
     const id = result?.id || result?.key?.id;
@@ -1089,76 +1309,76 @@ export class WhatsAppClient {
     };
   }
 
-  _defaultExt(mediaType) {
-    const map = { image: '.jpg', video: '.mp4', audio: '.ogg', document: '.bin', sticker: '.webp' };
-    return map[mediaType] || '.bin';
+  _defaultExt(mediaType: string | null): string {
+    const map: Record<string, string> = { image: '.jpg', video: '.mp4', audio: '.ogg', document: '.bin', sticker: '.webp' };
+    return map[mediaType ?? ''] || '.bin';
   }
 
   // ── Group Management ─────────────────────────────────────────────────────────
 
-  async createGroup(name, participantJids) {
-    return this._withRetry(() => this.client.createGroup(name, participantJids), 'createGroup');
+  async createGroup(name: string, participantJids: string[]): Promise<{ jid: string }> {
+    return this._withRetry(() => this.client!.createGroup(name, participantJids), 'createGroup');
   }
 
-  async getGroupInfo(jid) {
-    return this._withRetry(() => this.client.getGroupInfo(jid), 'getGroupInfo');
+  async getGroupInfo(jid: string): Promise<{ subject?: string; name?: string } | null> {
+    return this._withRetry(() => this.client!.getGroupInfo(jid), 'getGroupInfo');
   }
 
-  async getJoinedGroups() {
-    return this._withRetry(() => this.client.getJoinedGroups(), 'getJoinedGroups');
+  async getJoinedGroups(): Promise<unknown[]> {
+    return this._withRetry(() => this.client!.getJoinedGroups(), 'getJoinedGroups');
   }
 
-  async getGroupInviteLink(jid) {
-    const link = await this._withRetry(() => this.client.getGroupInviteLink(jid), 'getGroupInviteLink');
+  async getGroupInviteLink(jid: string): Promise<string> {
+    const link = await this._withRetry(() => this.client!.getGroupInviteLink(jid), 'getGroupInviteLink');
     return link;
   }
 
-  async joinGroupWithLink(code) {
-    return this._withRetry(() => this.client.joinGroupWithLink(code), 'joinGroupWithLink');
+  async joinGroupWithLink(code: string): Promise<unknown> {
+    return this._withRetry(() => this.client!.joinGroupWithLink(code), 'joinGroupWithLink');
   }
 
-  async leaveGroup(jid) {
-    return this._withRetry(() => this.client.leaveGroup(jid), 'leaveGroup');
+  async leaveGroup(jid: string): Promise<void> {
+    return this._withRetry(() => this.client!.leaveGroup(jid), 'leaveGroup');
   }
 
-  async updateGroupParticipants(jid, participantJids, action) {
+  async updateGroupParticipants(jid: string, participantJids: string[], action: string): Promise<unknown> {
     return this._withRetry(
-      () => this.client.updateGroupParticipants(jid, participantJids, action),
+      () => this.client!.updateGroupParticipants(jid, participantJids, action),
       'updateGroupParticipants'
     );
   }
 
-  async setGroupName(jid, name) {
-    return this._withRetry(() => this.client.setGroupName(jid, name), 'setGroupName');
+  async setGroupName(jid: string, name: string): Promise<void> {
+    return this._withRetry(() => this.client!.setGroupName(jid, name), 'setGroupName');
   }
 
-  async setGroupTopic(jid, topic) {
-    return this._withRetry(() => this.client.setGroupTopic(jid, topic), 'setGroupTopic');
+  async setGroupTopic(jid: string, topic: string): Promise<void> {
+    return this._withRetry(() => this.client!.setGroupTopic(jid, topic), 'setGroupTopic');
   }
 
   // ── Message Actions ──────────────────────────────────────────────────────────
 
-  async sendReaction(jid, messageId, emoji) {
+  async sendReaction(jid: string, messageId: string, emoji: string): Promise<unknown> {
     return this._withRetry(
-      () => this.client.sendReaction(jid, messageId, emoji),
+      () => this.client!.sendReaction(jid, messageId, emoji),
       'sendReaction'
     );
   }
 
-  async editMessage(jid, messageId, newText) {
+  async editMessage(jid: string, messageId: string, newText: string): Promise<unknown> {
     return this._withRetry(
-      () => this.client.editMessage(jid, messageId, { conversation: newText }),
+      () => this.client!.editMessage(jid, messageId, { conversation: newText }),
       'editMessage'
     );
   }
 
-  async revokeMessage(jid, messageId) {
-    return this._withRetry(() => this.client.revokeMessage(jid, messageId), 'revokeMessage');
+  async revokeMessage(jid: string, messageId: string): Promise<unknown> {
+    return this._withRetry(() => this.client!.revokeMessage(jid, messageId), 'revokeMessage');
   }
 
-  async createPoll(jid, question, options, allowMultiple) {
+  async createPoll(jid: string, question: string, options: string[], allowMultiple: boolean): Promise<{ id: string | undefined }> {
     const result = await this._withRetry(
-      () => this.client.sendPollCreation(jid, question, options, allowMultiple ? options.length : 1),
+      () => this.client!.sendPollCreation(jid, question, options, allowMultiple ? options.length : 1),
       'createPoll'
     );
     const id = result?.id || result?.key?.id;
@@ -1168,23 +1388,23 @@ export class WhatsAppClient {
 
   // ── Contact Info ─────────────────────────────────────────────────────────────
 
-  async getUserInfo(jids) {
-    return this._withRetry(() => this.client.getUserInfo(jids), 'getUserInfo');
+  async getUserInfo(jids: string[]): Promise<unknown> {
+    return this._withRetry(() => this.client!.getUserInfo(jids), 'getUserInfo');
   }
 
-  async isOnWhatsApp(phones) {
-    return this._withRetry(() => this.client.isOnWhatsApp(phones), 'isOnWhatsApp');
+  async isOnWhatsApp(phones: string[]): Promise<unknown> {
+    return this._withRetry(() => this.client!.isOnWhatsApp(phones), 'isOnWhatsApp');
   }
 
-  async getProfilePicture(jid) {
-    return this._withRetry(() => this.client.getProfilePicture(jid), 'getProfilePicture');
+  async getProfilePicture(jid: string): Promise<unknown> {
+    return this._withRetry(() => this.client!.getProfilePicture(jid), 'getProfilePicture');
   }
 
   /**
    * Explicit logout: disconnects from WhatsApp AND deletes the local session file.
    * Called by the 'disconnect' MCP tool. Requires full re-authentication afterwards.
    */
-  async logout() {
+  async logout(): Promise<void> {
     this._stopHealthCheck();
 
     // Cancel any pending pairing flow
@@ -1196,7 +1416,7 @@ export class WhatsAppClient {
       try { resolve({ connected: false }); } catch { /* ignore */ }
     }
     for (const resolve of this._qrWaiters.splice(0)) {
-      try { resolve(null); } catch { /* ignore */ }
+      try { resolve(''); } catch { /* ignore */ }
     }
     for (const w of this._messageWaiters.splice(0)) {
       try { w.resolve(null); } catch { /* ignore */ }
@@ -1206,17 +1426,17 @@ export class WhatsAppClient {
       try {
         await this.client.sendPresence('unavailable');
       } catch (error) {
-        this.logger.error('[WA] Error sending presence during logout:', error.message);
+        this.logger.error('[WA] Error sending presence during logout:', (error as Error).message);
       }
       try {
         await this.client.disconnect();
       } catch (error) {
-        this.logger.error('[WA] Error during logout disconnect:', error.message);
+        this.logger.error('[WA] Error during logout disconnect:', (error as Error).message);
       }
       try {
         await this.client.close();
       } catch (error) {
-        this.logger.error('[WA] Error closing client during logout:', error.message);
+        this.logger.error('[WA] Error closing client during logout:', (error as Error).message);
       }
     }
     this._connected = false;
@@ -1232,23 +1452,23 @@ export class WhatsAppClient {
    * on next container start.
    * Called on SIGINT/SIGTERM and in test teardown.
    */
-  async disconnect() {
+  async disconnect(): Promise<void> {
     this._stopHealthCheck();
     if (this.client) {
       try {
         await this.client.sendPresence('unavailable');
       } catch (error) {
-        this.logger.error('[WA] Error sending presence during disconnect:', error.message);
+        this.logger.error('[WA] Error sending presence during disconnect:', (error as Error).message);
       }
       try {
         await this.client.disconnect();
       } catch (error) {
-        this.logger.error('[WA] Error during disconnect:', error.message);
+        this.logger.error('[WA] Error during disconnect:', (error as Error).message);
       }
       try {
         await this.client.close();
       } catch (error) {
-        this.logger.error('[WA] Error closing client subprocess:', error.message);
+        this.logger.error('[WA] Error closing client subprocess:', (error as Error).message);
       }
       this._connected = false;
     }
