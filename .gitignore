@@ -54,6 +54,7 @@ session.db*
 
 # Build outputs
 dist/
+dist-test/
 build/
 
 # IDE
