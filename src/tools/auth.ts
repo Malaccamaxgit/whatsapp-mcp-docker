@@ -98,12 +98,12 @@ function appendWaitResult(text: string, wait: WaitResult): string {
 
 interface DisconnectResult {
   content: { type: 'text'; text: string }[];
-  isError: boolean;
+  isError?: boolean;
 }
 
 interface AuthenticateResult {
   content: McpContent[];
-  isError: boolean;
+  isError?: boolean;
 }
 
 function createDisconnectHandler(
@@ -125,7 +125,6 @@ function createDisconnectHandler(
             text: 'Not currently authenticated. No session to disconnect.'
           }
         ],
-        isError: false
       };
     }
 
@@ -144,7 +143,6 @@ function createDisconnectHandler(
               : 'Successfully disconnected from WhatsApp.\n\nThe session has been cleared. Call authenticate with a phone number to link a device again.'
           }
         ],
-        isError: false
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error || '');
@@ -191,7 +189,6 @@ function createAuthenticateHandler(
             text: `Already authenticated and connected as ${waClient.jid}.\nNo further action needed — you can send messages and use all tools.`
           }
         ],
-        isError: false
       };
     }
 
@@ -213,7 +210,6 @@ function createAuthenticateHandler(
                   'No further action needed — you can send messages and use all tools.'
               }
             ],
-            isError: false
           };
         }
       } catch (err) {
@@ -234,7 +230,6 @@ function createAuthenticateHandler(
               'Example: authenticate({ phoneNumber: "+15145551234" })'
           }
         ],
-        isError: false
       };
     }
 
@@ -311,7 +306,6 @@ function createAuthenticateHandler(
               text: `Already connected as ${result.jid}.`
             }
           ],
-          isError: false
         };
       }
 
@@ -357,7 +351,7 @@ function createAuthenticateHandler(
           }
         }
 
-        return { content, isError: false };
+        return { content };
       }
 
       permissions.recordAuthAttempt(true);
@@ -402,7 +396,6 @@ function createAuthenticateHandler(
 
       return {
         content: [{ type: 'text', text: pairText }],
-        isError: false
       };
     } catch (error) {
       permissions.recordAuthAttempt(false);
