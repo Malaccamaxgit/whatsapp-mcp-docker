@@ -8,6 +8,23 @@ import { z } from 'zod';
 import { resolveRecipient } from '../utils/fuzzy-match.js';
 import { LIMITS } from '../security/permissions.js';
 
+const TZ = process.env.TZ || 'UTC';
+
+function formatTime(ms) {
+  return new Date(ms).toLocaleTimeString('en-CA', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false, timeZone: TZ
+  });
+}
+
+function formatDateTime(ms) {
+  return new Date(ms).toLocaleString('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false, timeZone: TZ
+  });
+}
+
 export function registerApprovalTools(server, waClient, store, permissions, audit) {
   // ── request_approval ─────────────────────────────────────────
 
@@ -75,7 +92,7 @@ export function registerApprovalTools(server, waClient, store, permissions, audi
           timeoutMs: timeout * 1000
         });
 
-        const expiresAt = new Date(approval.createdAt + approval.timeoutMs).toLocaleTimeString();
+        const expiresAt = formatTime(approval.created_at + approval.timeout_ms);
 
         const message = [
           '*APPROVAL REQUEST*',
@@ -152,9 +169,9 @@ export function registerApprovalTools(server, waClient, store, permissions, audi
 
         if (approval.status === 'approved' || approval.status === 'denied') {
           text += `  Response: ${approval.response_text || '(no message)'}\n`;
-          text += `  Responded at: ${new Date(approval.responded_at).toLocaleString()}`;
+          text += `  Responded at: ${formatDateTime(approval.responded_at)}`;
         } else if (approval.status === 'expired') {
-          text += `  Expired at: ${new Date(approval.created_at + approval.timeout_ms).toLocaleString()}`;
+          text += `  Expired at: ${formatDateTime(approval.created_at + approval.timeout_ms)}`;
         } else {
           const remaining = Math.max(
             0,

@@ -51,6 +51,8 @@ env:
     value: "{{whatsapp-mcp-docker.auth_link_timeout_sec}}"
   - name: AUTH_POLL_INTERVAL_SEC
     value: "{{whatsapp-mcp-docker.auth_poll_interval_sec}}"
+  - name: TZ
+    value: "{{whatsapp-mcp-docker.timezone}}"
 
 volumes:
   - whatsapp-sessions:/data/sessions
@@ -121,6 +123,10 @@ config:
         type: number
         description: Default seconds between connection checks when waiting (2–60); tool argument overrides if passed
         default: 5
+      timezone:
+        type: string
+        description: IANA timezone for timestamps (e.g. America/Toronto, America/New_York, Europe/Paris). Full list at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+        default: America/Toronto
 
 tools:
   - name: disconnect

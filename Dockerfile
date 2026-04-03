@@ -48,7 +48,8 @@ CMD ["/bin/sh", "-c", "node --test test/unit/*.test.js test/integration/*.test.j
 # ── Runtime Stage ───────────────────────────────────────────────
 FROM node:20-alpine
 
-RUN apk add --no-cache ca-certificates
+# tzdata provides IANA timezone database so TZ env var works correctly in Alpine.
+RUN apk add --no-cache ca-certificates tzdata
 
 # Non-root user
 RUN addgroup -g 1001 -S mcp && \

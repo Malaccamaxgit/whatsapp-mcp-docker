@@ -147,6 +147,18 @@ export class WhatsAppClient {
         await this.client.connect();
         return;
       } catch (err) {
+        // The Go subprocess dies permanently after logout() calls client.close().
+        // Recreate the entire client on the first such failure so re-authentication
+        // works without requiring a container restart.
+        if (err.message?.includes('Go process exited') && attempt === 1) {
+          console.error('[WA] Go subprocess dead — reinitializing client for re-authentication...');
+          try {
+            await this._reinitializeClient();
+            continue;
+          } catch (reinitErr) {
+            console.error('[WA] Reinitialize failed:', reinitErr.message);
+          }
+        }
         if (attempt === maxAttempts) throw err;
         const delay = Math.min(2000 * Math.pow(2, attempt - 1), 30000);
         console.error(
@@ -155,6 +167,18 @@ export class WhatsAppClient {
         await new Promise((r) => setTimeout(r, delay));
       }
     }
+  }
+
+  async _reinitializeClient() {
+    this.client = createClient({
+      store: `${this.storePath}/session.db`,
+      binaryPath: resolveMuslBinary()
+    });
+    this._registerEvents();
+    const { jid } = await this.client.init();
+    this._sessionExists = !!jid;
+    this._connectCalled = false;
+    console.error('[WA] Client reinitialized');
   }
 
   /**
@@ -452,7 +476,21 @@ export class WhatsAppClient {
       await this.client.sendPresence(this._presenceMode);
       console.error(`[WA] Presence set to "${this._presenceMode}"`);
     } catch (err) {
-      console.error('[WA] Failed to set presence:', err.message);
+      // On a fresh link WhatsApp hasn't propagated the PushName yet — retry once
+      // after a short delay rather than logging a confusing permanent error.
+      if (err.message?.toLowerCase().includes('pushname')) {
+        console.error('[WA] Presence deferred — PushName not set yet, retrying in 10s...');
+        setTimeout(async () => {
+          try {
+            await this.client.sendPresence(this._presenceMode);
+            console.error(`[WA] Presence set to "${this._presenceMode}" (deferred)`);
+          } catch (retryErr) {
+            console.error('[WA] Failed to set presence (deferred retry):', retryErr.message);
+          }
+        }, 10_000);
+      } else {
+        console.error('[WA] Failed to set presence:', err.message);
+      }
     }
   }
 
@@ -597,7 +635,9 @@ export class WhatsAppClient {
       }
 
       if (msg.chatJid) {
-        const chatName = evt.chatName || evt.pushName || null;
+        // info?.pushName carries the sender's display name in the whatsmeow-node bridge
+        // when it is not surfaced directly on evt.pushName.
+        const chatName = evt.chatName || evt.pushName || info?.pushName || null;
         const isGroup = isGroupJid(msg.chatJid);
         this.messageStore.upsertChat(
           msg.chatJid,
@@ -610,7 +650,13 @@ export class WhatsAppClient {
         if (!chatName && !isHistorySync) {
           const existing = this.messageStore.getChatByJid(msg.chatJid);
           if (!existing?.name || existing.name === msg.chatJid) {
-            this._resolveAndUpdateName(msg.chatJid, isGroup);
+            // For DMs, immediately store the sender's push name so that
+            // resolveRecipient can match the contact by display name.
+            if (!isGroup && msg.senderName) {
+              this.messageStore.updateChatName(msg.chatJid, msg.senderName);
+            } else {
+              this._resolveAndUpdateName(msg.chatJid, isGroup);
+            }
           }
         }
       }
@@ -737,10 +783,9 @@ export class WhatsAppClient {
   }
 
   async generateQrImage(data) {
-    // Large margin (16 modules) for better QR code scanning
     const buf = await QRCode.toBuffer(data, {
-      width: 320,
-      margin: 16,
+      width: 256,
+      margin: 40,
       errorCorrectionLevel: 'M'
     });
     return buf.toString('base64');
@@ -846,11 +891,34 @@ export class WhatsAppClient {
     return this._withRetry(async () => {
       const result = await this.client.sendMessage(jid, { conversation: text });
       const id = result?.id || result?.key?.id;
+      const timestamp = result?.timestamp || Math.floor(Date.now() / 1000);
       this._trackSentId(id);
-      return {
-        id,
-        timestamp: result?.timestamp || Math.floor(Date.now() / 1000)
-      };
+
+      // Persist immediately — don't rely on the echo event.
+      // Echoes may not arrive for self-chat, single-participant groups, or
+      // messages that are filtered out of _handleIncomingMessage by _sentMessageIds.
+      if (id) {
+        this.messageStore.addMessage({
+          id,
+          chatJid: jid,
+          senderJid: this.jid,
+          senderName: null,
+          body: text,
+          timestamp,
+          isFromMe: true,
+          hasMedia: false,
+          mediaType: null
+        });
+        this.messageStore.upsertChat(
+          jid,
+          null,
+          isGroupJid(jid),
+          timestamp,
+          text?.substring(0, 100)
+        );
+      }
+
+      return { id, timestamp };
     }, 'sendMessage');
   }
 

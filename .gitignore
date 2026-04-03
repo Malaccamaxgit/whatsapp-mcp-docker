@@ -90,3 +90,7 @@ qr-*.html
 # Test output captures (run artifacts, not source)
 test-output.txt
 test-results*.txt
+
+# Local cleanup scripts (contain machine-specific profile/catalog names)
+scripts/cleanup.ps1
+scripts/cleanup.sh

@@ -1,8 +1,61 @@
-﻿# Test Scripts
+# Scripts
 
-This directory contains helper scripts for running tests with automatic container rebuild.
+This directory contains helper scripts for common Docker and project operations.
 
-## 🚀 Usage
+---
+
+## cleanup.ps1 / cleanup.sh — Full environment teardown
+
+Removes everything the project created in Docker and Docker MCP Toolkit:
+
+| Step | What is removed |
+|------|----------------|
+| 1 | `whatsapp-mcp-docker` from the MCP Toolkit profile |
+| 2 | `whatsapp-mcp-docker.data_encryption_key` from the OS keychain |
+| 3 | Containers + named volumes (`whatsapp-sessions`, `whatsapp-audit`) |
+| 4 | Docker images (`malaccamax/whatsapp-mcp-docker:latest`) |
+| 5 | Dangling build-cache layers from multi-stage builds |
+| 6 | Custom MCP catalog (`my-custom-mcp-servers`) |
+
+### Windows (PowerShell)
+
+```powershell
+# Interactive (asks for confirmation)
+.\scripts\cleanup.ps1
+
+# Skip confirmation
+.\scripts\cleanup.ps1 -Force
+
+# Preview — no changes made
+.\scripts\cleanup.ps1 -DryRun
+
+# Override profile or catalog name
+.\scripts\cleanup.ps1 -Profile my-profile -Catalog my-catalog
+```
+
+### Linux/macOS (Bash)
+
+```bash
+chmod +x scripts/cleanup.sh
+./scripts/cleanup.sh
+
+# Skip confirmation
+./scripts/cleanup.sh --force
+
+# Preview — no changes made
+./scripts/cleanup.sh --dry-run
+
+# Override profile or catalog name
+./scripts/cleanup.sh --profile my-profile --catalog my-catalog
+```
+
+> **Reload Cursor after cleanup** (`Ctrl+Shift+P → Reload Window`) — the MCP gateway
+> process exits when containers are removed, so other MCP tools will show EOF errors
+> until Cursor reconnects.
+
+---
+
+## test.ps1 / test.sh — Run tests
 
 ### Windows (PowerShell)
 
@@ -23,7 +76,7 @@ chmod +x scripts/test.sh
 npm run docker:test
 ```
 
-## 📋 What These Scripts Do
+## 📋 What the test scripts do
 
 Each script automatically:
 

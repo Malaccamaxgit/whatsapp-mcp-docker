@@ -271,7 +271,7 @@ This automatically writes the MCP Gateway entry to your client's config file. **
 
 > **Why doesn't `docker mcp tools ls` show my 32 tools?** That command shows only the 8 MCP Toolkit meta-tools (e.g. `mcp-add`, `mcp-find`). The 32 WhatsApp tools appear inside your MCP client after the gateway starts the `whatsapp-mcp-docker` container on the first tool call. They are not visible from the terminal.
 
-To connect **manually** instead, add the MCP Gateway entry directly to your client's config file. Each client stores this in a different location — consult your client's documentation for the exact path. The entry format is:
+To connect **manually** instead, add the MCP Gateway entry directly to your client's config file. Ready-made snippets for every supported client are in [`examples/client-configs.md`](./examples/client-configs.md). Each client stores its config in a different location — consult your client's documentation for the exact path. The entry format is:
 
 ```json
 {
@@ -474,10 +474,24 @@ whatsapp-mcp-docker/
 │       └── phone.js          # E.164 validation + JID conversion
 ├── docs/
 │   ├── README.md             # Documentation index
+│   ├── API.md                # Full MCP tool API reference (all 32 tools)
+│   ├── TROUBLESHOOTING.md    # Symptom → cause → fix guide
 │   ├── architecture/
 │   │   └── OVERVIEW.md       # Architecture overview
-│   └── guides/
-│       └── DEVELOPER.md      # Build, test, deploy procedures
+│   ├── guides/
+│   │   ├── DEVELOPER.md      # Build, test, deploy procedures
+│   │   └── ERRORS.md         # Error taxonomy and recovery
+│   ├── testing/
+│   │   └── TESTING.md        # Test strategy, structure, and commands
+│   └── bugs/                 # Bug reports and fixes
+├── scripts/
+│   ├── diagnostics.js        # Health check and diagnostic script
+│   ├── cleanup.ps1           # Full teardown script (Windows — git-ignored)
+│   ├── cleanup.sh            # Full teardown script (Linux/macOS — git-ignored)
+│   ├── test.ps1              # Test runner (Windows)
+│   └── test.sh               # Test runner (Linux/macOS)
+├── examples/
+│   └── client-configs.md     # Manual MCP client config snippets (Cursor, Claude, VS Code, Gemini, Goose, Cline)
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
 │   │   ├── bug_report.md
@@ -491,18 +505,15 @@ whatsapp-mcp-docker/
 ├── Dockerfile                # Multi-stage (builder → test → runtime), ~150 MB
 ├── docker-compose.yml        # Main + tester-container (Compose profiles)
 ├── whatsapp-mcp-docker-server.yaml  # Docker MCP Toolkit server definition
-├── catalog.yaml              # Docker MCP Toolkit catalog definition
-├── .env.example              # Environment template (docker-compose fallback)
+├── recommended-config.yaml   # Reference config values for docker mcp profile config
+├── .env.example              # Environment variable template (docker-compose fallback)
 ├── package.json
 ├── package-lock.json
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
 ├── SECURITY.md
-├── PRIVACY.md
-├── DEVELOPMENT.md
-├── TESTING-GUIDE.md
-└── LICENSE
+└── PRIVACY.md
 ```
 
 ---
@@ -560,6 +571,7 @@ Or configure via Docker Desktop: **MCP Toolkit → WhatsApp MCP → Configuratio
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `TZ` | Container timezone — affects log timestamps and time-based features (e.g. `catch_up` "today" window). Use IANA names: `America/Toronto`, `Europe/Paris`, `Asia/Tokyo`. Full list at [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). | `UTC` |
 | `STORE_PATH` | Session + message database directory | `/data/sessions` |
 | `AUDIT_DB_PATH` | Audit log database path | `/data/audit/audit.db` |
 | `RATE_LIMIT_PER_MIN` | Max outbound messages per minute | `60` |
@@ -750,9 +762,9 @@ docker volume ls | findstr whatsapp
 - [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md) — Architecture overview
 - [docs/guides/ERRORS.md](./docs/guides/ERRORS.md) — Error taxonomy and recovery
 - [docs/testing/TESTING.md](./docs/testing/TESTING.md) — Test strategy and commands
+- [examples/client-configs.md](./examples/client-configs.md) — Manual MCP client config snippets (Cursor, Claude, VS Code, Gemini, Goose, Cline, direct Compose)
+- [recommended-config.yaml](./recommended-config.yaml) — Reference config values for `docker mcp profile config`
 - [CHANGELOG.md](./CHANGELOG.md) — Release history
-- [DEVELOPMENT.md](./DEVELOPMENT.md) — Docker-first development reference
-- [TESTING-GUIDE.md](./TESTING-GUIDE.md) — Auth/session testing scenarios
 - [PRIVACY.md](./PRIVACY.md) — Privacy policy and data handling
 - [SECURITY.md](./SECURITY.md) — Security policy and vulnerability reporting
 - [CONTRIBUTING.md](./CONTRIBUTING.md) — Contribution guidelines
@@ -855,41 +867,6 @@ docker volume ls | findstr whatsapp
   docker run --rm -v whatsapp-sessions:/data -v "${PWD}:/backup" alpine `
     tar xzf /backup/whatsapp-backup.tar.gz -C /data --strip-components 1
   ```
-
-### 🔍 Diagnostic Commands
-
-```bash
-# Check if container is running
-docker compose ps
-
-# View last 50 lines of logs
-docker compose logs --tail 50 whatsapp-mcp-docker
-
-# Follow logs in real-time
-docker compose logs -f whatsapp-mcp-docker
-
-# Check volumes exist (bash/zsh)
-docker volume ls | grep whatsapp
-
-# Check volumes exist (PowerShell)
-docker volume ls | findstr whatsapp
-
-# Verify encryption key is set
-docker mcp secret ls | findstr whatsapp        # PowerShell
-docker mcp secret ls | grep whatsapp           # bash/zsh
-
-# Check catalog registration
-docker mcp catalog ls
-
-# List available profiles
-docker mcp profile list
-
-# List all servers across all profiles
-docker mcp profile server ls
-
-# List servers for a specific profile
-docker mcp profile server ls --filter profile=<your-profile>
-```
 
 ### 📞 Getting Help
 

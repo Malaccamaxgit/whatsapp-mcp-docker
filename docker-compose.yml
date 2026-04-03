@@ -41,6 +41,12 @@ services:
       - AUTH_LINK_TIMEOUT_SEC=120
       - AUTH_POLL_INTERVAL_SEC=5
 
+      # ── Timezone ─────────────────────────────────────────
+      # Set your local timezone so container logs and timestamps match your clock.
+      # Find your value at: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      # Examples: America/New_York, Europe/Paris, Asia/Tokyo, America/Toronto
+      - TZ=${TZ:-America/Toronto}
+
       # ── Startup behavior ─────────────────────────────────
       # Auto-connect to WhatsApp on container startup (default: true).
       # Set to "false" to disable automatic connection — useful for testing
