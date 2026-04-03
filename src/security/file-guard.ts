@@ -11,7 +11,16 @@ import { FILE_SECURITY } from '../constants.js';
 
 const { DANGEROUS_EXTENSIONS, SENSITIVE_PATTERNS } = FILE_SECURITY;
 
-const MAGIC_BYTES = [
+type MagicByteType = 'image' | 'video' | 'audio' | 'document' | 'sticker';
+
+interface MagicByteEntry {
+  type: MagicByteType;
+  sig: number[];
+  label: string;
+  skipCheck?: boolean;
+}
+
+const MAGIC_BYTES: MagicByteEntry[] = [
   { type: 'image', sig: [0xff, 0xd8, 0xff], label: 'JPEG' },
   { type: 'image', sig: [0x89, 0x50, 0x4e, 0x47], label: 'PNG' },
   { type: 'image', sig: [0x47, 0x49, 0x46], label: 'GIF' },
@@ -24,11 +33,30 @@ const MAGIC_BYTES = [
   { type: 'sticker', sig: [0x52, 0x49, 0x46, 0x46], label: 'WEBP' }
 ];
 
+interface CheckExtensionResult {
+  dangerous: boolean;
+  extension: string;
+  warning: string | null;
+}
+
+interface VerifyMagicBytesResult {
+  valid: boolean;
+  detectedLabel: string | null;
+  warning: string | null;
+}
+
+interface CheckMediaQuotaResult {
+  allowed: boolean;
+  currentMB: number;
+  limitMB: number;
+  error: string | null;
+}
+
 /**
  * Strip dangerous characters and path components from a filename.
  * Returns a safe basename of max 200 chars.
  */
-export function sanitizeFilename(name) {
+export function sanitizeFilename(name: string): string {
   if (!name) return 'unnamed';
   let safe = basename(name);
   safe = safe.replace(/\.\./g, '_');
@@ -44,7 +72,7 @@ export function sanitizeFilename(name) {
  * Ensure a resolved path is within the allowed base directory.
  * Prevents path traversal via ../ or symlinks.
  */
-export function assertPathWithin(filePath, allowedBase) {
+export function assertPathWithin(filePath: string, allowedBase: string): string {
   const resolved = resolve(filePath);
   const base = resolve(allowedBase);
   if (!resolved.startsWith(base + sep) && resolved !== base) {
@@ -60,7 +88,7 @@ export function assertPathWithin(filePath, allowedBase) {
  * Validate that a file path for upload (send_file) is within allowed
  * directories and does NOT point to sensitive files.
  */
-export function validateUploadPath(filePath, allowedDirs) {
+export function validateUploadPath(filePath: string, allowedDirs: string[]): string {
   const resolved = resolve(filePath);
 
   const inAllowed = allowedDirs.some((dir) => {
@@ -92,7 +120,7 @@ export function validateUploadPath(filePath, allowedDirs) {
  * Check if a file extension is in the dangerous executables blocklist.
  * Returns { dangerous, extension, warning }.
  */
-export function checkExtension(filePath) {
+export function checkExtension(filePath: string): CheckExtensionResult {
   const ext = extname(filePath).toLowerCase();
   if (DANGEROUS_EXTENSIONS.has(ext)) {
     return {
@@ -110,8 +138,8 @@ export function checkExtension(filePath) {
  * Read the first bytes of a file and verify they match the declared media type.
  * Returns { valid, detectedLabel, warning }.
  */
-export async function verifyMagicBytes(filePath, declaredType) {
-  let fh;
+export async function verifyMagicBytes(filePath: string, declaredType: string): Promise<VerifyMagicBytesResult> {
+  let fh: import('node:fs').FileHandle | undefined;
   try {
     fh = await open(filePath, 'r');
     const buf = Buffer.alloc(16);
@@ -163,7 +191,7 @@ export async function verifyMagicBytes(filePath, declaredType) {
  * Calculate total size of a media directory tree.
  * Returns size in bytes.
  */
-export async function getMediaDirSize(mediaDir) {
+export async function getMediaDirSize(mediaDir: string): Promise<number> {
   let total = 0;
   try {
     const entries = await readdir(mediaDir, { withFileTypes: true, recursive: true });
@@ -188,7 +216,7 @@ export async function getMediaDirSize(mediaDir) {
  * Check if the media directory is within the configured quota.
  * Returns { allowed, currentMB, limitMB, error }.
  */
-export async function checkMediaQuota(mediaDir, maxBytes) {
+export async function checkMediaQuota(mediaDir: string, maxBytes: number): Promise<CheckMediaQuotaResult> {
   const current = await getMediaDirSize(mediaDir);
   const currentMB = Math.round(current / 1024 / 1024);
   const limitMB = Math.round(maxBytes / 1024 / 1024);

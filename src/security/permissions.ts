@@ -18,7 +18,39 @@ LIMITS.UPLOAD_ALLOWED_DIRS = [`${STORE_PATH}/media`, '/tmp'];
 // Re-export LIMITS for use by tools
 export { LIMITS };
 
+interface IsToolEnabledResult {
+  allowed: boolean;
+  error: string | null;
+}
+
+interface CanSendToResult {
+  allowed: boolean;
+  error: string | null;
+}
+
+interface CheckRateLimitResult {
+  allowed: boolean;
+  error: string | null;
+  retryAfterSec: number;
+}
+
+interface CheckAuthRateLimitResult {
+  allowed: boolean;
+  error: string | null;
+  retryAfterSec: number;
+}
+
 export class PermissionManager {
+  private allowedContacts: string[];
+  private rateLimit: number;
+  private downloadRateLimit: number;
+  private disabledTools: Set<string>;
+  private _sendTimestamps: number[];
+  private _downloadTimestamps: number[];
+  private _authAttempts: number[];
+  private _authBackoffSec: number;
+  private _lastAuthAttempt: number;
+
   constructor() {
     const contactsEnv = process.env.ALLOWED_CONTACTS || '';
     this.allowedContacts = contactsEnv
@@ -50,7 +82,7 @@ export class PermissionManager {
   /**
    * Check if a tool is enabled. Returns { allowed, error }.
    */
-  isToolEnabled(toolName) {
+  isToolEnabled(toolName: string): IsToolEnabledResult {
     if (this.disabledTools.has(toolName)) {
       return {
         allowed: false,
@@ -64,7 +96,7 @@ export class PermissionManager {
    * Check if a phone number / JID is allowed for outbound messages.
    * Returns { allowed, error }.
    */
-  canSendTo(numberOrJid) {
+  canSendTo(numberOrJid: string): CanSendToResult {
     if (this.allowedContacts.length === 0) {
       return { allowed: true, error: null };
     }
@@ -90,7 +122,7 @@ export class PermissionManager {
    * Check and record an outbound message for rate limiting.
    * Returns { allowed, error, retryAfterSec }.
    */
-  checkRateLimit() {
+  checkRateLimit(): CheckRateLimitResult {
     const now = Date.now();
     const windowStart = now - 60_000;
 
@@ -114,7 +146,7 @@ export class PermissionManager {
    * Check and record a media download for rate limiting.
    * Returns { allowed, error }.
    */
-  checkDownloadRateLimit() {
+  checkDownloadRateLimit(): CheckRateLimitResult {
     const now = Date.now();
     const windowStart = now - 60_000;
 
@@ -138,7 +170,7 @@ export class PermissionManager {
    * Enforces: max 5 attempts per 30 min, exponential backoff after failures.
    * Returns { allowed, error, retryAfterSec }.
    */
-  checkAuthRateLimit() {
+  checkAuthRateLimit(): CheckAuthRateLimitResult {
     const now = Date.now();
     const windowMs = 30 * 60_000;
 
@@ -179,7 +211,7 @@ export class PermissionManager {
    * On failure: doubles the backoff (60s → 120s → 240s → 480s, capped at 15 min).
    * On success: resets backoff entirely.
    */
-  recordAuthAttempt(success) {
+  recordAuthAttempt(success: boolean): void {
     const now = Date.now();
     this._authAttempts.push(now);
     this._lastAuthAttempt = now;
@@ -195,7 +227,7 @@ export class PermissionManager {
   /**
    * Reset auth backoff (called when connection succeeds via event).
    */
-  resetAuthBackoff() {
+  resetAuthBackoff(): void {
     this._authBackoffSec = 0;
   }
 }
