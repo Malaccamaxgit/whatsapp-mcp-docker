@@ -113,7 +113,7 @@ export function registerApprovalTools(
         `*Expires:* ${expiresAt}`
       ].join('\n');
 
-      await waClient.sendMessage(resolved, { conversation: message });
+      await waClient.sendMessage(resolved, message);
       audit.log('request_approval', 'sent', { to: resolved, action, id: approval.id });
 
       return {

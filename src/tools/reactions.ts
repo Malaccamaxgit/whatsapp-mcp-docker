@@ -119,7 +119,7 @@ export function registerReactionTools(
         return { content: [{ type: 'text', text: `Chat not found: "${chat}"` }], isError: true };
       }
 
-      await waClient.editMessage(jid, message_id, { conversation: new_text });
+      await waClient.editMessage(jid, message_id, new_text);
       audit.log('edit_message', 'edited', { jid, message_id });
       return { content: [{ type: 'text', text: `Message ${message_id} edited successfully.` }] };
     } catch (err) {
@@ -219,7 +219,7 @@ export function registerReactionTools(
         return { content: [{ type: 'text', text: `Chat not found: "${to}"` }], isError: true };
       }
 
-      const result = await waClient.sendPollCreation(jid, question, options, allow_multiple ? 1 : 0);
+      const result = await waClient.createPoll(jid, question, options, allow_multiple);
       audit.log('create_poll', 'sent', { jid, question, optionCount: options.length });
       return {
         content: [

@@ -231,4 +231,11 @@ export class PermissionManager {
   resetAuthBackoff(): void {
     this._authBackoffSec = 0;
   }
+
+  /**
+   * Get current auth backoff seconds (for display in error messages).
+   */
+  get authBackoffSec(): number {
+    return this._authBackoffSec;
+  }
 }
