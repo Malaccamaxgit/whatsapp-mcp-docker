@@ -13,14 +13,16 @@
  * Or: DEBUG=* npm start (all namespaces)
  */
 
-const enabled = process.env.DEBUG ? process.env.DEBUG.split(',') : [];
+type LogFn = (message: string, ...args: unknown[]) => void;
+
+const enabled: string[] = process.env.DEBUG ? process.env.DEBUG.split(',') : [];
 
 /**
  * Create a debug logger for a specific namespace.
- * @param {string} namespace - Category name (e.g., 'auth', 'client', 'store')
- * @returns {(message: string, ...args: any[]) => void}
+ * @param namespace - Category name (e.g., 'auth', 'client', 'store')
+ * @returns A log function that accepts message and variadic args
  */
-export function debug(namespace) {
+export function debug(namespace: string): LogFn {
   const isEnabled = enabled.includes('*') || enabled.includes(namespace);
 
   if (!isEnabled) {
@@ -28,7 +30,7 @@ export function debug(namespace) {
     return () => {};
   }
 
-  return (message, ...args) => {
+  return (message: string, ...args: unknown[]) => {
     const timestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
     const prefix = `[${timestamp}] [${namespace.toUpperCase()}]`;
     console.error(prefix, message, ...args);
@@ -37,20 +39,20 @@ export function debug(namespace) {
 
 /**
  * Check if debug logging is enabled for a namespace.
- * @param {string} namespace
- * @returns {boolean}
+ * @param namespace - The namespace to check
+ * @returns true if debug is enabled for this namespace
  */
-export function isDebugEnabled(namespace) {
+export function isDebugEnabled(namespace: string): boolean {
   return enabled.includes('*') || enabled.includes(namespace);
 }
 
 /**
  * One-time debug log (useful for startup messages).
- * @param {string} namespace
- * @param {string} message
- * @param {...any} args
+ * @param namespace - The namespace for this log
+ * @param message - The message to log
+ * @param args - Additional arguments to pass to the log function
  */
-export function debugOnce(namespace, message, ...args) {
+export function debugOnce(namespace: string, message: string, ...args: unknown[]): void {
   const log = debug(namespace);
   log(message, ...args);
 }

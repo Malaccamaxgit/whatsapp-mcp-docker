@@ -7,10 +7,28 @@
  * exact names or JIDs.
  */
 
+interface Chat {
+  jid: string;
+  name: string | undefined;
+}
+
+interface MatchResult {
+  jid: string;
+  name: string;
+  score: number;
+}
+
+interface FuzzyMatchOptions {
+  maxResults?: number;
+}
+
 /**
  * Compute Levenshtein edit distance between two strings.
+ * @param a - First string
+ * @param b - Second string
+ * @returns The edit distance
  */
-function levenshtein(a, b) {
+function levenshtein(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
@@ -38,8 +56,11 @@ function levenshtein(a, b) {
  *   - Contains query as substring: 2
  *   - Levenshtein distance <= threshold: 3 + distance
  *   - No match: null
+ * @param query - The search query
+ * @param candidate - The candidate name to score
+ * @returns A numeric score or null if no match
  */
-function scoreMatch(query, candidate) {
+function scoreMatch(query: string, candidate: string): number | null {
   const q = query.toLowerCase().trim();
   const c = candidate.toLowerCase().trim();
 
@@ -69,20 +90,22 @@ function scoreMatch(query, candidate) {
 
 /**
  * Find the best matching chats for a query string.
- *
- * @param {string} query - The user's search text (name, number, or partial)
- * @param {Array<{jid: string, name: string}>} chats - Available chats with JID and display name
- * @param {Object} options
- * @param {number} options.maxResults - Maximum results to return (default 5)
- * @returns {Array<{jid: string, name: string, score: number}>} Matches sorted by score (best first)
+ * @param query - The user's search text (name, number, or partial)
+ * @param chats - Available chats with JID and display name
+ * @param options - Options including maxResults
+ * @returns Matches sorted by score (best first)
  */
-export function fuzzyMatch(query, chats, { maxResults = 5 } = {}) {
+export function fuzzyMatch(
+  query: string,
+  chats: Chat[],
+  { maxResults = 5 }: FuzzyMatchOptions = {}
+): MatchResult[] {
   if (!query || !chats?.length) return [];
 
-  const scored = [];
+  const scored: MatchResult[] = [];
 
   for (const chat of chats) {
-    let bestScore = null;
+    let bestScore: number | null = null;
 
     if (chat.name) {
       const nameScore = scoreMatch(query, chat.name);
@@ -104,12 +127,19 @@ export function fuzzyMatch(query, chats, { maxResults = 5 } = {}) {
   return scored.slice(0, maxResults);
 }
 
+interface ResolveResult {
+  resolved: string | null;
+  candidates: MatchResult[];
+  error: string | null;
+}
+
 /**
  * Resolve a query to a single JID, or return disambiguation candidates.
- *
- * @returns {{ resolved: string|null, candidates: Array, error: string|null }}
+ * @param query - The search query
+ * @param chats - Available chats to match against
+ * @returns Resolution result with resolved JID, candidates, or error
  */
-export function resolveRecipient(query, chats) {
+export function resolveRecipient(query: string, chats: Chat[]): ResolveResult {
   if (!query) {
     return { resolved: null, candidates: [], error: 'Recipient is required' };
   }
@@ -124,7 +154,7 @@ export function resolveRecipient(query, chats) {
     return {
       resolved: null,
       candidates: [],
-      error: `No contact or group found matching "${query}". Use list_chats to see available conversations.`
+      error: `No contact or group found matching "${query}". Use list_chats to see available conversations.`,
     };
   }
 
@@ -139,6 +169,6 @@ export function resolveRecipient(query, chats) {
   return {
     resolved: null,
     candidates: matches.slice(0, 5),
-    error: `Multiple matches found for "${query}". Please use the exact JID from the list below.`
+    error: `Multiple matches found for "${query}". Please use the exact JID from the list below.`,
   };
 }

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-api)",
+      "Skill(schedule)",
+      "Skill(simplify)"
+    ]
+  }
+}
