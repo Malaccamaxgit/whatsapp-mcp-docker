@@ -169,7 +169,7 @@ export function registerMediaTools(
           { path: file_path, ext: extCheck.extension },
           false
         );
-        return { content: [{ type: 'text', text: extCheck.warning }], isError: true };
+        return { content: [{ type: 'text', text: extCheck.warning! }], isError: true };
       }
 
       try {
