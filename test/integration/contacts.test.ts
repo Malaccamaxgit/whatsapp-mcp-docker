@@ -14,7 +14,7 @@ const CHAT_JID = '15145551234@s.whatsapp.net';
 const GROUP_JID = '120363001234@g.us';
 
 describe('Contact & User Info Tools (integration)', () => {
-  let ctx;
+  let ctx: Awaited<ReturnType<typeof createTestServer>>;
 
   before(async () => {
     initEncryption(null);
@@ -63,14 +63,14 @@ describe('Contact & User Info Tools (integration)', () => {
     });
 
     it('handles empty result from client', async () => {
-      ctx.waClient.setBehavior('getUserInfo', async () => ({}));
+      (ctx.waClient as unknown as { setBehavior: (method: string, impl: (...args: unknown[]) => unknown) => void }).setBehavior('getUserInfo', async () => ({}));
       const result = await ctx.client.callTool({
         name: 'get_user_info',
         arguments: { phones: ['+15145551234'] }
       });
       assert.equal(result.isError, undefined);
       assert.match(result.content[0].text, /no information found/i);
-      ctx.waClient.resetBehaviors();
+      (ctx.waClient as unknown as { resetBehaviors: () => void }).resetBehaviors();
     });
 
     it('rejects a local (0-prefixed) phone number via Zod PhoneSchema', async () => {
@@ -98,14 +98,14 @@ describe('Contact & User Info Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      ctx.waClient._connected = false;
+      (ctx.waClient as unknown as { _connected: boolean })._connected = false;
       const result = await ctx.client.callTool({
         name: 'get_user_info',
         arguments: { phones: ['+15145551234'] }
       });
       assert.ok(result.isError);
       assert.match(result.content[0].text, /not connected/i);
-      ctx.waClient._connected = true;
+      (ctx.waClient as unknown as { _connected: boolean })._connected = true;
     });
   });
 
@@ -134,7 +134,7 @@ describe('Contact & User Info Tools (integration)', () => {
     });
 
     it('handles a mix of exists/not-exists', async () => {
-      ctx.waClient.setBehavior('isOnWhatsApp', async (phones) =>
+      (ctx.waClient as unknown as { setBehavior: (method: string, impl: (...args: unknown[]) => unknown) => void }).setBehavior('isOnWhatsApp', async (phones: string[]) =>
         phones.map((p, i) => ({
           jid: `${p.replace(/\D/g, '')}@s.whatsapp.net`,
           phone: p,
@@ -149,7 +149,7 @@ describe('Contact & User Info Tools (integration)', () => {
       const text = result.content[0].text;
       assert.match(text, /✅/);
       assert.match(text, /❌/);
-      ctx.waClient.resetBehaviors();
+      (ctx.waClient as unknown as { resetBehaviors: () => void }).resetBehaviors();
     });
 
     it('rejects a local phone number via Zod PhoneSchema', async () => {
@@ -161,13 +161,13 @@ describe('Contact & User Info Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      ctx.waClient._connected = false;
+      (ctx.waClient as unknown as { _connected: boolean })._connected = false;
       const result = await ctx.client.callTool({
         name: 'is_on_whatsapp',
         arguments: { phones: ['+15145551234'] }
       });
       assert.ok(result.isError);
-      ctx.waClient._connected = true;
+      (ctx.waClient as unknown as { _connected: boolean })._connected = true;
     });
   });
 
@@ -209,24 +209,24 @@ describe('Contact & User Info Tools (integration)', () => {
     });
 
     it('reports no picture when client returns null', async () => {
-      ctx.waClient.setBehavior('getProfilePicture', async () => null);
+      (ctx.waClient as unknown as { setBehavior: (method: string, impl: (...args: unknown[]) => unknown) => void }).setBehavior('getProfilePicture', async () => null);
       const result = await ctx.client.callTool({
         name: 'get_profile_picture',
         arguments: { target: CHAT_JID }
       });
       assert.equal(result.isError, undefined);
       assert.match(result.content[0].text, /no profile picture/i);
-      ctx.waClient.resetBehaviors();
+      (ctx.waClient as unknown as { resetBehaviors: () => void }).resetBehaviors();
     });
 
     it('returns error when not connected', async () => {
-      ctx.waClient._connected = false;
+      (ctx.waClient as unknown as { _connected: boolean })._connected = false;
       const result = await ctx.client.callTool({
         name: 'get_profile_picture',
         arguments: { target: CHAT_JID }
       });
       assert.ok(result.isError);
-      ctx.waClient._connected = true;
+      (ctx.waClient as unknown as { _connected: boolean })._connected = true;
     });
   });
 });

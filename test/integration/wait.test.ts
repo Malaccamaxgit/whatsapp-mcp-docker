@@ -7,11 +7,24 @@ import assert from 'node:assert/strict';
 import { createTestServer } from './helpers/test-server.js';
 import { MessageStore } from '../../src/whatsapp/store.js';
 import { initEncryption } from '../../src/security/crypto.js';
+import type { WhatsAppClient } from '../../src/whatsapp/client.js';
 
 const CHAT_JID = '15145551234@s.whatsapp.net';
 const SENDER_JID = '15145551234@s.whatsapp.net';
 
-function makeMsg(overrides = {}) {
+type MockMessage = {
+  id: string;
+  chatJid: string;
+  senderJid: string;
+  senderName: string;
+  body: string;
+  timestamp: number;
+  isFromMe: boolean;
+  hasMedia: boolean;
+  mediaType: string | null;
+};
+
+function makeMsg(overrides: Partial<MockMessage> = {}): MockMessage {
   return {
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
     chatJid: CHAT_JID,
@@ -27,7 +40,7 @@ function makeMsg(overrides = {}) {
 }
 
 describe('wait_for_message (integration)', () => {
-  let ctx;
+  let ctx: Awaited<ReturnType<typeof createTestServer>>;
 
   before(async () => {
     initEncryption(null);
@@ -48,7 +61,7 @@ describe('wait_for_message (integration)', () => {
 
     // Simulate incoming message after a short delay
     await new Promise((r) => setTimeout(r, 50));
-    ctx.waClient.simulateIncomingMessage(makeMsg());
+    (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg());
 
     const result = await waitPromise;
     assert.equal(result.isError, undefined);
@@ -67,11 +80,11 @@ describe('wait_for_message (integration)', () => {
     await new Promise((r) => setTimeout(r, 50));
 
     // Wrong chat — should not resolve
-    ctx.waClient.simulateIncomingMessage(makeMsg({ chatJid: OTHER_JID, senderJid: OTHER_JID }));
+    (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg({ chatJid: OTHER_JID, senderJid: OTHER_JID }));
 
     // Correct chat — should resolve
     await new Promise((r) => setTimeout(r, 30));
-    ctx.waClient.simulateIncomingMessage(makeMsg({ body: 'Correct chat message' }));
+    (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg({ body: 'Correct chat message' }));
 
     const result = await waitPromise;
     assert.equal(result.isError, undefined);
@@ -85,7 +98,7 @@ describe('wait_for_message (integration)', () => {
     });
 
     await new Promise((r) => setTimeout(r, 50));
-    ctx.waClient.simulateIncomingMessage(makeMsg({ body: 'Named chat message' }));
+    (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg({ body: 'Named chat message' }));
 
     const result = await waitPromise;
     assert.equal(result.isError, undefined);
@@ -99,7 +112,7 @@ describe('wait_for_message (integration)', () => {
     });
 
     await new Promise((r) => setTimeout(r, 50));
-    ctx.waClient.simulateIncomingMessage(makeMsg({ body: 'Sender filtered message' }));
+    (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg({ body: 'Sender filtered message' }));
 
     const result = await waitPromise;
     assert.equal(result.isError, undefined);
@@ -116,7 +129,7 @@ describe('wait_for_message (integration)', () => {
   });
 
   it('returns error when not connected', async () => {
-    ctx.waClient.setConnected(false);
+    (ctx.waClient as unknown as { _connected: boolean })._connected = false;
     try {
       const result = await ctx.client.callTool({
         name: 'wait_for_message',
@@ -125,8 +138,8 @@ describe('wait_for_message (integration)', () => {
       assert.equal(result.isError, true);
       assert.match(result.content[0].text, /not connected/i);
     } finally {
-      ctx.waClient._connected = true;
-      ctx.waClient.jid = '15145559999@s.whatsapp.net';
+      (ctx.waClient as unknown as { _connected: boolean })._connected = true;
+      (ctx.waClient as unknown as { jid: string }).jid = '15145559999@s.whatsapp.net';
     }
   });
 
@@ -137,7 +150,7 @@ describe('wait_for_message (integration)', () => {
     });
 
     await new Promise((r) => setTimeout(r, 50));
-    ctx.waClient.simulateIncomingMessage(
+    (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(
       makeMsg({ body: '', hasMedia: true, mediaType: 'image' })
     );
 

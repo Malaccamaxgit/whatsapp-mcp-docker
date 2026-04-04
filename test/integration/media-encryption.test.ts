@@ -1,6 +1,6 @@
 /**
  * Media Encryption Integration Tests
- * 
+ *
  * Tests end-to-end encryption for media files and metadata
  */
 
@@ -14,7 +14,7 @@ import { join } from 'node:path';
 const TEST_DB_PATH = join(process.cwd(), '.test-data', 'media-encryption-test.db');
 
 describe('Media Encryption Integration', () => {
-  let store;
+  let store: MessageStore;
   const testEncryptionKey = 'test-media-encryption-key-12345678901234567890123456789012';
 
   before(() => {
@@ -22,14 +22,14 @@ describe('Media Encryption Integration', () => {
     const enabled = initEncryption(testEncryptionKey);
     assert.ok(enabled, 'Encryption should be enabled');
     assert.ok(isEncryptionEnabled(), 'Encryption should be active');
-    
+
     // Clean up any existing test database
     try {
       unlinkSync(TEST_DB_PATH);
     } catch (err) {
       // Ignore if doesn't exist
     }
-    
+
     // Create store AFTER encryption is initialized
     store = new MessageStore(TEST_DB_PATH);
   });
@@ -77,7 +77,7 @@ describe('Media Encryption Integration', () => {
     // Retrieve message and verify decryption
     const messages = store.listMessages({ chatJid, limit: 1 });
     assert.ok(messages.length > 0, 'Should retrieve message');
-    
+
     const retrievedMsg = messages[0];
     assert.strictEqual(retrievedMsg.body, 'Test message with media', 'Body should be decrypted');
     assert.strictEqual(retrievedMsg.sender_name, 'Test User', 'Sender name should be decrypted');
@@ -86,7 +86,7 @@ describe('Media Encryption Integration', () => {
   it('should handle media metadata encryption with special characters', () => {
     const messageId = `test-msg-special-${Date.now()}`;
     const chatJid = '1234567890@s.whatsapp.net';
-    
+
     // Test with special characters and unicode
     const specialMediaJson = JSON.stringify({
       documentMessage: {
@@ -115,7 +115,7 @@ describe('Media Encryption Integration', () => {
     // Verify special characters survive encryption/decryption
     const messages = store.searchMessages({ query: 'émojis' });
     assert.ok(messages.length > 0, 'Should find message with special chars');
-    
+
     const msg = messages[0];
     assert.ok(msg.body.includes('🎉'), 'Emoji should be preserved');
     assert.strictEqual(msg.sender_name, 'User With Ñame', 'Special chars in name preserved');
@@ -124,10 +124,10 @@ describe('Media Encryption Integration', () => {
   it('should handle mixed encrypted and plaintext media metadata', () => {
     const messageId = `test-msg-mixed-${Date.now()}`;
     const chatJid = '1234567890@s.whatsapp.net';
-    
+
     // Insert message without encryption first (simulate legacy data)
     const legacyMediaJson = '{"legacy": true}';
-    
+
     store.addMessage({
       id: messageId,
       chatJid,
@@ -154,15 +154,15 @@ describe('Media Encryption Integration', () => {
   it('should encrypt chat last_message_preview', () => {
     const chatJid = 'preview-test@s.whatsapp.net';
     const previewText = 'This is a secret preview message';
-    
+
     // Upsert chat with preview
     store.upsertChat(chatJid, 'Preview Test Chat', false, Math.floor(Date.now() / 1000), previewText);
-    
+
     // Retrieve and verify encryption
     const chat = store.getChatByJid(chatJid);
     assert.ok(chat, 'Chat should exist');
     assert.strictEqual(chat.last_message_preview, previewText, 'Preview should be decrypted');
-    
+
     // Verify it's actually encrypted in the database
     const rawRow = store.db.prepare('SELECT last_message_preview FROM chats WHERE jid = ?').get(chatJid);
     assert.ok(rawRow.last_message_preview.startsWith('enc:'), 'Preview should be encrypted in DB');
@@ -178,13 +178,13 @@ describe('Media Encryption Integration', () => {
 
     // Create approval
     const approval = store.createApproval(approvalData);
-    
+
     // Verify encryption
     const retrievedApproval = store.getApproval(approval.id);
     assert.ok(retrievedApproval, 'Approval should exist');
     assert.strictEqual(retrievedApproval.action, approvalData.action, 'Action should be decrypted');
     assert.strictEqual(retrievedApproval.details, approvalData.details, 'Details should be decrypted');
-    
+
     // Verify actually encrypted in database
     const rawRow = store.db.prepare('SELECT action, details FROM approvals WHERE id = ?').get(approval.id);
     assert.ok(rawRow.action.startsWith('enc:'), 'Action should be encrypted in DB');
@@ -195,7 +195,7 @@ describe('Media Encryption Integration', () => {
     const messageId = `test-msg-search-${Date.now()}`;
     const chatJid = 'search-test@s.whatsapp.net';
     const searchableBody = 'This message contains searchable keywords for FTS5 testing';
-    
+
     store.addMessage({
       id: messageId,
       chatJid,
@@ -210,7 +210,7 @@ describe('Media Encryption Integration', () => {
     // FTS5 should still work (it stores plaintext separately)
     const searchResults = store.searchMessages({ query: 'keywords' });
     assert.ok(searchResults.length > 0, 'FTS5 should find encrypted message');
-    
+
     const found = searchResults.find(m => m.id === messageId);
     assert.ok(found, 'Should find our message');
     assert.strictEqual(found.body, searchableBody, 'Body should be decrypted in results');
