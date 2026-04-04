@@ -1,8 +1,8 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { tmpdir } from 'node:os';
-import { join, resolve, sep } from 'node:path';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import {
   sanitizeFilename,
   assertPathWithin,
@@ -14,7 +14,7 @@ import {
 
 describe('sanitizeFilename', () => {
   it('returns "unnamed" for empty/null input', () => {
-    assert.equal(sanitizeFilename(null), 'unnamed');
+    assert.equal(sanitizeFilename(null as unknown as string), 'unnamed');
     assert.equal(sanitizeFilename(''), 'unnamed');
   });
 
@@ -40,13 +40,12 @@ describe('sanitizeFilename', () => {
 });
 
 describe('assertPathWithin', () => {
-  let tempDir;
-  let subDir;
+  let tempDir: string;
+  let subDir: string;
 
   before(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'pathtest-'));
     subDir = join(tempDir, 'media');
-    const { mkdir } = await import('node:fs/promises');
     await mkdir(subDir, { recursive: true });
     await writeFile(join(subDir, 'img.jpg'), 'fake');
   });
@@ -77,13 +76,12 @@ describe('assertPathWithin', () => {
 });
 
 describe('validateUploadPath', () => {
-  let tempDir;
-  let allowedDir;
+  let tempDir: string;
+  let allowedDir: string;
 
   before(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'upload-'));
     allowedDir = join(tempDir, 'allowed');
-    const { mkdir } = await import('node:fs/promises');
     await mkdir(allowedDir, { recursive: true });
     await writeFile(join(allowedDir, 'photo.jpg'), 'fake');
     await writeFile(join(allowedDir, 'session.db'), 'fake');
@@ -176,7 +174,7 @@ describe('checkExtension', () => {
 });
 
 describe('verifyMagicBytes', () => {
-  let tempDir;
+  let tempDir: string;
 
   before(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'fileguard-'));
@@ -246,7 +244,7 @@ describe('verifyMagicBytes', () => {
 });
 
 describe('checkMediaQuota', () => {
-  let tempDir;
+  let tempDir: string;
 
   before(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'quota-'));

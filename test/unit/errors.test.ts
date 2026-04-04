@@ -106,12 +106,12 @@ describe('classifyError', () => {
     });
 
     it('handles null gracefully', () => {
-      const result = classifyError(null);
+      const result = classifyError(null as unknown as Error | string);
       assert.equal(result.type, 'unknown');
     });
 
     it('handles undefined gracefully', () => {
-      const result = classifyError(undefined);
+      const result = classifyError(undefined as unknown as Error | string);
       assert.equal(result.type, 'unknown');
     });
 
@@ -174,8 +174,8 @@ describe('getErrorCode', () => {
   });
 
   it('returns 500 for null/undefined input', () => {
-    assert.equal(getErrorCode(null), 500);
-    assert.equal(getErrorCode(undefined), 500);
+    assert.equal(getErrorCode(null as unknown as Error | string), 500);
+    assert.equal(getErrorCode(undefined as unknown as Error | string), 500);
   });
 });
 
@@ -235,9 +235,9 @@ describe('ERROR_CODES', () => {
   });
 
   it('each value is a numeric HTTP status code (200–599)', () => {
-    for (const [key, value] of Object.entries(ERROR_CODES)) {
-      assert.ok(typeof value === 'number', `${key} should be a number, got ${typeof value}`);
-      assert.ok(value >= 200 && value <= 599, `${key} = ${value} should be a valid HTTP status code`);
+    for (const [, value] of Object.entries(ERROR_CODES)) {
+      assert.ok(typeof value === 'number', 'value should be a number');
+      assert.ok(value >= 200 && value <= 599, 'value should be a valid HTTP status code');
     }
   });
 
