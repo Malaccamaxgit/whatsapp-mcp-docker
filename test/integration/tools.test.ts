@@ -7,7 +7,7 @@ import { PermissionManager } from '../../src/security/permissions.js';
 import { initEncryption } from '../../src/security/crypto.js';
 
 describe('MCP Tools (integration)', () => {
-  let ctx;
+  let ctx: Awaited<ReturnType<typeof createTestServer>>;
 
   before(async () => {
     initEncryption(null);
