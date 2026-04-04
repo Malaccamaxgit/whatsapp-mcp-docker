@@ -9,13 +9,16 @@ import assert from 'node:assert/strict';
 import { createTestServer } from './helpers/test-server.js';
 import { MessageStore } from '../../src/whatsapp/store.js';
 import { initEncryption } from '../../src/security/crypto.js';
+import { WhatsAppClient } from '../../src/whatsapp/client.js';
 
 const CHAT_JID = '15145551234@s.whatsapp.net';
 const GROUP_JID = '120363001234@g.us';
 const MSG_ID = 'test-msg-id-001';
 
+type TestContext = Awaited<ReturnType<typeof createTestServer>>;
+
 describe('Message Action Tools (integration)', () => {
-  let ctx;
+  let ctx: TestContext;
 
   before(async () => {
     initEncryption(null);
@@ -30,7 +33,8 @@ describe('Message Action Tools (integration)', () => {
       body: 'Original message text',
       timestamp: 1000,
       isFromMe: true,
-      hasMedia: false
+      hasMedia: false,
+      mediaType: null
     });
     ctx = await createTestServer({ store });
   });
@@ -78,14 +82,14 @@ describe('Message Action Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      ctx.waClient._connected = false;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = false;
       const result = await ctx.client.callTool({
         name: 'send_reaction',
         arguments: { chat: CHAT_JID, message_id: MSG_ID, emoji: '👍' }
       });
       assert.ok(result.isError);
       assert.match(result.content[0].text, /not connected/i);
-      ctx.waClient._connected = true;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = true;
     });
 
     it('propagates client errors', async () => {
@@ -123,13 +127,13 @@ describe('Message Action Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      ctx.waClient._connected = false;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = false;
       const result = await ctx.client.callTool({
         name: 'edit_message',
         arguments: { chat: CHAT_JID, message_id: MSG_ID, new_text: 'Test' }
       });
       assert.ok(result.isError);
-      ctx.waClient._connected = true;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = true;
     });
 
     it('propagates client errors', async () => {
@@ -167,13 +171,13 @@ describe('Message Action Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      ctx.waClient._connected = false;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = false;
       const result = await ctx.client.callTool({
         name: 'delete_message',
         arguments: { chat: CHAT_JID, message_id: MSG_ID }
       });
       assert.ok(result.isError);
-      ctx.waClient._connected = true;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = true;
     });
 
     it('propagates client errors', async () => {
@@ -260,7 +264,7 @@ describe('Message Action Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      ctx.waClient._connected = false;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = false;
       const result = await ctx.client.callTool({
         name: 'create_poll',
         arguments: {
@@ -270,7 +274,7 @@ describe('Message Action Tools (integration)', () => {
         }
       });
       assert.ok(result.isError);
-      ctx.waClient._connected = true;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = true;
     });
   });
 });
