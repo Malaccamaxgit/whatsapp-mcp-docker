@@ -27,7 +27,7 @@ interface PackageJson {
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as PackageJson;
 const STORE_PATH = process.env.STORE_PATH || '/data/store';
 
-initEncryption(process.env.DATA_ENCRYPTION_KEY);
+initEncryption(process.env.DATA_ENCRYPTION_KEY ?? '');
 
 const store = new MessageStore(`${STORE_PATH}/messages.db`);
 const permissions = new PermissionManager();
@@ -200,7 +200,7 @@ async function main() {
     });
   } catch (error) {
     console.error('[STARTUP] Startup error:', error);
-    audit.log('server', 'startup_failed', { error: error.message }, false);
+    audit.log('server', 'startup_failed', { error: error instanceof Error ? error.message : String(error) }, false);
     process.exit(1);
   }
 }

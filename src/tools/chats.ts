@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { resolveRecipient } from '../utils/fuzzy-match.js';
 import { LIMITS } from '../security/permissions.js';
 import type { MessageStore } from '../whatsapp/store.js';
@@ -12,18 +13,8 @@ import { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { PermissionManager } from '../security/permissions.js';
 
-interface ChatToolDependencies {
-  server: {
-    tool: (name: string, description: string, schema: Record<string, unknown>, handler: (...args: unknown[]) => unknown, options?: { annotations?: Record<string, unknown> }) => void;
-  };
-  waClient: WhatsAppClient;
-  store: MessageStore;
-  permissions: PermissionManager;
-  audit: AuditLogger;
-}
-
 export function registerChatTools(
-  server: ChatToolDependencies['server'],
+  server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
   permissions: PermissionManager,
@@ -31,20 +22,24 @@ export function registerChatTools(
 ): void {
   // ── list_chats ───────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'list_chats',
-    'List WhatsApp conversations sorted by recent activity. Shows last message preview, unread count, and timestamps. Filter by name or restrict to groups only.',
     {
-      filter: z
-        .string()
-        .max(LIMITS.MAX_FILTER_LENGTH)
-        .describe('Filter chats by name (substring match)')
-        .optional(),
-      groups_only: z.boolean().default(false).describe('Only show group chats').optional(),
-      limit: z.number().default(20).describe('Maximum chats to return (default 20)').optional(),
-      page: z.number().default(0).describe('Page number for pagination (default 0)').optional()
+      description: 'List WhatsApp conversations sorted by recent activity. Shows last message preview, unread count, and timestamps. Filter by name or restrict to groups only.',
+      inputSchema: {
+        filter: z
+          .string()
+          .max(LIMITS.MAX_FILTER_LENGTH)
+          .describe('Filter chats by name (substring match)')
+          .optional(),
+        groups_only: z.boolean().default(false).describe('Only show group chats').optional(),
+        limit: z.number().default(20).describe('Maximum chats to return (default 20)').optional(),
+        page: z.number().default(0).describe('Page number for pagination (default 0)').optional()
+      },
+      annotations: { readOnlyHint: true }
     },
-    async ({ filter, groups_only = false, limit = 20, page = 0 }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ filter, groups_only = false, limit = 20, page = 0 }: any) => {
       const toolCheck = permissions.isToolEnabled('list_chats');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -96,23 +91,26 @@ export function registerChatTools(
           }
         ]
       };
-    },
-    { annotations: { readOnlyHint: true } }
+    }
   );
 
   // ── catch_up ─────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'catch_up',
-    'Get an intelligent summary of recent WhatsApp activity. Shows active chats with unread counts, recent messages directed at you, questions awaiting your response, and pending approval requests. Much more useful than reading raw message lists.',
     {
-      since: z
-        .enum(['1h', '4h', 'today', '24h', 'this_week'])
-        .default('today')
-        .describe('Time window for the summary (default "today")')
-        .optional()
+      description: 'Get an intelligent summary of recent WhatsApp activity. Shows active chats with unread counts, recent messages directed at you, questions awaiting your response, and pending approval requests. Much more useful than reading raw message lists.',
+      inputSchema: {
+        since: z
+          .enum(['1h', '4h', 'today', '24h', 'this_week'])
+          .default('today')
+          .describe('Time window for the summary (default "today")')
+          .optional()
+      },
+      annotations: { readOnlyHint: true }
     },
-    async ({ since = 'today' }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ since = 'today' }: any) => {
       const toolCheck = permissions.isToolEnabled('catch_up');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -199,28 +197,31 @@ export function registerChatTools(
           }
         ]
       };
-    },
-    { annotations: { readOnlyHint: true } }
+    }
   );
 
   // ── search_contacts ──────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'search_contacts',
-    'Search WhatsApp contacts and groups by name or phone number. Returns matching contacts with their JIDs, and optionally lists all chats involving a specific contact (including group chats they participate in).',
     {
-      query: z
-        .string()
-        .max(LIMITS.MAX_SEARCH_QUERY_LENGTH)
-        .describe('Search term to match against contact names or phone numbers'),
-      include_chats: z
-        .boolean()
-        .default(false)
-        .describe('Also return all chats involving the matched contact')
-        .optional(),
-      limit: z.number().default(20).describe('Maximum results to return (default 20)').optional()
+      description: 'Search WhatsApp contacts and groups by name or phone number. Returns matching contacts with their JIDs, and optionally lists all chats involving a specific contact (including group chats they participate in).',
+      inputSchema: {
+        query: z
+          .string()
+          .max(LIMITS.MAX_SEARCH_QUERY_LENGTH)
+          .describe('Search term to match against contact names or phone numbers'),
+        include_chats: z
+          .boolean()
+          .default(false)
+          .describe('Also return all chats involving the matched contact')
+          .optional(),
+        limit: z.number().default(20).describe('Maximum results to return (default 20)').optional()
+      },
+      annotations: { readOnlyHint: true }
     },
-    async ({ query, include_chats = false, limit = 20 }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ query, include_chats = false, limit = 20 }: any) => {
       const toolCheck = permissions.isToolEnabled('search_contacts');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -268,28 +269,31 @@ export function registerChatTools(
       return {
         content: [{ type: 'text', text: output }]
       };
-    },
-    { annotations: { readOnlyHint: true } }
+    }
   );
 
   // ── mark_messages_read ───────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'mark_messages_read',
-    'Mark messages as read in a WhatsApp chat. Prevents them from appearing as unread in catch_up. Specify a chat to mark all messages in it, or provide specific message IDs.',
     {
-      chat: z
-        .string()
-        .max(200)
-        .describe('Chat name, phone number, or JID to mark as read')
-        .optional(),
-      message_ids: z
-        .array(z.string())
-        .max(LIMITS.MAX_MARK_READ_IDS)
-        .describe(`Specific message IDs to mark as read (max ${LIMITS.MAX_MARK_READ_IDS})`)
-        .optional()
+      description: 'Mark messages as read in a WhatsApp chat. Prevents them from appearing as unread in catch_up. Specify a chat to mark all messages in it, or provide specific message IDs.',
+      inputSchema: {
+        chat: z
+          .string()
+          .max(200)
+          .describe('Chat name, phone number, or JID to mark as read')
+          .optional(),
+        message_ids: z
+          .array(z.string())
+          .max(LIMITS.MAX_MARK_READ_IDS)
+          .describe(`Specific message IDs to mark as read (max ${LIMITS.MAX_MARK_READ_IDS})`)
+          .optional()
+      },
+      annotations: { idempotentHint: true, readOnlyHint: true }
     },
-    async ({ chat, message_ids }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ chat, message_ids }: any) => {
       const toolCheck = permissions.isToolEnabled('mark_messages_read');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -338,27 +342,30 @@ export function registerChatTools(
           }
         ]
       };
-    },
-    { annotations: { idempotentHint: true, readOnlyHint: true } }
+    }
   );
 
   // ── export_chat_data ─────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'export_chat_data',
-    'Export complete chat history for a specific contact or group. Supports JSON and CSV formats. Designed for PIPEDA individual access rights compliance. Returns up to 10,000 most recent messages.',
     {
-      jid: z
-        .string()
-        .max(200)
-        .describe('Chat JID to export (use list_chats to find JIDs)'),
-      format: z
-        .enum(['json', 'csv'])
-        .default('json')
-        .describe('Export format: json (structured) or csv (spreadsheet-compatible)')
-        .optional()
+      description: 'Export complete chat history for a specific contact or group. Supports JSON and CSV formats. Designed for PIPEDA individual access rights compliance. Returns up to 10,000 most recent messages.',
+      inputSchema: {
+        jid: z
+          .string()
+          .max(200)
+          .describe('Chat JID to export (use list_chats to find JIDs)'),
+        format: z
+          .enum(['json', 'csv'])
+          .default('json')
+          .describe('Export format: json (structured) or csv (spreadsheet-compatible)')
+          .optional()
+      },
+      annotations: { readOnlyHint: true }
     },
-    async ({ jid, format = 'json' }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ jid, format = 'json' }: any) => {
       const toolCheck = permissions.isToolEnabled('export_chat_data');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -409,7 +416,6 @@ export function registerChatTools(
           isError: true
         };
       }
-    },
-    { annotations: { readOnlyHint: true } }
+    }
   );
 }

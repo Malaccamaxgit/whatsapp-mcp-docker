@@ -103,12 +103,12 @@ export function registerMessagingTools(
       const { resolved, candidates, error } = resolveRecipient(to, chats);
 
       if (!resolved && candidates.length > 0) {
-        const list = candidates.map((c) => `  - "${c.name}" → ${c.jid}`).join('\n');
+        const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
         return {
           content: [
             {
               type: 'text',
-              text: `${error}\n\n${list}\n\nCall send_message again with the exact JID as the "to" parameter.`
+              text: `${error ?? 'Ambiguous recipient'}\n\n${list}\n\nCall send_message again with the exact JID as the "to" parameter.`
             }
           ],
           isError: true
@@ -117,7 +117,7 @@ export function registerMessagingTools(
 
       if (!resolved) {
         return {
-          content: [{ type: 'text', text: error || `Could not resolve recipient "${to}".` }],
+          content: [{ type: 'text', text: error ?? `Could not resolve recipient "${to}".` }],
           isError: true
         };
       }
@@ -126,19 +126,19 @@ export function registerMessagingTools(
 
       const contactCheck = permissions.canSendTo(jid);
       if (!contactCheck.allowed) {
-        return { content: [{ type: 'text', text: contactCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: contactCheck.error ?? 'Cannot send to this contact' }], isError: true };
       }
 
       const rateCheck = permissions.checkRateLimit();
       if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
       }
 
       try {
         const result = await waClient.sendMessage(jid, message);
         audit.log('send_message', 'sent', { to: jid, messageId: result.id });
 
-        const chatName = (store.getChatByJid(jid) as ChatInfo | null)?.name || to;
+        const chatName = (store.getChatByJid(jid) as ChatInfo | null)?.name ?? to;
         return {
           content: [
             {
@@ -224,14 +224,14 @@ export function registerMessagingTools(
       const { resolved, candidates, error } = resolveRecipient(chat, chats);
 
       if (!resolved && candidates.length > 0) {
-        const list = candidates.map((c) => `  - "${c.name}" → ${c.jid}`).join('\n');
+        const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
         return {
-          content: [{ type: 'text', text: `${error}\n\n${list}` }],
+          content: [{ type: 'text', text: `${error ?? 'Ambiguous recipient'}\n\n${list}` }],
           isError: true
         };
       }
       if (!resolved) {
-        return { content: [{ type: 'text', text: error }], isError: true };
+        return { content: [{ type: 'text', text: error ?? 'Could not resolve chat' }], isError: true };
       }
 
       const safeLimit = Math.min(limit || 50, 200);
@@ -339,13 +339,7 @@ export function registerMessagingTools(
       limit = 20,
       page = 0,
       include_context = false
-    }: {
-      query: string;
-      chat?: string;
-      limit?: number;
-      page?: number;
-      include_context?: boolean;
-    }) => {
+    }: any) => {
       const toolCheck = permissions.isToolEnabled('search_messages');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };

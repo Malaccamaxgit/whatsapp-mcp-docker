@@ -55,7 +55,7 @@ export function registerReactionTools(
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
-      return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
     }
 
     try {
@@ -110,7 +110,7 @@ export function registerReactionTools(
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
-      return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
     }
 
     try {
@@ -160,7 +160,7 @@ export function registerReactionTools(
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
-      return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
     }
 
     try {
@@ -210,7 +210,7 @@ export function registerReactionTools(
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
-      return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
     }
 
     try {

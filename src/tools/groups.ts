@@ -98,7 +98,7 @@ export function registerGroupTools(
       }
 
       try {
-        const jids = participants.map((p) => (p.includes('@') ? p : toJid(p)));
+        const jids = participants.map((p) => (p.includes('@') ? p : toJid(p))).filter((j): j is string => j !== null);
         const result = await waClient.createGroup(name, jids) as CreateGroupResult;
         audit.log('create_group', 'created', { name, jid: result.jid, participants: jids.length });
         return {
@@ -359,7 +359,7 @@ export function registerGroupTools(
           return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
         }
 
-        const jids = participants.map((p) => (p.includes('@') ? p : toJid(p)));
+        const jids = participants.map((p) => (p.includes('@') ? p : toJid(p))).filter((j): j is string => j !== null);
         const result = await waClient.updateGroupParticipants(jid, jids, action) as UpdateParticipantsResult[];
         audit.log('update_group_participants', action, { jid, count: jids.length });
 

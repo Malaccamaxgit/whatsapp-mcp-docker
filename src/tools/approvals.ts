@@ -57,7 +57,7 @@ export function registerApprovalTools(
   }): Promise<ApprovalResult> => {
     const toolCheck = permissions.isToolEnabled('request_approval');
     if (!toolCheck.allowed) {
-      return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
     }
     if (!waClient.isConnected()) {
       return {
@@ -73,20 +73,20 @@ export function registerApprovalTools(
 
     if (!resolved) {
       if (candidates.length > 0) {
-        const list = candidates.map((c) => `  - "${c.name}" → ${c.jid}`).join('\n');
-        return { content: [{ type: 'text', text: `${error}\n\n${list}` }], isError: true };
+        const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
+        return { content: [{ type: 'text', text: `${error ?? 'Ambiguous recipient'}\n\n${list}` }], isError: true };
       }
-      return { content: [{ type: 'text', text: error }], isError: true };
+      return { content: [{ type: 'text', text: error ?? 'Could not resolve recipient' }], isError: true };
     }
 
     const contactCheck = permissions.canSendTo(resolved);
     if (!contactCheck.allowed) {
-      return { content: [{ type: 'text', text: contactCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: contactCheck.error ?? 'Cannot send to this contact' }], isError: true };
     }
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
-      return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
     }
 
     try {
@@ -177,7 +177,7 @@ export function registerApprovalTools(
   }): Promise<ApprovalResult> => {
     const toolCheck = permissions.isToolEnabled('check_approvals');
     if (!toolCheck.allowed) {
-      return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
     }
 
     if (request_id) {
@@ -196,7 +196,7 @@ export function registerApprovalTools(
 
       if (approval.status === 'approved' || approval.status === 'denied') {
         text += `  Response: ${approval.response_text || '(no message)'}\n`;
-        text += `  Responded at: ${formatDateTime(approval.responded_at)}`;
+        text += `  Responded at: ${formatDateTime(approval.responded_at ?? 0)}`;
       } else if (approval.status === 'expired') {
         text += `  Expired at: ${formatDateTime(approval.created_at + approval.timeout_ms)}`;
       } else {

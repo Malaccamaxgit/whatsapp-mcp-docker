@@ -70,7 +70,7 @@ async function waitForDeviceLink(
   while (Date.now() < deadline) {
     if (waClient.isConnected()) {
       const elapsedSec = Math.round((Date.now() - start) / 1000);
-      return { ok: true, jid: waClient.jid, elapsedSec };
+      return { ok: true, jid: waClient.jid ?? undefined, elapsedSec };
     }
     const remaining = deadline - Date.now();
     const sleepMs = Math.min(pollIntervalMs, Math.max(0, remaining));
@@ -114,7 +114,7 @@ function createDisconnectHandler(
   return async (): Promise<DisconnectResult> => {
     const toolCheck = permissions.isToolEnabled('disconnect');
     if (!toolCheck.allowed) {
-      return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
     }
 
     if (!waClient.isConnected() && !waClient.hasSession) {
@@ -178,7 +178,7 @@ function createAuthenticateHandler(
   }): Promise<AuthenticateResult> => {
     const toolCheck = permissions.isToolEnabled('authenticate');
     if (!toolCheck.allowed) {
-      return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
     }
     if (waClient.isConnected()) {
       permissions.resetAuthBackoff();
@@ -279,7 +279,7 @@ function createAuthenticateHandler(
     if (!authRate.allowed) {
       audit.log('authenticate', 'rate_limited', { retryAfterSec: authRate.retryAfterSec }, false);
       return {
-        content: [{ type: 'text', text: authRate.error }],
+        content: [{ type: 'text', text: authRate.error ?? 'Rate limit exceeded' }],
         isError: true
       };
     }
@@ -295,7 +295,7 @@ function createAuthenticateHandler(
     };
 
     try {
-      const result = await waClient.requestPairingCode(validation.number);
+      const result = await waClient.requestPairingCode(validation.number!);
 
       if (result.alreadyConnected) {
         permissions.recordAuthAttempt(true);

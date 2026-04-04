@@ -17,16 +17,11 @@ import {
 } from '../security/file-guard.js';
 
 export function registerMediaTools(
-  server: { registerTool: (name: string, config: { description: string; inputSchema: Record<string, z.ZodType> }, handler: any, annotations?: Record<string, unknown>) => void },
-  waClient: unknown,
-  store: { getAllChatsForMatching: () => Chat[]; getChatByJid: (jid: string) => { name?: string } | undefined },
-  permissions: {
-    isToolEnabled: (tool: string) => { allowed: boolean; error?: string };
-    checkDownloadRateLimit: () => { allowed: boolean; error?: string };
-    canSendTo: (jid: string) => { allowed: boolean; error?: string };
-    checkRateLimit: () => { allowed: boolean; error?: string };
-  },
-  audit: { log: (action: string, event: string, details: Record<string, unknown>, success?: boolean) => void }
+  server: McpServer,
+  waClient: WhatsAppClient,
+  store: MessageStore,
+  permissions: PermissionManager,
+  audit: AuditLogger
 ) {
   server.registerTool(
     'download_media',
@@ -44,7 +39,8 @@ export function registerMediaTools(
           .optional()
       }
     },
-    async ({ message_id, chat }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ message_id, chat }: any) => {
       const toolCheck = permissions.isToolEnabled('download_media');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -137,7 +133,8 @@ export function registerMediaTools(
           .optional()
       }
     },
-    async ({ to, file_path, media_type, caption }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ to, file_path, media_type, caption }: any) => {
       const toolCheck = permissions.isToolEnabled('send_file');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -223,7 +220,7 @@ export function registerMediaTools(
       }
       if (!resolved) {
         return {
-          content: [{ type: 'text', text: error || `Could not resolve recipient "${to}".` }],
+          content: [{ type: 'text', text: error ?? `Could not resolve recipient "${to}".` }],
           isError: true
         };
       }
@@ -232,19 +229,19 @@ export function registerMediaTools(
 
       const contactCheck = permissions.canSendTo(jid);
       if (!contactCheck.allowed) {
-        return { content: [{ type: 'text', text: contactCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: contactCheck.error ?? 'Cannot send to this contact' }], isError: true };
       }
 
       const rateCheck = permissions.checkRateLimit();
       if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
       }
 
       try {
-        const result = await (waClient as { uploadAndSendMedia: (jid: string, path: string, type: string, caption: string) => Promise<{ id: string }> }).uploadAndSendMedia(jid, file_path, media_type, caption || '');
+        const result = await (waClient as { uploadAndSendMedia: (jid: string, path: string, type: string, caption: string) => Promise<{ id: string }> }).uploadAndSendMedia(jid, file_path, media_type, caption ?? '');
         audit.log('send_file', 'sent', { to: jid, mediaType: media_type, messageId: result.id });
 
-        const chatName = store.getChatByJid(jid)?.name || to;
+        const chatName = store.getChatByJid(jid)?.name ?? to;
         return {
           content: [
             {

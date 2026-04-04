@@ -712,16 +712,17 @@ export class WhatsAppClient {
     senderJid: string | null | undefined;
   }): Promise<unknown> {
     const ids = messageIds || [];
+    const sender = senderJid ?? undefined;
 
     if (ids.length > 0 && this._sendReadReceipts && this.isConnected()) {
       try {
-        await this.client!.markRead(ids, chatJid, senderJid);
+        await this.client!.markRead(ids, chatJid, sender);
       } catch (err) {
         console.error('[WA] Failed to send read receipts:', (err as Error).message);
       }
     }
 
-    return this.messageStore.markRead({ chatJid, messageIds });
+    return this.messageStore.markRead({ chatJid, messageIds: ids });
   }
 
   // ── Retry & Timeout Helpers ─────────────────────────────────
@@ -766,7 +767,7 @@ export class WhatsAppClient {
     this._sentMessageIds.add(id);
     if (this._sentMessageIds.size > 1000) {
       const oldest = this._sentMessageIds.values().next().value;
-      this._sentMessageIds.delete(oldest);
+      if (oldest) this._sentMessageIds.delete(oldest);
     }
   }
 
@@ -785,7 +786,7 @@ export class WhatsAppClient {
     this._checkApprovalResponse(msg);
 
     if (!msg.isFromMe && this._autoReadReceipts && msg.id && msg.chatJid) {
-      this.client!.markRead([msg.id], msg.chatJid, msg.senderJid).catch(() => {});
+      this.client!.markRead([msg.id], msg.chatJid, msg.senderJid ?? undefined).catch(() => {});
     }
 
     this.onMessage(msg);
@@ -1232,7 +1233,7 @@ export class WhatsAppClient {
     const extCheck = checkExtension(dest);
     if (extCheck.dangerous) {
       console.error(`[FILEGUARD] Blocked file with restricted extension: ${dest}`);
-      throw new Error(extCheck.warning);
+      throw new Error(extCheck.warning ?? 'File extension not allowed');
     }
 
     await copyFile(tempPath, dest);

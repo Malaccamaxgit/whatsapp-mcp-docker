@@ -100,7 +100,7 @@ export function toJid(input: string): string | null {
   if (input.includes('@')) return input;
 
   const { valid, number, error } = validatePhoneNumber(input);
-  if (!valid) throw new Error(error);
+  if (!valid) throw new Error(error ?? undefined);
 
   return `${number}@s.whatsapp.net`;
 }
