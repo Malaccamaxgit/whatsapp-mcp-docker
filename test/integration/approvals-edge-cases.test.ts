@@ -1,6 +1,6 @@
 /**
  * Approval Workflow Edge Case Tests
- * 
+ *
  * Tests timeout expiry, concurrent approvals, malformed responses, and edge cases
  */
 
@@ -13,7 +13,7 @@ import { join } from 'node:path';
 const TEST_DB_PATH = join(process.cwd(), '.test-data', 'approvals-edge-cases-test.db');
 
 describe('Approval Workflow Edge Cases', () => {
-  let store;
+  let store: MessageStore;
 
   before(() => {
     // Clean up any existing test database
@@ -22,7 +22,7 @@ describe('Approval Workflow Edge Cases', () => {
     } catch (err) {
       // Ignore if doesn't exist
     }
-    
+
     store = new MessageStore(TEST_DB_PATH);
   });
 
@@ -52,16 +52,16 @@ describe('Approval Workflow Edge Cases', () => {
       INSERT INTO approvals (id, to_jid, action, details, status, created_at, timeout_ms)
       VALUES (?, ?, ?, ?, 'pending', ?, ?)
     `);
-    
+
     const expiredId = 'approval-expired-test';
     stmt.run(expiredId, expiredApproval.toJid, expiredApproval.action, expiredApproval.details, expiredApproval.createdAt, expiredApproval.timeoutMs);
 
     // Get pending approvals (should auto-expire)
     const pending = store.getPendingApprovals();
     const expiredApprovalStillPending = pending.find(a => a.id === expiredId);
-    
+
     assert.ok(!expiredApprovalStillPending, 'Expired approval should not be in pending list');
-    
+
     // Verify status changed to expired
     const retrieved = store.getApproval(expiredId);
     assert.strictEqual(retrieved.status, 'expired', 'Status should be expired');
@@ -69,7 +69,7 @@ describe('Approval Workflow Edge Cases', () => {
 
   it('should handle multiple concurrent approvals to same contact', () => {
     const contactJid = 'multi-approval@s.whatsapp.net';
-    const approvals = [];
+    const approvals: ReturnType<MessageStore['createApproval']>[] = [];
 
     // Create 5 approvals in rapid succession
     for (let i = 0; i < 5; i++) {
@@ -85,9 +85,9 @@ describe('Approval Workflow Edge Cases', () => {
     // All should be retrievable
     const pending = store.getPendingApprovals();
     const contactApprovals = pending.filter(a => a.to_jid === contactJid);
-    
+
     assert.strictEqual(contactApprovals.length, 5, 'Should have 5 pending approvals');
-    
+
     // Approve one
     const firstApproval = approvals[0];
     const respondSuccess = store.respondToApproval(firstApproval.id, true, 'Approved via test');
@@ -130,12 +130,12 @@ describe('Approval Workflow Edge Cases', () => {
       const text = testCase.response.toLowerCase().trim();
       const approvalKeywords = ['approve', 'approved', 'yes', 'ok', 'okay', 'confirm', 'y', '✅', '✔️'];
       const denyKeywords = ['deny', 'denied', 'no', 'reject', 'cancel', 'n', '❌', '🚫'];
-      
+
       const isApproved = approvalKeywords.some(k => text.includes(k));
       const isDenied = denyKeywords.some(k => text.includes(k));
-      
+
       const expectedResponse = testCase.expected ? 'approved' : 'denied';
-      
+
       if (isApproved && !isDenied) {
         store.respondToApproval(approval.id, true, testCase.response);
         const retrieved = store.getApproval(approval.id);
@@ -161,13 +161,13 @@ describe('Approval Workflow Edge Cases', () => {
     const text = ambiguousText.toLowerCase().trim();
     const approvalKeywords = ['approve', 'approved', 'yes', 'ok', 'okay', 'confirm', 'y', '✅', '✔️'];
     const denyKeywords = ['deny', 'denied', 'no', 'reject', 'cancel', 'n', '❌', '🚫'];
-    
+
     const isApproved = approvalKeywords.some(k => text.includes(k));
     const isDenied = denyKeywords.some(k => text.includes(k));
-    
+
     // Both true - should not respond
     assert.ok(isApproved && isDenied, 'Should detect both keywords');
-    
+
     // Approval should still be pending
     const retrieved = store.getApproval(approval.id);
     assert.strictEqual(retrieved.status, 'pending', 'Ambiguous response should not change status');
@@ -184,10 +184,10 @@ describe('Approval Workflow Edge Cases', () => {
     // Response includes approval ID
     const responseText = `APPROVE ${approval.id}`;
     const idMatch = responseText.match(/approval_\w+/);
-    
+
     assert.ok(idMatch, 'Should extract approval ID');
     assert.strictEqual(idMatch[0], approval.id, 'Should match correct ID');
-    
+
     // Should approve
     store.respondToApproval(approval.id, true, responseText);
     const retrieved = store.getApproval(approval.id);
@@ -197,7 +197,7 @@ describe('Approval Workflow Edge Cases', () => {
 
   it('should handle very long approval details (near limit)', () => {
     const longDetails = 'A'.repeat(1900); // Close to 2000 char limit
-    
+
     const approval = store.createApproval({
       toJid: 'long-details@s.whatsapp.net',
       action: 'Long Details Test',
@@ -221,10 +221,10 @@ describe('Approval Workflow Edge Cases', () => {
     const retrieved = store.getApproval(approval.id);
     const expectedExpiry = retrieved.created_at + retrieved.timeout_ms;
     const now = Date.now();
-    
+
     assert.ok(expectedExpiry > now, 'Approval should not be expired yet');
     assert.ok(expectedExpiry < now + 301000, 'Should expire in ~5 minutes');
-    
+
     // Check remaining time
     const pending = store.getPendingApprovals();
     const found = pending.find(a => a.id === approval.id);
@@ -291,7 +291,7 @@ describe('Approval Workflow Edge Cases', () => {
   it('should accurately calculate remaining time for pending approvals', () => {
     const timeoutMs = 10000; // 10 seconds
     const beforeCreate = Date.now();
-    
+
     const approval = store.createApproval({
       toJid: 'timing-test@s.whatsapp.net',
       action: 'Timing Test',
@@ -300,7 +300,7 @@ describe('Approval Workflow Edge Cases', () => {
     });
 
     const afterCreate = Date.now();
-    
+
     // Get pending should return the approval
     const pending = store.getPendingApprovals();
     const found = pending.find(a => a.id === approval.id);
@@ -316,7 +316,7 @@ describe('Approval Workflow Edge Cases', () => {
     // Calculate expected expiry
     const expectedExpiry = approval.created_at + approval.timeout_ms;
     const now = Date.now();
-    
+
     // Approval should not be expired yet
     assert.ok(expectedExpiry > now, 'Approval should not be expired');
 
@@ -343,7 +343,7 @@ describe('Approval Workflow Edge Cases', () => {
     // Get pending should auto-expire
     const pending = store.getPendingApprovals();
     const found = pending.find(a => a.id === approval.id);
-    
+
     if (found) {
       // If still pending, it hasn't expired yet (very unlikely but possible)
       assert.ok(true, 'Approval with near-zero timeout is still pending (timing-dependent)');
