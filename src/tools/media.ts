@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import { stat } from 'node:fs/promises';
-import { resolveRecipient } from '../utils/fuzzy-match.js';
+import { resolveRecipient, type Chat } from '../utils/fuzzy-match.js';
 import { toJid } from '../utils/phone.js';
 import { LIMITS } from '../security/permissions.js';
 import {
@@ -16,20 +16,33 @@ import {
   checkMediaQuota
 } from '../security/file-guard.js';
 
-export function registerMediaTools(server, waClient, store, permissions, audit) {
-  server.tool(
+export function registerMediaTools(
+  server: { registerTool: (name: string, config: { description: string; inputSchema: Record<string, z.ZodType> }, handler: any, annotations?: Record<string, unknown>) => void },
+  waClient: unknown,
+  store: { getAllChatsForMatching: () => Chat[]; getChatByJid: (jid: string) => { name?: string } | undefined },
+  permissions: {
+    isToolEnabled: (tool: string) => { allowed: boolean; error?: string };
+    checkDownloadRateLimit: () => { allowed: boolean; error?: string };
+    canSendTo: (jid: string) => { allowed: boolean; error?: string };
+    checkRateLimit: () => { allowed: boolean; error?: string };
+  },
+  audit: { log: (action: string, event: string, details: Record<string, unknown>, success?: boolean) => void }
+) {
+  server.registerTool(
     'download_media',
-    'Download media (image, video, audio, document) from a WhatsApp message. Provide the message ID and chat identifier. The media is saved to persistent storage and the local file path is returned. Only works for messages that have media metadata stored.',
     {
-      message_id: z
-        .string()
-        .max(200)
-        .describe('The message ID containing media (shown in list_messages output)'),
-      chat: z
-        .string()
-        .max(200)
-        .describe('The chat name, phone number, or JID where the message is from')
-        .optional()
+      description: 'Download media (image, video, audio, document) from a WhatsApp message. Provide the message ID and chat identifier. The media is saved to persistent storage and the local file path is returned. Only works for messages that have media metadata stored.',
+      inputSchema: {
+        message_id: z
+          .string()
+          .max(200)
+          .describe('The message ID containing media (shown in list_messages output)'),
+        chat: z
+          .string()
+          .max(200)
+          .describe('The chat name, phone number, or JID where the message is from')
+          .optional()
+      }
     },
     async ({ message_id, chat }) => {
       const toolCheck = permissions.isToolEnabled('download_media');
@@ -37,7 +50,7 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
       }
 
-      if (!waClient.isConnected()) {
+      if (!(waClient as { isConnected: () => boolean }).isConnected()) {
         return {
           content: [
             { type: 'text', text: 'WhatsApp not connected. Use the authenticate tool first.' }
@@ -64,7 +77,7 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
       }
 
       try {
-        const result = await waClient.downloadMedia(message_id);
+        const result = await (waClient as { downloadMedia: (messageId: string) => Promise<{ mediaType: string; path: string; chatJid: string }> }).downloadMedia(message_id);
         audit.log('download_media', 'downloaded', {
           messageId: message_id,
           mediaType: result.mediaType,
@@ -87,11 +100,11 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
         audit.log(
           'download_media',
           'failed',
-          { messageId: message_id, error: error.message },
+          { messageId: message_id, error: (error as Error).message },
           false
         );
         return {
-          content: [{ type: 'text', text: `Failed to download media: ${error.message}` }],
+          content: [{ type: 'text', text: `Failed to download media: ${(error as Error).message}` }],
           isError: true
         };
       }
@@ -99,28 +112,30 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
     { annotations: { readOnlyHint: false, openWorldHint: true } }
   );
 
-  server.tool(
+  server.registerTool(
     'send_file',
-    'Send a media file (image, video, audio, document) via WhatsApp. The file must exist at the specified path inside the container. Supports fuzzy matching on recipient names. For audio files, they are sent as voice messages.',
     {
-      to: z
-        .string()
-        .max(200)
-        .describe('Recipient: contact name, group name, phone number (e.g. +1234567890), or JID'),
-      file_path: z
-        .string()
-        .max(500)
-        .describe('Absolute path to the file to send (must be accessible inside the container)'),
-      media_type: z
-        .enum(['image', 'video', 'audio', 'document'])
-        .describe('Type of media being sent'),
-      caption: z
-        .string()
-        .max(LIMITS.MAX_CAPTION_LENGTH)
-        .describe(
-          `Optional caption/message to include with the media (max ${LIMITS.MAX_CAPTION_LENGTH} chars)`
-        )
-        .optional()
+      description: 'Send a media file (image, video, audio, document) via WhatsApp. The file must exist at the specified path inside the container. Supports fuzzy matching on recipient names. For audio files, they are sent as voice messages.',
+      inputSchema: {
+        to: z
+          .string()
+          .max(200)
+          .describe('Recipient: contact name, group name, phone number (e.g. +1234567890), or JID'),
+        file_path: z
+          .string()
+          .max(500)
+          .describe('Absolute path to the file to send (must be accessible inside the container)'),
+        media_type: z
+          .enum(['image', 'video', 'audio', 'document'])
+          .describe('Type of media being sent'),
+        caption: z
+          .string()
+          .max(LIMITS.MAX_CAPTION_LENGTH)
+          .describe(
+            `Optional caption/message to include with the media (max ${LIMITS.MAX_CAPTION_LENGTH} chars)`
+          )
+          .optional()
+      }
     },
     async ({ to, file_path, media_type, caption }) => {
       const toolCheck = permissions.isToolEnabled('send_file');
@@ -128,7 +143,7 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
       }
 
-      if (!waClient.isConnected()) {
+      if (!(waClient as { isConnected: () => boolean }).isConnected()) {
         return {
           content: [
             { type: 'text', text: 'WhatsApp not connected. Use the authenticate tool first.' }
@@ -138,10 +153,10 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
       }
 
       try {
-        validateUploadPath(file_path, LIMITS.UPLOAD_ALLOWED_DIRS);
+        validateUploadPath(file_path, (LIMITS as Record<string, unknown>).UPLOAD_ALLOWED_DIRS as string[]);
       } catch (err) {
-        audit.log('send_file', 'path_denied', { path: file_path, error: err.message }, false);
-        return { content: [{ type: 'text', text: err.message }], isError: true };
+        audit.log('send_file', 'path_denied', { path: file_path, error: (err as Error).message }, false);
+        return { content: [{ type: 'text', text: (err as Error).message }], isError: true };
       }
 
       const extCheck = checkExtension(file_path);
@@ -172,7 +187,7 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
         }
       } catch (err) {
         return {
-          content: [{ type: 'text', text: `Cannot access file: ${err.message}` }],
+          content: [{ type: 'text', text: `Cannot access file: ${(err as Error).message}` }],
           isError: true
         };
       }
@@ -226,7 +241,7 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
       }
 
       try {
-        const result = await waClient.uploadAndSendMedia(jid, file_path, media_type, caption || '');
+        const result = await (waClient as { uploadAndSendMedia: (jid: string, path: string, type: string, caption: string) => Promise<{ id: string }> }).uploadAndSendMedia(jid, file_path, media_type, caption || '');
         audit.log('send_file', 'sent', { to: jid, mediaType: media_type, messageId: result.id });
 
         const chatName = store.getChatByJid(jid)?.name || to;
@@ -242,11 +257,11 @@ export function registerMediaTools(server, waClient, store, permissions, audit) 
         audit.log(
           'send_file',
           'failed',
-          { to: jid, mediaType: media_type, error: error.message },
+          { to: jid, mediaType: media_type, error: (error as Error).message },
           false
         );
         return {
-          content: [{ type: 'text', text: `Failed to send file: ${error.message}` }],
+          content: [{ type: 'text', text: `Failed to send file: ${(error as Error).message}` }],
           isError: true
         };
       }

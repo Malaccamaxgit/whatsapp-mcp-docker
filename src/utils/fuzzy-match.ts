@@ -7,7 +7,7 @@
  * exact names or JIDs.
  */
 
-interface Chat {
+export interface Chat {
   jid: string;
   name: string | undefined;
 }
