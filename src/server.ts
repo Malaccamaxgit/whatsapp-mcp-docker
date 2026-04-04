@@ -27,19 +27,30 @@ import { registerGroupTools } from './tools/groups.js';
 import { registerReactionTools } from './tools/reactions.js';
 import { registerContactTools } from './tools/contacts.js';
 import { registerWaitTools } from './tools/wait.js';
+import type { WhatsAppClient } from './whatsapp/client.js';
+
+export interface CreateServerOptions {
+  version?: string;
+  waClient: WhatsAppClient;
+  store?: MessageStore;
+  audit?: AuditLogger;
+  permissions?: PermissionManager;
+  storePath?: string;
+  encryptionKey?: string;
+}
+
+export interface CreateServerResult {
+  mcpServer: McpServer;
+  store: MessageStore;
+  audit: AuditLogger;
+  permissions: PermissionManager;
+}
 
 /**
  * Create a fully wired MCP server instance.
  *
- * @param {Object} options
- * @param {string} options.version - Server version string
- * @param {Object} options.waClient - WhatsApp client (real or mock)
- * @param {Object} [options.store] - MessageStore instance (created if omitted)
- * @param {Object} [options.audit] - AuditLogger instance (created if omitted)
- * @param {Object} [options.permissions] - PermissionManager instance (created if omitted)
- * @param {string} [options.storePath] - Store path (default: env or /data/store)
- * @param {string} [options.encryptionKey] - Encryption passphrase (default: from env)
- * @returns {{ mcpServer, store, audit, permissions }}
+ * @param {CreateServerOptions} options
+ * @returns {CreateServerResult}
  */
 export function createServer({
   version = '0.0.0-test',
@@ -49,7 +60,7 @@ export function createServer({
   permissions,
   storePath,
   encryptionKey
-} = {}) {
+}: CreateServerOptions = {} as CreateServerOptions): CreateServerResult {
   const sp = storePath || process.env.STORE_PATH || '/data/store';
 
   if (encryptionKey !== undefined) {

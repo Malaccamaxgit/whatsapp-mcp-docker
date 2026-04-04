@@ -20,7 +20,11 @@ import { PermissionManager } from './security/permissions.js';
 import { initEncryption, isEncryptionEnabled } from './security/crypto.js';
 import { createServer } from './server.js';
 
-const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+interface PackageJson {
+  version: string;
+}
+
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as PackageJson;
 const STORE_PATH = process.env.STORE_PATH || '/data/store';
 
 initEncryption(process.env.DATA_ENCRYPTION_KEY);
