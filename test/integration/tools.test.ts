@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { createTestServer } from './helpers/test-server.js';
 import { createMockWaClient } from './helpers/mock-wa-client.js';
 import { MessageStore } from '../../src/whatsapp/store.js';
-import { PermissionManager } from '../../src/security/permissions.js';
 import { initEncryption } from '../../src/security/crypto.js';
 
 describe('MCP Tools (integration)', () => {
@@ -42,7 +41,7 @@ describe('MCP Tools (integration)', () => {
   });
 
   after(async () => {
-    if (ctx) await ctx.cleanup();
+    if (ctx) {await ctx.cleanup();}
   });
 
   describe('get_connection_status', () => {

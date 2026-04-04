@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import { stat } from 'node:fs/promises';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { resolveRecipient, type Chat } from '../utils/fuzzy-match.js';
+import { resolveRecipient } from '../utils/fuzzy-match.js';
 import { toJid } from '../utils/phone.js';
 import { LIMITS, type PermissionManager } from '../security/permissions.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
@@ -20,7 +20,7 @@ import {
   checkMediaQuota
 } from '../security/file-guard.js';
 
-export function registerMediaTools(
+export function registerMediaTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -44,8 +44,8 @@ export function registerMediaTools(
       },
       annotations: { readOnlyHint: false, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async ({ message_id, chat }: any) => {
+
+    async ({ message_id, chat: _chat }: any) => {
       const toolCheck = permissions.isToolEnabled('download_media');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -90,7 +90,7 @@ export function registerMediaTools(
             {
               type: 'text',
               text:
-                `Media downloaded successfully.\n` +
+                'Media downloaded successfully.\n' +
                 `  Type: ${result.mediaType}\n` +
                 `  Path: ${result.path}\n` +
                 `  Chat: ${result.chatJid}`
@@ -138,7 +138,7 @@ export function registerMediaTools(
       },
       annotations: { destructiveHint: false, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async ({ to, file_path, media_type, caption }: any) => {
       const toolCheck = permissions.isToolEnabled('send_file');
       if (!toolCheck.allowed) {

@@ -19,11 +19,6 @@ interface TextContent {
   text: string;
 }
 
-interface McpResult {
-  content: TextContent[];
-  isError?: boolean;
-}
-
 interface MessageWithContext {
   id: string;
   chat_jid: string;
@@ -60,7 +55,7 @@ interface ChatInfo {
   is_group: number;
 }
 
-export function registerMessagingTools(
+export function registerMessagingTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -84,7 +79,7 @@ export function registerMessagingTools(
           .describe(`The message text to send (max ${LIMITS.MAX_MESSAGE_LENGTH} chars)`)
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ to, message }: { to: string; message: string }) => {
       const toolCheck = permissions.isToolEnabled('send_message');
       if (!toolCheck.allowed) {
@@ -203,7 +198,7 @@ export function registerMessagingTools(
           .optional()
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({
       chat,
       limit = 50,
@@ -281,9 +276,9 @@ export function registerMessagingTools(
         for (const m of messages) {
           const ctx = store.getMessageContext(m.id, context_messages, context_messages) as MessageContext | null;
           if (ctx) {
-            for (const b of ctx.before) contextLines.push(formatMsg(b, '  '));
+            for (const b of ctx.before) {contextLines.push(formatMsg(b, '  '));}
             contextLines.push(formatMsg(ctx.message as MessageRow, '→ '));
-            for (const a of ctx.after) contextLines.push(formatMsg(a, '  '));
+            for (const a of ctx.after) {contextLines.push(formatMsg(a, '  '));}
             contextLines.push('');
           } else {
             contextLines.push(formatMsg(m));
@@ -338,7 +333,7 @@ export function registerMessagingTools(
           .optional()
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({
       query,
       chat,
@@ -355,7 +350,7 @@ export function registerMessagingTools(
       if (chat) {
         const chats = store.getAllChatsForMatching();
         const result = resolveRecipient(chat, chats);
-        if (result.resolved) chatJid = result.resolved;
+        if (result.resolved) {chatJid = result.resolved;}
       }
 
       const safeLimit = Math.min(limit || 20, 100);

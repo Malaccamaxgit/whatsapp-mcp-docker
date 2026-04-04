@@ -19,21 +19,21 @@ interface ApprovalResult {
   isError?: boolean;
 }
 
-function notConnected(): ApprovalResult {
+function notConnected (): ApprovalResult {
   return {
     content: [{ type: 'text', text: 'WhatsApp not connected. Use the authenticate tool first.' }],
     isError: true
   };
 }
 
-function resolveJid(target: string, store: MessageStore): string | null {
-  if (target.includes('@')) return target;
+function resolveJid (target: string, store: MessageStore): string | null {
+  if (target.includes('@')) {return target;}
   const chats = store.getAllChatsForMatching();
   const { resolved } = resolveRecipient(target, chats);
   return resolved || (target.match(/^\+?\d{7,15}$/) ? toJid(target) : null);
 }
 
-export function registerReactionTools(
+export function registerReactionTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -51,7 +51,7 @@ export function registerReactionTools(
     message_id: string;
     emoji: string;
   }): Promise<ApprovalResult> => {
-    if (!waClient.isConnected()) return notConnected();
+    if (!waClient.isConnected()) {return notConnected();}
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
@@ -91,7 +91,7 @@ export function registerReactionTools(
       },
       annotations: { destructiveHint: false, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     sendReactionHandler as any
   );
 
@@ -106,7 +106,7 @@ export function registerReactionTools(
     message_id: string;
     new_text: string;
   }): Promise<ApprovalResult> => {
-    if (!waClient.isConnected()) return notConnected();
+    if (!waClient.isConnected()) {return notConnected();}
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
@@ -143,7 +143,7 @@ export function registerReactionTools(
       },
       annotations: { destructiveHint: false, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     editMessageHandler as any
   );
 
@@ -156,7 +156,7 @@ export function registerReactionTools(
     chat: string;
     message_id: string;
   }): Promise<ApprovalResult> => {
-    if (!waClient.isConnected()) return notConnected();
+    if (!waClient.isConnected()) {return notConnected();}
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
@@ -189,7 +189,7 @@ export function registerReactionTools(
       },
       annotations: { destructiveHint: true, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     deleteMessageHandler as any
   );
 
@@ -206,7 +206,7 @@ export function registerReactionTools(
     options: string[];
     allow_multiple?: boolean;
   }): Promise<ApprovalResult> => {
-    if (!waClient.isConnected()) return notConnected();
+    if (!waClient.isConnected()) {return notConnected();}
 
     const rateCheck = permissions.checkRateLimit();
     if (!rateCheck.allowed) {
@@ -262,7 +262,7 @@ export function registerReactionTools(
       },
       annotations: { destructiveHint: false, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     createPollHandler as any
   );
 }

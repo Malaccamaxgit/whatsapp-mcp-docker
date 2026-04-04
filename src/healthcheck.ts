@@ -25,7 +25,7 @@ import { statSync } from 'node:fs';
 const STORE_PATH = process.env.STORE_PATH || '/data/sessions';
 const MIN_SESSION_BYTES = 4096; // A valid SQLite session.db is always larger than this
 
-function checkHealth(): boolean {
+function checkHealth (): boolean {
   const sessionPath = `${STORE_PATH}/session.db`;
 
   try {

@@ -134,8 +134,7 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-
-async function main() {
+async function main () {
   console.error(`[STARTUP] WhatsApp MCP Server v${pkg.version}`);
   console.error('[STARTUP] Store path:', STORE_PATH);
   console.error('[STARTUP] Encryption:', isEncryptionEnabled() ? 'ON' : 'OFF');

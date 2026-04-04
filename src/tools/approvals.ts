@@ -15,14 +15,14 @@ import { LIMITS } from '../security/permissions.js';
 
 const TZ = process.env.TZ || 'UTC';
 
-function formatTime(ms: number): string {
+function formatTime (ms: number): string {
   return new Date(ms).toLocaleTimeString('en-CA', {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
     hour12: false, timeZone: TZ
   });
 }
 
-function formatDateTime(ms: number): string {
+function formatDateTime (ms: number): string {
   return new Date(ms).toLocaleString('en-CA', {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
@@ -35,7 +35,7 @@ interface ApprovalResult {
   isError?: boolean;
 }
 
-export function registerApprovalTools(
+export function registerApprovalTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -121,12 +121,12 @@ export function registerApprovalTools(
           {
             type: 'text',
             text:
-              `Approval request sent.\n\n` +
+              'Approval request sent.\n\n' +
               `  Request ID: ${approval.id}\n` +
               `  Action: ${action}\n` +
               `  Sent to: ${resolved}\n` +
               `  Expires: ${expiresAt}\n\n` +
-              `Use check_approvals with this Request ID to poll for the response.`
+              'Use check_approvals with this Request ID to poll for the response.'
           }
         ]
       };
@@ -164,7 +164,7 @@ export function registerApprovalTools(
       },
       annotations: { openWorldHint: true, readOnlyHint: false }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     requestApprovalHandler as any
   );
 
@@ -247,7 +247,7 @@ export function registerApprovalTools(
       },
       annotations: { readOnlyHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     checkApprovalsHandler as any
   );
 }

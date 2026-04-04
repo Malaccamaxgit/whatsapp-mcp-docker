@@ -24,7 +24,7 @@ type MockMessage = {
   mediaType: string | null;
 };
 
-function makeMsg(overrides: Partial<MockMessage> = {}): MockMessage {
+function makeMsg (overrides: Partial<MockMessage> = {}): MockMessage {
   return {
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
     chatJid: CHAT_JID,
@@ -50,7 +50,7 @@ describe('wait_for_message (integration)', () => {
   });
 
   after(async () => {
-    if (ctx) await ctx.cleanup();
+    if (ctx) {await ctx.cleanup();}
   });
 
   it('returns immediately when a message arrives before timeout', async () => {

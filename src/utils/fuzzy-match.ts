@@ -28,13 +28,13 @@ interface FuzzyMatchOptions {
  * @param b - Second string
  * @returns The edit distance
  */
-function levenshtein(a: string, b: string): number {
+function levenshtein (a: string, b: string): number {
   const m = a.length;
   const n = b.length;
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
 
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 0; i <= m; i++) {dp[i][0] = i;}
+  for (let j = 0; j <= n; j++) {dp[0][j] = j;}
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
@@ -60,22 +60,22 @@ function levenshtein(a: string, b: string): number {
  * @param candidate - The candidate name to score
  * @returns A numeric score or null if no match
  */
-function scoreMatch(query: string, candidate: string): number | null {
+function scoreMatch (query: string, candidate: string): number | null {
   const q = query.toLowerCase().trim();
   const c = candidate.toLowerCase().trim();
 
-  if (c === q) return 0;
-  if (c.startsWith(q)) return 1;
-  if (c.includes(q)) return 2;
+  if (c === q) {return 0;}
+  if (c.startsWith(q)) {return 1;}
+  if (c.includes(q)) {return 2;}
 
   // Levenshtein and word matching only make sense for queries of 2+ characters.
   // Single-char queries should only match via prefix/substring to avoid false
   // positives (e.g. CJK characters matching Latin letters by edit distance).
-  if (q.length < 2) return null;
+  if (q.length < 2) {return null;}
 
   const maxDistance = Math.max(2, Math.floor(q.length * 0.4));
   const dist = levenshtein(q, c);
-  if (dist <= maxDistance) return 3 + dist;
+  if (dist <= maxDistance) {return 3 + dist;}
 
   const words = c.split(/[\s\-_]+/);
   for (const word of words) {
@@ -95,12 +95,12 @@ function scoreMatch(query: string, candidate: string): number | null {
  * @param options - Options including maxResults
  * @returns Matches sorted by score (best first)
  */
-export function fuzzyMatch(
+export function fuzzyMatch (
   query: string,
   chats: Chat[],
   { maxResults = 5 }: FuzzyMatchOptions = {}
 ): MatchResult[] {
-  if (!query || !chats?.length) return [];
+  if (!query || !chats?.length) {return [];}
 
   const scored: MatchResult[] = [];
 
@@ -109,7 +109,7 @@ export function fuzzyMatch(
 
     if (chat.name) {
       const nameScore = scoreMatch(query, chat.name);
-      if (nameScore !== null) bestScore = nameScore;
+      if (nameScore !== null) {bestScore = nameScore;}
     }
 
     const jidNumber = chat.jid.split('@')[0];
@@ -139,7 +139,7 @@ interface ResolveResult {
  * @param chats - Available chats to match against
  * @returns Resolution result with resolved JID, candidates, or error
  */
-export function resolveRecipient(query: string, chats: Chat[]): ResolveResult {
+export function resolveRecipient (query: string, chats: Chat[]): ResolveResult {
   if (!query) {
     return { resolved: null, candidates: [], error: 'Recipient is required' };
   }
@@ -154,7 +154,7 @@ export function resolveRecipient(query: string, chats: Chat[]): ResolveResult {
     return {
       resolved: null,
       candidates: [],
-      error: `No contact or group found matching "${query}". Use list_chats to see available conversations.`,
+      error: `No contact or group found matching "${query}". Use list_chats to see available conversations.`
     };
   }
 
@@ -169,6 +169,6 @@ export function resolveRecipient(query: string, chats: Chat[]): ResolveResult {
   return {
     resolved: null,
     candidates: matches.slice(0, 5),
-    error: `Multiple matches found for "${query}". Please use the exact JID from the list below.`,
+    error: `Multiple matches found for "${query}". Please use the exact JID from the list below.`
   };
 }

@@ -13,7 +13,7 @@ import { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { PermissionManager } from '../security/permissions.js';
 
-export function registerChatTools(
+export function registerChatTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -38,7 +38,7 @@ export function registerChatTools(
       },
       annotations: { readOnlyHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async ({ filter, groups_only = false, limit = 20, page = 0 }: any) => {
       const toolCheck = permissions.isToolEnabled('list_chats');
       if (!toolCheck.allowed) {
@@ -109,7 +109,7 @@ export function registerChatTools(
       },
       annotations: { readOnlyHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async ({ since = 'today' }: any) => {
       const toolCheck = permissions.isToolEnabled('catch_up');
       if (!toolCheck.allowed) {
@@ -220,7 +220,7 @@ export function registerChatTools(
       },
       annotations: { readOnlyHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async ({ query, include_chats = false, limit = 20 }: any) => {
       const toolCheck = permissions.isToolEnabled('search_contacts');
       if (!toolCheck.allowed) {
@@ -292,7 +292,7 @@ export function registerChatTools(
       },
       annotations: { idempotentHint: true, readOnlyHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async ({ chat, message_ids }: any) => {
       const toolCheck = permissions.isToolEnabled('mark_messages_read');
       if (!toolCheck.allowed) {
@@ -364,7 +364,7 @@ export function registerChatTools(
       },
       annotations: { readOnlyHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async ({ jid, format = 'json' }: any) => {
       const toolCheck = permissions.isToolEnabled('export_chat_data');
       if (!toolCheck.allowed) {

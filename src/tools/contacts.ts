@@ -31,7 +31,7 @@ interface GetProfilePictureResult {
   profilePictureURL?: string;
 }
 
-export function registerContactTools(
+export function registerContactTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -56,10 +56,10 @@ export function registerContactTools(
 
       const lines = Object.entries(results).map(([jid, info]) => {
         const parts = [`${jid}:`];
-        if (info?.name) parts.push(`  Name: ${info.name}`);
-        if (info?.status) parts.push(`  Status: ${info.status}`);
-        if (info?.isBusiness) parts.push(`  Type: Business account`);
-        if (parts.length === 1) parts.push('  (no public info available)');
+        if (info?.name) {parts.push(`  Name: ${info.name}`);}
+        if (info?.status) {parts.push(`  Status: ${info.status}`);}
+        if (info?.isBusiness) {parts.push('  Type: Business account');}
+        if (parts.length === 1) {parts.push('  (no public info available)');}
         return parts.join('\n');
       });
 
@@ -79,7 +79,7 @@ export function registerContactTools(
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     get_user_info_handler as any
   );
 
@@ -117,7 +117,7 @@ export function registerContactTools(
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     is_on_whatsapp_handler as any
   );
 
@@ -171,12 +171,12 @@ export function registerContactTools(
       },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     get_profile_picture_handler as any
   );
 }
 
-function notConnected() {
+function notConnected () {
   return {
     content: [{ type: 'text', text: 'WhatsApp not connected. Use the authenticate tool first.' }],
     isError: true

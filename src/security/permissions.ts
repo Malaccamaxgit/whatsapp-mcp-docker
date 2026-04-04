@@ -51,13 +51,13 @@ export class PermissionManager {
   private _authBackoffSec: number;
   private _lastAuthAttempt: number;
 
-  constructor() {
+  constructor () {
     const contactsEnv = process.env.ALLOWED_CONTACTS || '';
     this.allowedContacts = contactsEnv
       ? contactsEnv
-          .split(',')
-          .map((n) => n.replace(/[^0-9]/g, '').trim())
-          .filter(Boolean)
+        .split(',')
+        .map((n) => n.replace(/[^0-9]/g, '').trim())
+        .filter(Boolean)
       : [];
 
     this.rateLimit = parseInt(process.env.RATE_LIMIT_PER_MIN || String(RATE_LIMITS.MESSAGES_PER_MIN), 10);
@@ -82,7 +82,7 @@ export class PermissionManager {
   /**
    * Check if a tool is enabled. Returns { allowed, error }.
    */
-  isToolEnabled(toolName: string): IsToolEnabledResult {
+  isToolEnabled (toolName: string): IsToolEnabledResult {
     if (this.disabledTools.has(toolName)) {
       return {
         allowed: false,
@@ -96,7 +96,7 @@ export class PermissionManager {
    * Check if a phone number / JID is allowed for outbound messages.
    * Returns { allowed, error }.
    */
-  canSendTo(numberOrJid: string): CanSendToResult {
+  canSendTo (numberOrJid: string): CanSendToResult {
     if (this.allowedContacts.length === 0) {
       return { allowed: true, error: null };
     }
@@ -122,7 +122,7 @@ export class PermissionManager {
    * Check and record an outbound message for rate limiting.
    * Returns { allowed, error, retryAfterSec }.
    */
-  checkRateLimit(): CheckRateLimitResult {
+  checkRateLimit (): CheckRateLimitResult {
     const now = Date.now();
     const windowStart = now - 60_000;
 
@@ -146,7 +146,7 @@ export class PermissionManager {
    * Check and record a media download for rate limiting.
    * Returns { allowed, error }.
    */
-  checkDownloadRateLimit(): CheckRateLimitResult {
+  checkDownloadRateLimit (): CheckRateLimitResult {
     const now = Date.now();
     const windowStart = now - 60_000;
 
@@ -171,7 +171,7 @@ export class PermissionManager {
    * Enforces: max 5 attempts per 30 min, exponential backoff after failures.
    * Returns { allowed, error, retryAfterSec }.
    */
-  checkAuthRateLimit(): CheckAuthRateLimitResult {
+  checkAuthRateLimit (): CheckAuthRateLimitResult {
     const now = Date.now();
     const windowMs = 30 * 60_000;
 
@@ -184,7 +184,7 @@ export class PermissionManager {
         allowed: false,
         retryAfterSec,
         error:
-          `Too many authentication attempts (5 per 30 min). ` +
+          'Too many authentication attempts (5 per 30 min). ' +
           `Try again in ${Math.ceil(retryAfterSec / 60)} minute(s).`
       };
     }
@@ -197,9 +197,9 @@ export class PermissionManager {
           allowed: false,
           retryAfterSec,
           error:
-            `Authentication cooldown active. ` +
+            'Authentication cooldown active. ' +
             `Wait ${retryAfterSec} second(s) before retrying. ` +
-            `(Backoff increases after each failed attempt to avoid WhatsApp rate limits.)`
+            '(Backoff increases after each failed attempt to avoid WhatsApp rate limits.)'
         };
       }
     }
@@ -212,7 +212,7 @@ export class PermissionManager {
    * On failure: doubles the backoff (60s → 120s → 240s → 480s, capped at 15 min).
    * On success: resets backoff entirely.
    */
-  recordAuthAttempt(success: boolean): void {
+  recordAuthAttempt (success: boolean): void {
     const now = Date.now();
     this._authAttempts.push(now);
     this._lastAuthAttempt = now;
@@ -228,14 +228,14 @@ export class PermissionManager {
   /**
    * Reset auth backoff (called when connection succeeds via event).
    */
-  resetAuthBackoff(): void {
+  resetAuthBackoff (): void {
     this._authBackoffSec = 0;
   }
 
   /**
    * Get current auth backoff seconds (for display in error messages).
    */
-  get authBackoffSec(): number {
+  get authBackoffSec (): number {
     return this._authBackoffSec;
   }
 }

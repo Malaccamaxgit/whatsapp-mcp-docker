@@ -56,8 +56,8 @@ interface CheckMediaQuotaResult {
  * Strip dangerous characters and path components from a filename.
  * Returns a safe basename of max 200 chars.
  */
-export function sanitizeFilename(name: string): string {
-  if (!name) return 'unnamed';
+export function sanitizeFilename (name: string): string {
+  if (!name) {return 'unnamed';}
   let safe = basename(name);
   safe = safe.replace(/\.\./g, '_');
   safe = safe.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
@@ -72,7 +72,7 @@ export function sanitizeFilename(name: string): string {
  * Ensure a resolved path is within the allowed base directory.
  * Prevents path traversal via ../ or symlinks.
  */
-export function assertPathWithin(filePath: string, allowedBase: string): string {
+export function assertPathWithin (filePath: string, allowedBase: string): string {
   const resolved = resolve(filePath);
   const base = resolve(allowedBase);
   if (!resolved.startsWith(base + sep) && resolved !== base) {
@@ -88,7 +88,7 @@ export function assertPathWithin(filePath: string, allowedBase: string): string 
  * Validate that a file path for upload (send_file) is within allowed
  * directories and does NOT point to sensitive files.
  */
-export function validateUploadPath(filePath: string, allowedDirs: string[]): string {
+export function validateUploadPath (filePath: string, allowedDirs: string[]): string {
   const resolved = resolve(filePath);
 
   const inAllowed = allowedDirs.some((dir) => {
@@ -108,7 +108,7 @@ export function validateUploadPath(filePath: string, allowedDirs: string[]): str
     if (pattern.test(name) || pattern.test(resolved)) {
       throw new Error(
         `Upload denied: "${name}" matches a sensitive file pattern. ` +
-          `Database files, keys, and credentials cannot be sent.`
+          'Database files, keys, and credentials cannot be sent.'
       );
     }
   }
@@ -120,7 +120,7 @@ export function validateUploadPath(filePath: string, allowedDirs: string[]): str
  * Check if a file extension is in the dangerous executables blocklist.
  * Returns { dangerous, extension, warning }.
  */
-export function checkExtension(filePath: string): CheckExtensionResult {
+export function checkExtension (filePath: string): CheckExtensionResult {
   const ext = extname(filePath).toLowerCase();
   if (DANGEROUS_EXTENSIONS.has(ext)) {
     return {
@@ -128,7 +128,7 @@ export function checkExtension(filePath: string): CheckExtensionResult {
       extension: ext,
       warning:
         `File has a potentially dangerous extension (${ext}). ` +
-        `Executable files should not be exchanged via WhatsApp.`
+        'Executable files should not be exchanged via WhatsApp.'
     };
   }
   return { dangerous: false, extension: ext, warning: null };
@@ -138,7 +138,7 @@ export function checkExtension(filePath: string): CheckExtensionResult {
  * Read the first bytes of a file and verify they match the declared media type.
  * Returns { valid, detectedLabel, warning }.
  */
-export async function verifyMagicBytes(filePath: string, declaredType: string): Promise<VerifyMagicBytesResult> {
+export async function verifyMagicBytes (filePath: string, declaredType: string): Promise<VerifyMagicBytesResult> {
   let fh: import('node:fs/promises').FileHandle | undefined;
   try {
     fh = await open(filePath, 'r');
@@ -183,7 +183,7 @@ export async function verifyMagicBytes(filePath: string, declaredType: string): 
         `but file header does not match any known ${declaredType} format.`
     };
   } finally {
-    if (fh) await fh.close();
+    if (fh) {await fh.close();}
   }
 }
 
@@ -191,7 +191,7 @@ export async function verifyMagicBytes(filePath: string, declaredType: string): 
  * Calculate total size of a media directory tree.
  * Returns size in bytes.
  */
-export async function getMediaDirSize(mediaDir: string): Promise<number> {
+export async function getMediaDirSize (mediaDir: string): Promise<number> {
   let total = 0;
   try {
     const entries = await readdir(mediaDir, { withFileTypes: true, recursive: true });
@@ -216,7 +216,7 @@ export async function getMediaDirSize(mediaDir: string): Promise<number> {
  * Check if the media directory is within the configured quota.
  * Returns { allowed, currentMB, limitMB, error }.
  */
-export async function checkMediaQuota(mediaDir: string, maxBytes: number): Promise<CheckMediaQuotaResult> {
+export async function checkMediaQuota (mediaDir: string, maxBytes: number): Promise<CheckMediaQuotaResult> {
   const current = await getMediaDirSize(mediaDir);
   const currentMB = Math.round(current / 1024 / 1024);
   const limitMB = Math.round(maxBytes / 1024 / 1024);
@@ -228,7 +228,7 @@ export async function checkMediaQuota(mediaDir: string, maxBytes: number): Promi
       limitMB,
       error:
         `Media storage quota exceeded (${currentMB} MB / ${limitMB} MB). ` +
-        `Delete old media files to free space.`
+        'Delete old media files to free space.'
     };
   }
   return { allowed: true, currentMB, limitMB, error: null };

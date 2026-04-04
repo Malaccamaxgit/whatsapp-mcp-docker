@@ -44,7 +44,7 @@ export class AuditLogger {
   private _insertStmt: Database.Statement | null;
   private _alertCallbackTriggered: boolean;
 
-  constructor(dbPath?: string, options: AuditLoggerOptions = {}) {
+  constructor (dbPath?: string, options: AuditLoggerOptions = {}) {
     this.dbPath = dbPath || process.env.AUDIT_DB_PATH || DEFAULT_DB_PATH;
     this.fallbackPath = process.env.AUDIT_FALLBACK_PATH || DEFAULT_FALLBACK_PATH;
     this.db = null;
@@ -57,7 +57,7 @@ export class AuditLogger {
     this._init();
   }
 
-  private _init(): void {
+  private _init (): void {
     try {
       this.db = new Database(this.dbPath);
       this.db.pragma('journal_mode = WAL');
@@ -105,7 +105,7 @@ export class AuditLogger {
   /**
    * Ensure fallback log directory exists
    */
-  private _ensureFallbackDir(): void {
+  private _ensureFallbackDir (): void {
     try {
       const dir = dirname(this.fallbackPath);
       if (!existsSync(dir)) {
@@ -119,7 +119,7 @@ export class AuditLogger {
   /**
    * Write entry to fallback log file
    */
-  private _writeFallback(entry: AuditEntry): void {
+  private _writeFallback (entry: AuditEntry): void {
     try {
       const logLine = JSON.stringify(entry) + '\n';
       appendFileSync(this.fallbackPath, logLine, 'utf8');
@@ -136,7 +136,7 @@ export class AuditLogger {
    * Send an alert for audit failures. Sets _alertSent so the callback can be
    * replayed via setAlertCallback if it is registered after _init() runs.
    */
-  private _sendAlert(type: string, errorMessage: string): void {
+  private _sendAlert (type: string, errorMessage: string): void {
     this._alertSent = true;
     this._pendingAlert = { type: 'audit_failure', reason: type, error: errorMessage, timestamp: new Date().toISOString() };
     if (this._onAlert && !this._alertCallbackTriggered) {
@@ -149,7 +149,7 @@ export class AuditLogger {
    * Set callback for audit failure alerts (called when audit DB fails)
    * @param callback - Function to call with alert object
    */
-  setAlertCallback(callback: (alert: AuditAlert) => void): void {
+  setAlertCallback (callback: (alert: AuditAlert) => void): void {
     this._onAlert = callback;
     // If an alert was already sent during init (before this callback was set), replay it now
     if (this._alertSent && !this._alertCallbackTriggered) {
@@ -163,7 +163,7 @@ export class AuditLogger {
     }
   }
 
-  log(tool: string, action: string, details: Record<string, unknown> = {}, success: boolean = true): AuditEntry {
+  log (tool: string, action: string, details: Record<string, unknown> = {}, success: boolean = true): AuditEntry {
     const entry: AuditEntry = { tool, action, details, success, timestamp: new Date().toISOString() };
     console.error(`[AUDIT] ${tool}:${action}`, success ? 'OK' : 'FAIL');
 
@@ -199,8 +199,8 @@ export class AuditLogger {
     return entry;
   }
 
-  getRecent(limit: number = 50): AuditEntry[] {
-    if (!this.db) return [];
+  getRecent (limit: number = 50): AuditEntry[] {
+    if (!this.db) {return [];}
     try {
       return this.db.prepare('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT ?').all(limit) as AuditEntry[];
     } catch {
@@ -208,7 +208,7 @@ export class AuditLogger {
     }
   }
 
-  close(): void {
+  close (): void {
     if (this.db) {
       this.db.close();
       this.db = null;

@@ -63,7 +63,7 @@ export class MessageStore {
   private _insertApproval!: Database.Statement;
   private _updateApproval!: Database.Statement;
 
-  constructor(dbPath?: string) {
+  constructor (dbPath?: string) {
     this.dbPath = dbPath || process.env.STORE_DB_PATH || '/data/store/messages.db';
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
@@ -76,7 +76,7 @@ export class MessageStore {
 
   // ── Schema & Migration ──────────────────────────────────────
 
-  private _migrate(): void {
+  private _migrate (): void {
     this.db!.exec(`
       CREATE TABLE IF NOT EXISTS chats (
         jid TEXT PRIMARY KEY,
@@ -160,7 +160,7 @@ export class MessageStore {
     console.error(`[STORE] Database migrated at ${this.dbPath} (encryption: ${enc})`);
   }
 
-  private _prepareStatements(): void {
+  private _prepareStatements (): void {
     this._upsertChat = this.db!.prepare(`
       INSERT INTO chats (jid, name, is_group, last_message_at, last_message_preview, updated_at)
       VALUES (?, ?, ?, ?, ?, unixepoch())
@@ -195,21 +195,21 @@ export class MessageStore {
 
   // ── Decrypt helpers ─────────────────────────────────────────
 
-  private _decryptRow<T extends Record<string, unknown>>(row: unknown): T | null {
-    if (!row || typeof row !== 'object') return null;
+  private _decryptRow<T extends Record<string, unknown>> (row: unknown): T | null {
+    if (!row || typeof row !== 'object') {return null;}
     const r = row as Record<string, unknown>;
-    if (r['body']) r['body'] = decrypt(r['body'] as string);
-    if (r['sender_name']) r['sender_name'] = decrypt(r['sender_name'] as string);
-    if (r['media_raw_json']) r['media_raw_json'] = decrypt(r['media_raw_json'] as string);
-    if (r['last_message_preview']) r['last_message_preview'] = decrypt(r['last_message_preview'] as string);
-    if (r['action']) r['action'] = decrypt(r['action'] as string);
-    if (r['details']) r['details'] = decrypt(r['details'] as string);
-    if (r['response_text']) r['response_text'] = decrypt(r['response_text'] as string);
+    if (r['body']) {r['body'] = decrypt(r['body'] as string);}
+    if (r['sender_name']) {r['sender_name'] = decrypt(r['sender_name'] as string);}
+    if (r['media_raw_json']) {r['media_raw_json'] = decrypt(r['media_raw_json'] as string);}
+    if (r['last_message_preview']) {r['last_message_preview'] = decrypt(r['last_message_preview'] as string);}
+    if (r['action']) {r['action'] = decrypt(r['action'] as string);}
+    if (r['details']) {r['details'] = decrypt(r['details'] as string);}
+    if (r['response_text']) {r['response_text'] = decrypt(r['response_text'] as string);}
     return r as T;
   }
 
-  private _decryptRows<T extends Record<string, unknown>>(rows: unknown[]): T[] {
-    for (const row of rows) this._decryptRow(row);
+  private _decryptRows<T extends Record<string, unknown>> (rows: unknown[]): T[] {
+    for (const row of rows) {this._decryptRow(row);}
     return rows as T[];
   }
 
@@ -219,8 +219,8 @@ export class MessageStore {
    * @param {string} query - Raw search query
    * @returns {string} - Escaped query safe for FTS5 MATCH
    */
-  private _escapeFts5Query(query: string): string {
-    if (!query) return '';
+  private _escapeFts5Query (query: string): string {
+    if (!query) {return '';}
     // Backslashes must be escaped first, before they are introduced by
     // subsequent replacements, to avoid double-escaping.
     return query
@@ -230,12 +230,12 @@ export class MessageStore {
 
   // ── Chat Operations ──────────────────────────────────────────
 
-  public upsertChat(jid: string, name: string | null, isGroup: boolean, lastMessageAt: number | null, lastMessagePreview: string | null): void {
+  public upsertChat (jid: string, name: string | null, isGroup: boolean, lastMessageAt: number | null, lastMessagePreview: string | null): void {
     const encPreview = encrypt(lastMessagePreview ?? '');
     this._upsertChat.run(jid, name, isGroup ? 1 : 0, lastMessageAt ?? null, encPreview);
   }
 
-  public listChats({ filter, groupsOnly, limit = 20, offset = 0 }: { filter?: string; groupsOnly?: boolean; limit?: number; offset?: number } = {}): ChatRow[] {
+  public listChats ({ filter, groupsOnly, limit = 20, offset = 0 }: { filter?: string; groupsOnly?: boolean; limit?: number; offset?: number } = {}): ChatRow[] {
     let sql = 'SELECT * FROM chats WHERE 1=1';
     const params: (string | number)[] = [];
 
@@ -253,25 +253,25 @@ export class MessageStore {
     return this._decryptRows(this.db!.prepare(sql).all(...params)) as ChatRow[];
   }
 
-  public getChatByJid(jid: string): ChatRow | null {
+  public getChatByJid (jid: string): ChatRow | null {
     return this._decryptRow(this.db!.prepare('SELECT * FROM chats WHERE jid = ?').get(jid)) as ChatRow | null;
   }
 
-  public getAllChatsForMatching(): { jid: string; name: string | null }[] {
+  public getAllChatsForMatching (): { jid: string; name: string | null }[] {
     return this.db!.prepare('SELECT jid, name FROM chats ORDER BY last_message_at DESC').all() as { jid: string; name: string | null }[];
   }
 
-  public incrementUnread(chatJid: string): void {
+  public incrementUnread (chatJid: string): void {
     this.db!.prepare('UPDATE chats SET unread_count = unread_count + 1 WHERE jid = ?').run(chatJid);
   }
 
-  public clearUnread(chatJid: string): void {
+  public clearUnread (chatJid: string): void {
     this.db!.prepare('UPDATE chats SET unread_count = 0 WHERE jid = ?').run(chatJid);
   }
 
   // ── Message Operations ───────────────────────────────────────
 
-  public addMessage(msg: {
+  public addMessage (msg: {
     id: string;
     chatJid: string | null;
     senderJid: string | null;
@@ -325,7 +325,7 @@ export class MessageStore {
     }
   }
 
-  public listMessages({ chatJid, limit = 50, offset = 0, before, after }: { chatJid: string; limit?: number; offset?: number; before?: number; after?: number }): MessageRow[] {
+  public listMessages ({ chatJid, limit = 50, offset = 0, before, after }: { chatJid: string; limit?: number; offset?: number; before?: number; after?: number }): MessageRow[] {
     let sql = 'SELECT * FROM messages WHERE chat_jid = ?';
     const params: (string | number)[] = [chatJid];
 
@@ -349,11 +349,11 @@ export class MessageStore {
     );
   }
 
-  public getMessageContext(messageId: string, contextBefore = 3, contextAfter = 3): { before: MessageRow[]; message: MessageRow | null; after: MessageRow[] } | null {
+  public getMessageContext (messageId: string, contextBefore = 3, contextAfter = 3): { before: MessageRow[]; message: MessageRow | null; after: MessageRow[] } | null {
     const target = this._decryptRow(
       this.db!.prepare('SELECT * FROM messages WHERE id = ?').get(messageId)
     ) as MessageRow | null;
-    if (!target) return null;
+    if (!target) {return null;}
 
     const before = this._decryptRows(
       this.db!
@@ -375,7 +375,7 @@ export class MessageStore {
     return { before, message: target, after };
   }
 
-  public searchMessages({ query, chatJid, limit = 20, offset = 0 }: { query: string; chatJid?: string; limit?: number; offset?: number }): MessageRow[] {
+  public searchMessages ({ query, chatJid, limit = 20, offset = 0 }: { query: string; chatJid?: string; limit?: number; offset?: number }): MessageRow[] {
     let sql = `
       SELECT m.* FROM messages_fts fts
       JOIN messages m ON m.rowid = fts.rowid
@@ -410,7 +410,7 @@ export class MessageStore {
     }
   }
 
-  public getUnreadMessages(limit = 100): MessageRow[] {
+  public getUnreadMessages (limit = 100): MessageRow[] {
     return this._decryptRows(
       this.db!
         .prepare('SELECT * FROM messages WHERE is_read = 0 ORDER BY timestamp DESC LIMIT ?')
@@ -419,7 +419,7 @@ export class MessageStore {
     );
   }
 
-  public markRead({ chatJid, messageIds }: { chatJid?: string; messageIds?: string[] }): number {
+  public markRead ({ chatJid, messageIds }: { chatJid?: string; messageIds?: string[] }): number {
     if (messageIds?.length) {
       const placeholders = messageIds.map(() => '?').join(',');
       const stmt = this.db!.prepare(`UPDATE messages SET is_read = 1 WHERE id IN (${placeholders})`);
@@ -438,7 +438,7 @@ export class MessageStore {
 
   // ── Approval Operations ──────────────────────────────────────
 
-  public createApproval({ toJid, action, details, timeoutMs = 300_000 }: { toJid: string; action: string; details: string; timeoutMs?: number }): {
+  public createApproval ({ toJid, action, details, timeoutMs = 300_000 }: { toJid: string; action: string; details: string; timeoutMs?: number }): {
     id: string;
     to_jid: string;
     action: string;
@@ -453,7 +453,7 @@ export class MessageStore {
     return { id, to_jid: toJid, action, details, status: 'pending', created_at: createdAt, timeout_ms: timeoutMs };
   }
 
-  public respondToApproval(id: string, approved: boolean, responseText: string | null): boolean {
+  public respondToApproval (id: string, approved: boolean, responseText: string | null): boolean {
     this._expireTimedOut();
     const result = this._updateApproval.run(
       approved ? 'approved' : 'denied',
@@ -464,12 +464,12 @@ export class MessageStore {
     return result.changes > 0;
   }
 
-  public getApproval(id: string): ApprovalRow | null {
+  public getApproval (id: string): ApprovalRow | null {
     this._expireTimedOut();
     return this._decryptRow(this.db!.prepare('SELECT * FROM approvals WHERE id = ?').get(id)) as ApprovalRow | null;
   }
 
-  public getPendingApprovals(): ApprovalRow[] {
+  public getPendingApprovals (): ApprovalRow[] {
     this._expireTimedOut();
     return this._decryptRows(
       this.db!
@@ -478,7 +478,7 @@ export class MessageStore {
     ) as ApprovalRow[];
   }
 
-  private _expireTimedOut(): void {
+  private _expireTimedOut (): void {
     this.db!
       .prepare(
         `
@@ -493,7 +493,7 @@ export class MessageStore {
 
   // ── Contact / Chat Lookup ────────────────────────────────────
 
-  public getContactChats(jid: string, limit = 20, offset = 0): ChatRow[] {
+  public getContactChats (jid: string, limit = 20, offset = 0): ChatRow[] {
     return this._decryptRows(
       this.db!
         .prepare(
@@ -517,7 +517,7 @@ export class MessageStore {
    * @param {string} format - Export format: 'json' or 'csv' (default: 'json')
    * @returns {object} Exported data with metadata
    */
-  public exportChatData(jid: string, format: 'json' | 'csv' = 'json'): {
+  public exportChatData (jid: string, format: 'json' | 'csv' = 'json'): {
     format: string;
     jid: string;
     chatName?: string | null;
@@ -597,7 +597,7 @@ export class MessageStore {
     };
   }
 
-  public getLastInteraction(jid: string): (MessageRow & { chat_name: string | null }) | null {
+  public getLastInteraction (jid: string): (MessageRow & { chat_name: string | null }) | null {
     return this._decryptRow(
       this.db!
         .prepare(
@@ -614,8 +614,8 @@ export class MessageStore {
     ) as (MessageRow & { chat_name: string | null }) | null;
   }
 
-  public updateChatName(jid: string, name: string | null): void {
-    if (!name) return;
+  public updateChatName (jid: string, name: string | null): void {
+    if (!name) {return;}
     this.db!
       .prepare('UPDATE chats SET name = ? WHERE jid = ? AND (name IS NULL OR name = jid)')
       .run(name, jid);
@@ -623,7 +623,7 @@ export class MessageStore {
 
   // ── Media Operations ─────────────────────────────────────────
 
-  public updateMediaInfo(messageId: string, { mimetype, filename, localPath, rawJson }: { mimetype?: string | null; filename?: string | null; localPath?: string | null; rawJson?: string | null }): void {
+  public updateMediaInfo (messageId: string, { mimetype, filename, localPath, rawJson }: { mimetype?: string | null; filename?: string | null; localPath?: string | null; rawJson?: string | null }): void {
     this.db!
       .prepare(
         `
@@ -644,7 +644,7 @@ export class MessageStore {
       );
   }
 
-  public getMediaMessages(chatJid?: string, limit = 20, offset = 0): MessageRow[] {
+  public getMediaMessages (chatJid?: string, limit = 20, offset = 0): MessageRow[] {
     let sql = 'SELECT * FROM messages WHERE has_media = 1';
     const params: (string | number)[] = [];
     if (chatJid) {
@@ -658,13 +658,13 @@ export class MessageStore {
 
   // ── Stats ────────────────────────────────────────────────────
 
-  public getStats(): {
+  public getStats (): {
     chatCount: number;
     messageCount: number;
     unreadCount: number;
     pendingApprovals: number;
     lastSync: number | null;
-  } {
+    } {
     const chatCount = (this.db!.prepare('SELECT COUNT(*) as count FROM chats').get() as { count: number }).count;
     const messageCount = (this.db!.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number }).count;
     const unreadCount = (this.db!
@@ -680,7 +680,7 @@ export class MessageStore {
 
   // ── Catch-Up Summary ─────────────────────────────────────────
 
-  public getCatchUpData(sinceTimestamp: number): {
+  public getCatchUpData (sinceTimestamp: number): {
     activeChats: (ChatRow & { recent_messages: number })[];
     recentUnread: (MessageRow & { chat_name: string | null })[];
     questions: (MessageRow & { chat_name: string | null })[];
@@ -731,12 +731,12 @@ export class MessageStore {
    * Delete messages and media older than retentionDays.
    * Returns { messagesDeleted, mediaFilesDeleted, approvalsDeleted }.
    */
-  public purgeOldData(retentionDays: number | null | undefined): {
+  public purgeOldData (retentionDays: number | null | undefined): {
     messagesDeleted: number;
     mediaFilesDeleted: number;
     approvalsDeleted: number;
   } | null {
-    if (!retentionDays || retentionDays <= 0) return null;
+    if (!retentionDays || retentionDays <= 0) {return null;}
 
     const cutoffTs = Math.floor(Date.now() / 1000) - retentionDays * 86400;
     const cutoffMs = Date.now() - retentionDays * 86400_000;
@@ -750,12 +750,10 @@ export class MessageStore {
     const msgResult = this.db!.prepare('DELETE FROM messages WHERE timestamp < ?').run(cutoffTs);
     const apprResult = this.db!.prepare('DELETE FROM approvals WHERE created_at < ?').run(cutoffMs);
 
-    let mediaFilesDeleted = 0;
     if (mediaRows.length > 0) {
       for (const row of mediaRows) {
         try {
           unlinkSync(row.media_local_path);
-          mediaFilesDeleted++;
         } catch {
           /* file already gone */
         }
@@ -782,8 +780,8 @@ export class MessageStore {
    * Start the auto-purge timer.
    * Runs immediately on start, then every intervalMs (default 1 hour).
    */
-  public startAutoPurge(retentionDays: number | null | undefined, intervalMs = 3600_000): void {
-    if (!retentionDays || retentionDays <= 0) return;
+  public startAutoPurge (retentionDays: number | null | undefined, intervalMs = 3600_000): void {
+    if (!retentionDays || retentionDays <= 0) {return;}
 
     console.error(
       `[PURGE] Auto-purge enabled: ${retentionDays}-day retention, checking every ${Math.round(intervalMs / 60000)} min`
@@ -799,7 +797,7 @@ export class MessageStore {
     }
   }
 
-  public close(): void {
+  public close (): void {
     if (this._purgeTimer) {
       clearInterval(this._purgeTimer);
       this._purgeTimer = null;

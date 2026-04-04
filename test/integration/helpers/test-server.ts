@@ -37,7 +37,7 @@ type TestServerResult = {
  * Create an in-memory transport for testing.
  * @returns Linked pair of InMemoryTransport instances
  */
-export async function createInMemoryTransport(): Promise<[InMemoryTransport, InMemoryTransport]> {
+export async function createInMemoryTransport (): Promise<[InMemoryTransport, InMemoryTransport]> {
   return InMemoryTransport.createLinkedPair();
 }
 
@@ -50,7 +50,7 @@ export async function createInMemoryTransport(): Promise<[InMemoryTransport, InM
  * @param options.permissions - PermissionManager instance
  * @returns Test server result with client, mcpServer, store, audit, permissions, waClient, cleanup
  */
-export async function createTestServer(options: TestServerOptions = {}): Promise<TestServerResult> {
+export async function createTestServer (options: TestServerOptions = {}): Promise<TestServerResult> {
   const waClient = options.waClient ?? createMockWaClient();
 
   const { mcpServer, store, audit, permissions } = createServer({
@@ -77,11 +77,11 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
     audit,
     permissions,
     waClient,
-    async cleanup() {
+    async cleanup () {
       await client.close();
       await mcpServer.close();
-      if (store?.close) store.close();
-      if (audit?.close) audit.close();
+      if (store?.close) {store.close();}
+      if (audit?.close) {audit.close();}
     }
   };
 }

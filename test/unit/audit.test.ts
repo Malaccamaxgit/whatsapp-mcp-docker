@@ -6,7 +6,7 @@ import path from 'node:path';
 import { AuditLogger } from '../../src/security/audit.js';
 
 // Each test gets its own temp directory so DB files never collide
-function makeTempDir(): string {
+function makeTempDir (): string {
   const dir = path.join(tmpdir(), `audit-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(dir, { recursive: true });
   return dir;

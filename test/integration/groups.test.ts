@@ -27,7 +27,7 @@ describe('Group Management Tools (integration)', () => {
   });
 
   after(async () => {
-    if (ctx) await ctx.cleanup();
+    if (ctx) {await ctx.cleanup();}
   });
 
   // ── create_group ────────────────────────────────────────────────────────────

@@ -30,7 +30,7 @@ let _key: Buffer | null = null;
  * Derives a 32-byte AES key using scrypt (memory-hard KDF).
  * Returns true if encryption is active.
  */
-export function initEncryption(passphrase: string): boolean {
+export function initEncryption (passphrase: string): boolean {
   if (!passphrase) {
     _key = null;
     return false;
@@ -40,7 +40,7 @@ export function initEncryption(passphrase: string): boolean {
   return true;
 }
 
-export function isEncryptionEnabled(): boolean {
+export function isEncryptionEnabled (): boolean {
   return _key !== null;
 }
 
@@ -48,8 +48,8 @@ export function isEncryptionEnabled(): boolean {
  * Encrypt a plaintext string. Returns prefixed ciphertext.
  * Returns the original value unchanged if encryption is off or value is empty.
  */
-export function encrypt(plaintext: string): string {
-  if (!_key || !plaintext) return plaintext;
+export function encrypt (plaintext: string): string {
+  if (!_key || !plaintext) {return plaintext;}
 
   const iv = randomBytes(IV_LEN);
   const cipher = createCipheriv(ALGORITHM, _key, iv);
@@ -64,15 +64,15 @@ export function encrypt(plaintext: string): string {
  * encrypted values from legacy plaintext (allows gradual migration).
  * Returns the original value if encryption is off or value is not encrypted.
  */
-export function decrypt(value: string): string {
+export function decrypt (value: string): string {
   if (!value || typeof value !== 'string' || !value.startsWith(PREFIX)) {
     return value;
   }
-  if (!_key) return value;
+  if (!_key) {return value;}
 
   try {
     const buf = Buffer.from(value.slice(PREFIX.length), 'base64');
-    if (buf.length < IV_LEN + TAG_LEN + 1) return value;
+    if (buf.length < IV_LEN + TAG_LEN + 1) {return value;}
 
     const iv = buf.subarray(0, IV_LEN);
     const tag = buf.subarray(IV_LEN, IV_LEN + TAG_LEN);

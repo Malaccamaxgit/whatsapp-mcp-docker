@@ -55,7 +55,7 @@ console.log('');
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 
-function ask(question: string): Promise<string> {
+function ask (question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
@@ -87,9 +87,9 @@ try {
     process.exit(0);
   }
 
-  console.log(`\n╔════════════════════════════════════════╗`);
+  console.log('\n╔════════════════════════════════════════╗');
   console.log(`║  Pairing Code:  ${result.code}              ║`);
-  console.log(`╚════════════════════════════════════════╝`);
+  console.log('╚════════════════════════════════════════╝');
   console.log('');
   console.log('Enter this code in WhatsApp:');
   console.log('  Settings > Linked Devices > Link a Device > Link with phone number');

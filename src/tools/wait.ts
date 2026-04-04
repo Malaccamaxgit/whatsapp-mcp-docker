@@ -16,7 +16,7 @@ interface MessageWaiter {
   resolve: (result: StoredMessage | null) => void;
 }
 
-export function registerWaitTools(
+export function registerWaitTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -55,10 +55,10 @@ export function registerWaitTools(
     }
 
     const filter = (msg: StoredMessage): boolean => {
-      if (chatJidFilter && msg.chatJid !== chatJidFilter) return false;
+      if (chatJidFilter && msg.chatJid !== chatJidFilter) {return false;}
       if (senderFilter) {
         const jid = msg.senderJid || msg.chatJid || '';
-        if (!jid.includes(senderFilter)) return false;
+        if (!jid.includes(senderFilter)) {return false;}
       }
       return true;
     };
@@ -161,7 +161,7 @@ export function registerWaitTools(
         openWorldHint: false
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     wait_for_message_handler as any
   );
 }

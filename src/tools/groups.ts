@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { resolveRecipient, type Chat } from '../utils/fuzzy-match.js';
+import { resolveRecipient } from '../utils/fuzzy-match.js';
 import { toJid, isGroupJid } from '../utils/phone.js';
 import { PhoneArraySchema } from '../utils/zod-schemas.js';
 import type { MessageStore } from '../whatsapp/store.js';
@@ -65,7 +65,7 @@ const notConnected = (): McpResult => ({
   isError: true
 });
 
-export function registerGroupTools(
+export function registerGroupTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -83,9 +83,9 @@ export function registerGroupTools(
         participants: PhoneArraySchema(1, 256).describe('Phone numbers (E.164) or JIDs of participants to add')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ name, participants }: { name: string; participants: string[] }) => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
       if (!rateCheck.allowed) {
@@ -129,9 +129,9 @@ export function registerGroupTools(
         group: z.string().max(200).describe('Group name (fuzzy match) or group JID ending in @g.us')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ group }: { group: string }) => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       try {
         const jid = await resolveGroupJid(group, store, waClient);
@@ -182,9 +182,9 @@ export function registerGroupTools(
       description: 'List all WhatsApp groups this account is a member of, with participant counts and admin status.',
       inputSchema: {}
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async () => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       try {
         const groups = await waClient.getJoinedGroups() as JoinedGroup[];
@@ -219,9 +219,9 @@ export function registerGroupTools(
         group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ group }: { group: string }) => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       try {
         const jid = await resolveGroupJid(group, store, waClient);
@@ -257,9 +257,9 @@ export function registerGroupTools(
           .describe('Full invite URL (https://chat.whatsapp.com/CODE) or just the invite code')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ link }: { link: string }) => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
       if (!rateCheck.allowed) {
@@ -304,9 +304,9 @@ export function registerGroupTools(
         group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ group }: { group: string }) => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       try {
         const jid = await resolveGroupJid(group, store, waClient);
@@ -339,9 +339,9 @@ export function registerGroupTools(
         participants: PhoneArraySchema(1, 50).describe('Phone numbers (E.164) or JIDs of participants')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ group, action, participants }: { group: string; action: string; participants: string[] }) => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
       if (!rateCheck.allowed) {
@@ -386,9 +386,9 @@ export function registerGroupTools(
         name: z.string().min(1).max(100).describe('New group name')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ group, name }: { group: string; name: string }) => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       try {
         const jid = await resolveGroupJid(group, store, waClient);
@@ -417,9 +417,9 @@ export function registerGroupTools(
         topic: z.string().max(512).describe('New group description (max 512 characters, empty string to clear)')
       }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (async ({ group, topic }: { group: string; topic: string }) => {
-      if (!waClient.isConnected()) return notConnected();
+      if (!waClient.isConnected()) {return notConnected();}
 
       try {
         const jid = await resolveGroupJid(group, store, waClient);
@@ -431,7 +431,7 @@ export function registerGroupTools(
         audit.log('set_group_topic', 'updated', { jid });
         return {
           content: [
-            { type: 'text', text: topic ? `Group description updated.` : `Group description cleared.` }
+            { type: 'text', text: topic ? 'Group description updated.' : 'Group description cleared.' }
           ]
         };
       } catch (err) {
@@ -444,13 +444,13 @@ export function registerGroupTools(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function resolveGroupJid(group: string, store: MessageStore, waClient: WhatsAppClient): Promise<string | null> {
-  if (isGroupJid(group)) return group;
+async function resolveGroupJid (group: string, store: MessageStore, waClient: WhatsAppClient): Promise<string | null> {
+  if (isGroupJid(group)) {return group;}
 
   // Try store first (fast, no network)
   const chats = store.getAllChatsForMatching();
   const { resolved } = resolveRecipient(group, chats);
-  if (resolved && isGroupJid(resolved)) return resolved;
+  if (resolved && isGroupJid(resolved)) {return resolved;}
 
   // Fall back to live group list from WhatsApp
   try {

@@ -211,16 +211,14 @@ interface MockWaClientOverrides {
   [key: string]: unknown;
 }
 
-export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockWaClient {
+export function createMockWaClient (overrides: MockWaClientOverrides = {}): MockWaClient {
   const sentMessages: SentMessage[] = [];
   const sentMedia: SentMedia[] = [];
   const readReceipts: ReadReceipt[] = [];
   const downloadResults = new Map<string, unknown>();
   const uploadResults = new Map<string, unknown>();
   const createGroupCalls: CreateGroupCall[] = [];
-  let createGroupResult: unknown = null;
-  let createGroupError: Error | null = null;
-  let messageWaiters: MessageWaiter[] = [];  // mirrors real client _messageWaiters
+  let messageWaiters: MessageWaiter[] = []; // mirrors real client _messageWaiters
 
   // Configurable behaviors
   const behaviors: MockBehavior = {
@@ -271,7 +269,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     _connected: true,
     jid: '15145559999@s.whatsapp.net',
     storePath: '/data/store',
-    messageStore: null,  // Will be set by test setup
+    messageStore: null, // Will be set by test setup
     _logoutReason: null,
     _reconnecting: false,
     _connectedAt: Date.now(),
@@ -280,11 +278,11 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     _messageWaiters: messageWaiters,
 
     // Connection state management
-    isConnected() {
+    isConnected () {
       return this._connected && this.jid !== null;
     },
 
-    setConnected(connected: boolean) {
+    setConnected (connected: boolean) {
       this._connected = connected;
       if (!connected) {
         this.jid = null;
@@ -292,7 +290,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Health monitoring
-    getHealthStats(): HealthStats {
+    getHealthStats (): HealthStats {
       return {
         uptime: this._connectedAt && this._connected ? Math.floor((Date.now() - this._connectedAt) / 1000) : 0,
         recentErrorCount: this._recentErrors.length,
@@ -302,7 +300,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Authentication
-    async requestPairingCode(phone: string): Promise<PairingCodeResult> {
+    async requestPairingCode (phone: string): Promise<PairingCodeResult> {
       if (this._connected && this.jid) {
         return { alreadyConnected: true, jid: this.jid };
       }
@@ -314,7 +312,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Pair code method (called by requestPairingCode)
-    async pairCode(digits: string): Promise<string> {
+    async pairCode (digits: string): Promise<string> {
       if (behaviors.pairCode) {
         return behaviors.pairCode(digits);
       }
@@ -323,7 +321,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Messaging - supports custom behavior for retry testing
-    async sendMessage(jid: string, message: unknown): Promise<{ id: string; timestamp: number; key: { id: string } }> {
+    async sendMessage (jid: string, message: unknown): Promise<{ id: string; timestamp: number; key: { id: string } }> {
       if (behaviors.sendMessage) {
         return behaviors.sendMessage(jid, message) as Promise<{ id: string; timestamp: number; key: { id: string } }>;
       }
@@ -343,7 +341,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Read receipts
-    async markMessagesRead(params: { chatJid: string; messageIds?: string[]; senderJid?: string }): Promise<number> {
+    async markMessagesRead (params: { chatJid: string; messageIds?: string[]; senderJid?: string }): Promise<number> {
       const { chatJid, messageIds, senderJid } = params;
       if (behaviors.markRead) {
         return behaviors.markRead({ chatJid, messageIds, senderJid }) as Promise<number>;
@@ -357,17 +355,17 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
       return messageIds?.length || 0;
     },
 
-    setDownloadResult(messageId: string, result: unknown) {
+    setDownloadResult (messageId: string, result: unknown) {
       downloadResults.set(messageId, result);
     },
 
     // Set upload result for specific file path
-    setUploadResult(filePath: string, result: unknown) {
+    setUploadResult (filePath: string, result: unknown) {
       uploadResults.set(filePath, result);
     },
 
     // Configure error simulation for retry testing
-    simulateError(method: string, error: Error | string, callCount = 1) {
+    simulateError (method: string, error: Error | string, callCount = 1) {
       let calls = 0;
       _errorSimulation[method] = { error, callCount };
 
@@ -382,17 +380,17 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Set custom behavior for any method
-    setBehavior(method: string, implementation: (...args: unknown[]) => unknown) {
+    setBehavior (method: string, implementation: (...args: unknown[]) => unknown) {
       behaviors[method] = implementation;
     },
 
-    resetBehaviors() {
+    resetBehaviors () {
       Object.keys(behaviors).forEach(key => behaviors[key] = null);
       _errorSimulation = { sendMessage: null, uploadMedia: null, downloadMedia: null };
     },
 
     // Media upload and send - supports retry testing
-    async uploadAndSendMedia(jid: string, filePath: string, mediaType: string, caption?: string): Promise<{ id: string; timestamp: number; mediaType: string }> {
+    async uploadAndSendMedia (jid: string, filePath: string, mediaType: string, caption?: string): Promise<{ id: string; timestamp: number; mediaType: string }> {
       if (behaviors.uploadAndSendMedia) {
         return behaviors.uploadAndSendMedia(jid, filePath, mediaType, caption) as Promise<{ id: string; timestamp: number; mediaType: string }>;
       }
@@ -408,7 +406,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Upload media (separate method for retry testing)
-    async uploadMedia(filePath: string): Promise<{ url: string; mimetype: string; fileLength: number } | unknown> {
+    async uploadMedia (filePath: string): Promise<{ url: string; mimetype: string; fileLength: number } | unknown> {
       if (behaviors.uploadMedia) {
         return behaviors.uploadMedia(filePath);
       }
@@ -427,7 +425,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Download media - supports custom results per message
-    async downloadMedia(messageId: string): Promise<{ path: string; mediaType: string; chatJid: string } | unknown> {
+    async downloadMedia (messageId: string): Promise<{ path: string; mediaType: string; chatJid: string } | unknown> {
       if (behaviors.downloadMedia) {
         return behaviors.downloadMedia(messageId);
       }
@@ -446,7 +444,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Download any media (real client uses this)
-    async downloadAny(rawMessage: unknown): Promise<string> {
+    async downloadAny (rawMessage: unknown): Promise<string> {
       if (behaviors.downloadAny) {
         return behaviors.downloadAny(rawMessage);
       }
@@ -458,7 +456,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Contact/Group resolution - supports custom behaviors
-    async resolveGroupName(jid: string): Promise<string | null> {
+    async resolveGroupName (jid: string): Promise<string | null> {
       if (behaviors.resolveGroupName) {
         return behaviors.resolveGroupName(jid);
       }
@@ -468,7 +466,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
       return jid.endsWith('@g.us') ? 'Mock Group' : null;
     },
 
-    async resolveContactName(jid: string): Promise<string | null> {
+    async resolveContactName (jid: string): Promise<string | null> {
       if (behaviors.resolveContactName) {
         return behaviors.resolveContactName(jid);
       }
@@ -479,7 +477,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Chat listing - supports custom behaviors and error simulation
-    async getChats(): Promise<unknown[]> {
+    async getChats (): Promise<unknown[]> {
       if (behaviors.getChats) {
         return behaviors.getChats();
       }
@@ -490,7 +488,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Contact info - supports custom behaviors
-    async getContact(jid: string): Promise<{ fullName: string; pushName: string } | unknown> {
+    async getContact (jid: string): Promise<{ fullName: string; pushName: string } | unknown> {
       if (behaviors.getContact) {
         return behaviors.getContact(jid);
       }
@@ -501,7 +499,7 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Group info - supports custom behaviors
-    async getGroupInfo(jid: string): Promise<{ subject: string } | unknown> {
+    async getGroupInfo (jid: string): Promise<{ subject: string } | unknown> {
       if (behaviors.getGroupInfo) {
         return behaviors.getGroupInfo(jid);
       }
@@ -512,18 +510,18 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Session existence (mirrors real client hasSession getter)
-    get hasSession(): boolean {
+    get hasSession (): boolean {
       return this._connected || this.jid !== null;
     },
 
     // Explicit logout: disconnects and clears session (mirrors real client logout())
-    async logout(): Promise<void> {
+    async logout (): Promise<void> {
       this._connected = false;
       this.jid = null;
     },
 
     // Reconnect using existing session (mirrors real client reconnect())
-    async reconnect(): Promise<ReconnectResult> {
+    async reconnect (): Promise<ReconnectResult> {
       if (this._connected && this.jid) {
         return { connected: true, jid: this.jid };
       }
@@ -531,19 +529,19 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Graceful shutdown disconnect: closes WebSocket, preserves session on disk
-    async disconnect(): Promise<void> {
+    async disconnect (): Promise<void> {
       this._connected = false;
       this.jid = null;
     },
 
     // Test helpers for simulating scenarios
-    simulateLogout(reason?: string) {
+    simulateLogout (reason?: string) {
       this._connected = false;
       this.jid = null;
       this._logoutReason = reason || 'unknown';
     },
 
-    simulateIncomingMessage(msg: unknown) {
+    simulateIncomingMessage (msg: unknown) {
       if (this._onMessage) {
         this._onMessage(msg);
       }
@@ -561,40 +559,30 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
     },
 
     // Mirror real client API used by wait_for_message tool
-    addMessageWaiter(filter: ((msg: unknown) => boolean) | undefined, resolve: (msg: unknown) => void) {
+    addMessageWaiter (filter: ((msg: unknown) => boolean) | undefined, resolve: (msg: unknown) => void) {
       messageWaiters.push({ filter, resolve });
       this._messageWaiters = messageWaiters;
     },
 
-    on(event: string, handler: (arg: unknown) => void) {
+    on (event: string, handler: (arg: unknown) => void) {
       if (event === 'message') {
         this._onMessage = handler;
       }
     },
 
-    // Behavior setters for test configuration
-    setBehavior(method: string, implementation: (...args: unknown[]) => unknown) {
-      behaviors[method] = implementation;
-    },
-
-    resetBehaviors() {
-      Object.keys(behaviors).forEach(key => behaviors[key] = null);
-      _errorSimulation = { sendMessage: null, uploadMedia: null, downloadMedia: null };
-    },
-
     // Test helpers - state inspection
-    getSentMessages(): SentMessage[] {
+    getSentMessages (): SentMessage[] {
       return sentMessages;
     },
-    getSentMedia(): SentMedia[] {
+    getSentMedia (): SentMedia[] {
       return sentMedia;
     },
-    getReadReceipts(): ReadReceipt[] {
+    getReadReceipts (): ReadReceipt[] {
       return readReceipts;
     },
 
     // Group creation helpers for welcome group tests
-    async createGroup(name: string, participants: string[] = []): Promise<{ jid: string; name: string }> {
+    async createGroup (name: string, participants: string[] = []): Promise<{ jid: string; name: string }> {
       if (!this._connected) {
         throw new Error('WhatsApp not connected');
       }
@@ -606,118 +594,118 @@ export function createMockWaClient(overrides: MockWaClientOverrides = {}): MockW
       return { jid, name };
     },
 
-    getCreateGroupCalls(): CreateGroupCall[] {
+    getCreateGroupCalls (): CreateGroupCall[] {
       return createGroupCalls;
     },
 
-    resetCreateGroupCalls() {
+    resetCreateGroupCalls () {
       createGroupCalls.length = 0;
     },
 
-    setCreateGroupResult(result: unknown) {
+    setCreateGroupResult (result: unknown) {
       behaviors.createGroup = () => result;
     },
 
-    setCreateGroupError(error: Error) {
+    setCreateGroupError (error: Error) {
       behaviors.createGroup = () => { throw error; };
     },
 
-    clearSentMessages() {
+    clearSentMessages () {
       sentMessages.length = 0;
     },
 
     // ── Group Management ────────────────────────────────────────────────────────
 
-    async getJoinedGroups(): Promise<GroupInfo[]> {
-      if (behaviors.getJoinedGroups) return behaviors.getJoinedGroups() as Promise<GroupInfo[]>;
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async getJoinedGroups (): Promise<GroupInfo[]> {
+      if (behaviors.getJoinedGroups) {return behaviors.getJoinedGroups() as Promise<GroupInfo[]>;}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return [
         { jid: '120363001234@g.us', name: 'Engineering Team', participants: [] },
-        { jid: '120363005678@g.us', name: 'WhatsAppMCP',       participants: [] }
+        { jid: '120363005678@g.us', name: 'WhatsAppMCP', participants: [] }
       ];
     },
 
-    async getGroupInviteLink(jid: string): Promise<string> {
-      if (behaviors.getGroupInviteLink) return behaviors.getGroupInviteLink(jid);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async getGroupInviteLink (jid: string): Promise<string> {
+      if (behaviors.getGroupInviteLink) {return behaviors.getGroupInviteLink(jid);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return 'ABC123INVITELINK';
     },
 
-    async joinGroupWithLink(code: string): Promise<{ jid: string }> {
-      if (behaviors.joinGroupWithLink) return behaviors.joinGroupWithLink(code);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async joinGroupWithLink (code: string): Promise<{ jid: string }> {
+      if (behaviors.joinGroupWithLink) {return behaviors.joinGroupWithLink(code);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return { jid: '120363099999@g.us' };
     },
 
-    async leaveGroup(jid: string): Promise<null> {
-      if (behaviors.leaveGroup) return behaviors.leaveGroup(jid);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async leaveGroup (jid: string): Promise<null> {
+      if (behaviors.leaveGroup) {return behaviors.leaveGroup(jid);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return null;
     },
 
-    async updateGroupParticipants(jid: string, participantJids: string[], action: string): Promise<{ jid: string; error: null }[]> {
+    async updateGroupParticipants (jid: string, participantJids: string[], action: string): Promise<{ jid: string; error: null }[]> {
       if (behaviors.updateGroupParticipants) {
         return behaviors.updateGroupParticipants(jid, participantJids, action) as Promise<{ jid: string; error: null }[]>;
       }
-      if (!this._connected) throw new Error('WhatsApp not connected');
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return participantJids.map((p) => ({ jid: p, error: null }));
     },
 
-    async setGroupName(jid: string, name: string): Promise<null> {
-      if (behaviors.setGroupName) return behaviors.setGroupName(jid, name);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async setGroupName (jid: string, name: string): Promise<null> {
+      if (behaviors.setGroupName) {return behaviors.setGroupName(jid, name);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return null;
     },
 
-    async setGroupTopic(jid: string, topic: string): Promise<null> {
-      if (behaviors.setGroupTopic) return behaviors.setGroupTopic(jid, topic);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async setGroupTopic (jid: string, topic: string): Promise<null> {
+      if (behaviors.setGroupTopic) {return behaviors.setGroupTopic(jid, topic);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return null;
     },
 
     // ── Message Actions ──────────────────────────────────────────────────────────
 
-    async sendReaction(jid: string, messageId: string, emoji: string): Promise<{ id: string }> {
-      if (behaviors.sendReaction) return behaviors.sendReaction(jid, messageId, emoji);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async sendReaction (jid: string, messageId: string, emoji: string): Promise<{ id: string }> {
+      if (behaviors.sendReaction) {return behaviors.sendReaction(jid, messageId, emoji);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return { id: `reaction_${Date.now()}` };
     },
 
-    async editMessage(jid: string, messageId: string, content: string): Promise<{ id: string }> {
-      if (behaviors.editMessage) return behaviors.editMessage(jid, messageId, content);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async editMessage (jid: string, messageId: string, content: string): Promise<{ id: string }> {
+      if (behaviors.editMessage) {return behaviors.editMessage(jid, messageId, content);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return { id: messageId };
     },
 
-    async revokeMessage(jid: string, messageId: string): Promise<null> {
-      if (behaviors.revokeMessage) return behaviors.revokeMessage(jid, messageId);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async revokeMessage (jid: string, messageId: string): Promise<null> {
+      if (behaviors.revokeMessage) {return behaviors.revokeMessage(jid, messageId);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return null;
     },
 
-    async createPoll(jid: string, question: string, options: string[], allowMultiple: boolean): Promise<{ id: string }> {
-      if (behaviors.createPoll) return behaviors.createPoll(jid, question, options, allowMultiple);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async createPoll (jid: string, question: string, options: string[], allowMultiple: boolean): Promise<{ id: string }> {
+      if (behaviors.createPoll) {return behaviors.createPoll(jid, question, options, allowMultiple);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return { id: `poll_${Date.now()}` };
     },
 
     // ── Contact Info ─────────────────────────────────────────────────────────────
 
-    async getUserInfo(jids: string[]): Promise<Record<string, { name: string; status: string }>> {
-      if (behaviors.getUserInfo) return behaviors.getUserInfo(jids) as Promise<Record<string, { name: string; status: string }>>;
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async getUserInfo (jids: string[]): Promise<Record<string, { name: string; status: string }>> {
+      if (behaviors.getUserInfo) {return behaviors.getUserInfo(jids) as Promise<Record<string, { name: string; status: string }>>;}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return Object.fromEntries(jids.map((j) => [j, { name: 'Mock User', status: 'Hey there!' }]));
     },
 
-    async isOnWhatsApp(phones: string[]): Promise<{ jid: string; phone: string; exists: boolean }[]> {
-      if (behaviors.isOnWhatsApp) return behaviors.isOnWhatsApp(phones);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async isOnWhatsApp (phones: string[]): Promise<{ jid: string; phone: string; exists: boolean }[]> {
+      if (behaviors.isOnWhatsApp) {return behaviors.isOnWhatsApp(phones);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return phones.map((p) => ({ jid: `${p.replace(/\D/g, '')}@s.whatsapp.net`, phone: p, exists: true }));
     },
 
-    async getProfilePicture(jid: string): Promise<string> {
-      if (behaviors.getProfilePicture) return behaviors.getProfilePicture(jid);
-      if (!this._connected) throw new Error('WhatsApp not connected');
+    async getProfilePicture (jid: string): Promise<string> {
+      if (behaviors.getProfilePicture) {return behaviors.getProfilePicture(jid);}
+      if (!this._connected) {throw new Error('WhatsApp not connected');}
       return 'https://mock.whatsapp.net/profile/abc123.jpg';
     },
 

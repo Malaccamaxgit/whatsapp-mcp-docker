@@ -50,7 +50,7 @@ describe('Performance Benchmarks', () => {
 
   // ── Helper Functions ──────────────────────────────────────────
 
-  function generateMessage(index: number, chatJid: string): MessageInput {
+  function generateMessage (index: number, chatJid: string): MessageInput {
     return {
       id: `msg-${index}-${Date.now()}`,
       chatJid,
@@ -64,7 +64,7 @@ describe('Performance Benchmarks', () => {
     };
   }
 
-  function generateChats(count: number): ChatInput[] {
+  function generateChats (count: number): ChatInput[] {
     const chats: ChatInput[] = [];
     for (let i = 0; i < count; i++) {
       chats.push({
@@ -441,7 +441,7 @@ describe('Performance Benchmarks', () => {
       // Create 50 chats with recent messages
       for (let c = 0; c < 50; c++) {
         const chatJid = `1514555${1000 + c}@s.whatsapp.net`;
-        store.upsertChat(chatJid, `Contact ${c}`, false, Date.now() - c * 60000, `Last message`);
+        store.upsertChat(chatJid, `Contact ${c}`, false, Date.now() - c * 60000, 'Last message');
 
         // Add 10 messages per chat
         for (let i = 0; i < 10; i++) {

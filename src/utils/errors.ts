@@ -85,7 +85,7 @@ interface ErrorClassification {
  * @param err - Error object or message
  * @returns ErrorClassification object with type, code, and retry flag
  */
-export function classifyError(err: Error | string): ErrorClassification {
+export function classifyError (err: Error | string): ErrorClassification {
   const message = (err instanceof Error ? err.message : String(err || '')).toLowerCase();
 
   // Check for transient errors (auto-retry)
@@ -112,8 +112,8 @@ export function classifyError(err: Error | string): ErrorClassification {
  * @param err - Error object or message
  * @returns HTTP-style error code
  */
-export function getErrorCode(err: Error | string): number {
-  if (!err) return 500;
+export function getErrorCode (err: Error | string): number {
+  if (!err) {return 500;}
 
   const message = (err instanceof Error ? err.message : String(err || '')).toLowerCase();
 
@@ -157,7 +157,7 @@ interface ErrorResponse {
  * @param context - Additional context (e.g., recipient, file path)
  * @returns ErrorResponse object
  */
-export function createErrorResponse(
+export function createErrorResponse (
   toolName: string,
   error: Error | string,
   context: ErrorContext = {}
@@ -188,7 +188,7 @@ export function createErrorResponse(
  * Format error message for user consumption
  * @private
  */
-function formatErrorMessage(
+function formatErrorMessage (
   toolName: string,
   message: string,
   classification: ErrorClassification,
@@ -215,7 +215,7 @@ function formatErrorMessage(
  * Get recovery hint based on error type
  * @private
  */
-function getRecoveryHint(
+function getRecoveryHint (
   errorType: ErrorType,
   toolName: string,
   context: ErrorContext

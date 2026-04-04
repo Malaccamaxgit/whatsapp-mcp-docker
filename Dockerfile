@@ -41,7 +41,7 @@ RUN npm install --include=dev && npm cache clean --force
 COPY tsconfig.json tsconfig.test.json ./
 COPY src/ ./src/
 COPY test/ ./test/
-COPY .eslintrc.json .prettierrc ./
+COPY eslint.config.js .prettierrc ./
 
 RUN mkdir -p /data/store /data/audit .test-data && \
     chown -R node:node /data .test-data

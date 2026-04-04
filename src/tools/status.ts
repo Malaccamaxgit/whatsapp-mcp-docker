@@ -7,7 +7,7 @@ import type { PermissionManager } from '../security/permissions.js';
 import type { MessageStore } from '../whatsapp/store.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
 
-export function registerStatusTools(
+export function registerStatusTools (
   server: McpServer,
   waClient: WhatsAppClient,
   store: MessageStore,
@@ -26,9 +26,9 @@ export function registerStatusTools(
     let text = 'WhatsApp Connection Status:\n';
 
     if (connected && hasSession) {
-      text += `  ✅ Connected: Yes\n`;
+      text += '  ✅ Connected: Yes\n';
       text += `  ✅ Authenticated as: ${waClient.jid}\n`;
-      text += `  Status: Ready to send/receive messages\n`;
+      text += '  Status: Ready to send/receive messages\n';
       if (health.uptime > 0) {
         const h = Math.floor(health.uptime / 3600);
         const m = Math.floor((health.uptime % 3600) / 60);
@@ -36,19 +36,19 @@ export function registerStatusTools(
       }
     } else if (!connected && hasSession) {
       const jidDisplay = waClient.jid || 'unknown';
-      text += `  ❌ Connected: No\n`;
+      text += '  ❌ Connected: No\n';
       if (health.reconnecting) {
         text += `  ⏳ Session: ${jidDisplay} (reconnection in progress...)\n`;
-        text += `  Status: Reconnecting automatically — please wait\n`;
+        text += '  Status: Reconnecting automatically — please wait\n';
       } else {
         text += `  ⚠️  Session: ${jidDisplay} (disconnected)\n`;
-        text += `  Status: Call authenticate (no phone number needed) to reconnect,\n`;
-        text += `          or call disconnect to clear the session and re-link a new device\n`;
+        text += '  Status: Call authenticate (no phone number needed) to reconnect,\n';
+        text += '          or call disconnect to clear the session and re-link a new device\n';
       }
     } else {
-      text += `  ❌ Connected: No\n`;
-      text += `  ❌ Authenticated: No session\n`;
-      text += `  Status: Not authenticated — call authenticate with your phone number to link this device\n`;
+      text += '  ❌ Connected: No\n';
+      text += '  ❌ Authenticated: No session\n';
+      text += '  Status: Not authenticated — call authenticate with your phone number to link this device\n';
     }
 
     if (health.recentErrorCount > 0) {
@@ -79,7 +79,7 @@ export function registerStatusTools(
       inputSchema: {},
       annotations: { readOnlyHint: true, idempotentHint: true }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     get_connection_status_handler as any
   );
 }

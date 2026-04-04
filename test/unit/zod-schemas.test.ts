@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { PhoneSchema, PhoneArraySchema } from '../../src/utils/zod-schemas.js';
 
 // Helper: parse via Zod and return { ok, value, error }
-function tryParse<T>(schema: z.ZodType<T>, value: unknown): { ok: boolean; value?: T; error?: string } {
+function tryParse<T> (schema: z.ZodType<T>, value: unknown): { ok: boolean; value?: T; error?: string } {
   const r = schema.safeParse(value);
   return r.success
     ? { ok: true, value: r.data }

@@ -19,7 +19,7 @@ export const RATE_LIMITS = {
   // Initial auth backoff (60 seconds)
   AUTH_INITIAL_BACKOFF_MS: 60 * 1000,
   // Maximum auth backoff (15 minutes)
-  AUTH_MAX_BACKOFF_MS: 15 * 60 * 1000,
+  AUTH_MAX_BACKOFF_MS: 15 * 60 * 1000
 } as const;
 
 // ── Connection & Health ───────────────────────────────────────
@@ -37,7 +37,7 @@ export const CONNECTION = {
   // Maximum startup backoff (30 seconds)
   STARTUP_MAX_BACKOFF_MS: 30 * 1000,
   // Session expiry detection threshold (20 days of inactivity)
-  SESSION_EXPIRY_THRESHOLD_MS: 20 * 24 * 60 * 60 * 1000,
+  SESSION_EXPIRY_THRESHOLD_MS: 20 * 24 * 60 * 60 * 1000
 } as const;
 
 // ── Input Validation Limits ───────────────────────────────────
@@ -69,7 +69,7 @@ export const LIMITS = {
   // Maximum chats to list
   MAX_CHATS_LIMIT: 100,
   // Maximum messages to list per page
-  MAX_MESSAGES_LIMIT: 200,
+  MAX_MESSAGES_LIMIT: 200
 } as const;
 
 // ── Authentication ────────────────────────────────────────────
@@ -89,7 +89,7 @@ export const AUTH = {
   // Minimum link timeout (15 seconds)
   MIN_LINK_TIMEOUT_SEC: 15,
   // Maximum link timeout (600 seconds)
-  MAX_LINK_TIMEOUT_SEC: 600,
+  MAX_LINK_TIMEOUT_SEC: 600
 } as const;
 
 // ── Storage & Retention ───────────────────────────────────────
@@ -99,7 +99,7 @@ export const STORAGE = {
   // Auto-purge check interval (1 hour)
   PURGE_CHECK_INTERVAL_MS: 60 * 60 * 1000,
   // Media expiry on WhatsApp servers (30 days)
-  MEDIA_SERVER_EXPIRY_DAYS: 30,
+  MEDIA_SERVER_EXPIRY_DAYS: 30
 } as const;
 
 // ── Permanent Logout Reasons ──────────────────────────────────
@@ -110,7 +110,7 @@ export const PERMANENT_LOGOUT_REASONS = [
   'unlinked',
   'device_removed',
   'logged_out',
-  'multidevice_mismatch',
+  'multidevice_mismatch'
 ] as const;
 
 export type PermanentLogoutReason = (typeof PERMANENT_LOGOUT_REASONS)[number];
@@ -118,7 +118,7 @@ export type PermanentLogoutReason = (typeof PERMANENT_LOGOUT_REASONS)[number];
 // ── Approval Keywords ─────────────────────────────────────────
 export const APPROVAL_KEYWORDS = {
   APPROVE: ['approve', 'approved', 'yes', 'ok', 'okay', 'confirm', 'y', '✅', '✔️'] as const,
-  DENY: ['deny', 'denied', 'no', 'reject', 'cancel', 'n', '❌', '🚫'] as const,
+  DENY: ['deny', 'denied', 'no', 'reject', 'cancel', 'n', '❌', '🚫'] as const
 } as const;
 
 export type ApprovalKeyword = (typeof APPROVAL_KEYWORDS.APPROVE)[number] | (typeof APPROVAL_KEYWORDS.DENY)[number];
@@ -156,7 +156,7 @@ export const FILE_SECURITY = {
     '.lnk',
     '.url',
     '.hta',
-    '.cpl',
+    '.cpl'
   ]),
   // Sensitive file patterns (block upload/exfiltration)
   SENSITIVE_PATTERNS: [
@@ -168,8 +168,8 @@ export const FILE_SECURITY = {
     /\.key$/i,
     /\.pem$/i,
     /\.env$/i,
-    /credentials/i,
-  ] as const,
+    /credentials/i
+  ] as const
 } as const;
 
 // ── Error Codes ───────────────────────────────────────────────
@@ -230,7 +230,7 @@ export const ERROR_CODES = {
   // Permission (403-429)
   PERMISSION_TOOL_DISABLED: 403,
   PERMISSION_CONTACT_NOT_WHITELISTED: 403,
-  PERMISSION_AUTH_THROTTLED: 429,
+  PERMISSION_AUTH_THROTTLED: 429
 } as const;
 
 // ── Defaults ──────────────────────────────────────────────────
@@ -242,7 +242,7 @@ export const DEFAULTS = {
   // Default store path
   STORE_PATH: '/data/sessions',
   // Default audit path
-  AUDIT_DB_PATH: '/data/audit/audit.db',
+  AUDIT_DB_PATH: '/data/audit/audit.db'
 } as const;
 
 export default {
@@ -255,5 +255,5 @@ export default {
   APPROVAL_KEYWORDS,
   FILE_SECURITY,
   ERROR_CODES,
-  DEFAULTS,
+  DEFAULTS
 };

@@ -22,7 +22,7 @@ const enabled: string[] = process.env.DEBUG ? process.env.DEBUG.split(',') : [];
  * @param namespace - Category name (e.g., 'auth', 'client', 'store')
  * @returns A log function that accepts message and variadic args
  */
-export function debug(namespace: string): LogFn {
+export function debug (namespace: string): LogFn {
   const isEnabled = enabled.includes('*') || enabled.includes(namespace);
 
   if (!isEnabled) {
@@ -42,7 +42,7 @@ export function debug(namespace: string): LogFn {
  * @param namespace - The namespace to check
  * @returns true if debug is enabled for this namespace
  */
-export function isDebugEnabled(namespace: string): boolean {
+export function isDebugEnabled (namespace: string): boolean {
   return enabled.includes('*') || enabled.includes(namespace);
 }
 
@@ -52,7 +52,7 @@ export function isDebugEnabled(namespace: string): boolean {
  * @param message - The message to log
  * @param args - Additional arguments to pass to the log function
  */
-export function debugOnce(namespace: string, message: string, ...args: unknown[]): void {
+export function debugOnce (namespace: string, message: string, ...args: unknown[]): void {
   const log = debug(namespace);
   log(message, ...args);
 }

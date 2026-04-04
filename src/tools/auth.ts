@@ -8,7 +8,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { PermissionManager } from '../security/permissions.js';
-import type { MessageStore } from '../whatsapp/store.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { validatePhoneNumber } from '../utils/phone.js';
@@ -31,23 +30,23 @@ const DEFAULT_POLL_MS = 5000;
 const DEFAULT_LINK_TIMEOUT_SEC = 120;
 
 /** Profile/env defaults (Docker MCP → AUTH_*). AUTH_WAIT_FOR_LINK defaults false (safe for Cursor/long-lived MCP clients). */
-function authEnvWaitForLink(): boolean {
+function authEnvWaitForLink (): boolean {
   const v = process.env.AUTH_WAIT_FOR_LINK;
-  if (v === undefined || v === null || String(v).trim() === '') return false;
+  if (v === undefined || v === null || String(v).trim() === '') {return false;}
   const s = String(v).trim().toLowerCase();
-  if (s === 'true' || s === '1' || s === 'yes' || s === 'on') return true;
+  if (s === 'true' || s === '1' || s === 'yes' || s === 'on') {return true;}
   return false;
 }
 
-function authEnvLinkTimeoutSec(): number {
+function authEnvLinkTimeoutSec (): number {
   const n = parseInt(process.env.AUTH_LINK_TIMEOUT_SEC || String(DEFAULT_LINK_TIMEOUT_SEC), 10);
-  if (Number.isNaN(n)) return DEFAULT_LINK_TIMEOUT_SEC;
+  if (Number.isNaN(n)) {return DEFAULT_LINK_TIMEOUT_SEC;}
   return Math.min(600, Math.max(15, n));
 }
 
-function authEnvPollIntervalSec(): number {
+function authEnvPollIntervalSec (): number {
   const n = parseInt(process.env.AUTH_POLL_INTERVAL_SEC || '5', 10);
-  if (Number.isNaN(n)) return 5;
+  if (Number.isNaN(n)) {return 5;}
   return Math.min(60, Math.max(2, n));
 }
 
@@ -60,7 +59,7 @@ interface WaitResult {
 /**
  * Poll until WhatsApp reports connected or timeout. Logs progress to stderr every interval.
  */
-async function waitForDeviceLink(
+async function waitForDeviceLink (
   waClient: WhatsAppClient,
   { pollIntervalMs = DEFAULT_POLL_MS, timeoutSec = DEFAULT_LINK_TIMEOUT_SEC } = {}
 ): Promise<WaitResult> {
@@ -74,7 +73,7 @@ async function waitForDeviceLink(
     }
     const remaining = deadline - Date.now();
     const sleepMs = Math.min(pollIntervalMs, Math.max(0, remaining));
-    if (sleepMs <= 0) break;
+    if (sleepMs <= 0) {break;}
     await new Promise((r) => setTimeout(r, sleepMs));
     checkNumber += 1;
     const elapsed = Math.round((Date.now() - start) / 1000);
@@ -86,7 +85,7 @@ async function waitForDeviceLink(
   return { ok: false, elapsedSec };
 }
 
-function appendWaitResult(text: string, wait: WaitResult): string {
+function appendWaitResult (text: string, wait: WaitResult): string {
   if (wait.ok) {
     return `${text}\n\n**Linked successfully** as ${wait.jid} (detected after ${wait.elapsedSec}s; polled every few seconds).`;
   }
@@ -106,7 +105,7 @@ interface AuthenticateResult {
   isError?: boolean;
 }
 
-function createDisconnectHandler(
+function createDisconnectHandler (
   waClient: WhatsAppClient,
   permissions: PermissionManager,
   audit: AuditLogger
@@ -124,7 +123,7 @@ function createDisconnectHandler(
             type: 'text',
             text: 'Not currently authenticated. No session to disconnect.'
           }
-        ],
+        ]
       };
     }
 
@@ -142,7 +141,7 @@ function createDisconnectHandler(
               ? `Successfully disconnected from WhatsApp (${previousJid}).\n\nThe session has been cleared. Call authenticate with a phone number to link a device again.`
               : 'Successfully disconnected from WhatsApp.\n\nThe session has been cleared. Call authenticate with a phone number to link a device again.'
           }
-        ],
+        ]
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error || '');
@@ -160,7 +159,7 @@ function createDisconnectHandler(
   };
 }
 
-function createAuthenticateHandler(
+function createAuthenticateHandler (
   waClient: WhatsAppClient,
   permissions: PermissionManager,
   audit: AuditLogger
@@ -188,7 +187,7 @@ function createAuthenticateHandler(
             type: 'text',
             text: `Already authenticated and connected as ${waClient.jid}.\nNo further action needed — you can send messages and use all tools.`
           }
-        ],
+        ]
       };
     }
 
@@ -209,7 +208,7 @@ function createAuthenticateHandler(
                   `Reconnected to existing session as ${reconnectResult.jid}.\n` +
                   'No further action needed — you can send messages and use all tools.'
               }
-            ],
+            ]
           };
         }
       } catch (err) {
@@ -229,7 +228,7 @@ function createAuthenticateHandler(
               'Format: "+" followed by country code and number (E.164).\n' +
               'Example: authenticate({ phoneNumber: "+15145551234" })'
           }
-        ],
+        ]
       };
     }
 
@@ -305,7 +304,7 @@ function createAuthenticateHandler(
               type: 'text',
               text: `Already connected as ${result.jid}.`
             }
-          ],
+          ]
         };
       }
 
@@ -395,7 +394,7 @@ function createAuthenticateHandler(
       }
 
       return {
-        content: [{ type: 'text', text: pairText }],
+        content: [{ type: 'text', text: pairText }]
       };
     } catch (error) {
       permissions.recordAuthAttempt(false);
@@ -416,7 +415,7 @@ function createAuthenticateHandler(
             text:
               `Authentication failed: ${error instanceof Error ? error.message : String(error || '')}\n\n` +
               `Next retry available in ${nextRetry} seconds. ` +
-              `(Backoff increases automatically to avoid WhatsApp rate limits.)`
+              '(Backoff increases automatically to avoid WhatsApp rate limits.)'
           }
         ],
         isError: true
@@ -425,7 +424,7 @@ function createAuthenticateHandler(
   };
 }
 
-export function registerAuthTools(
+export function registerAuthTools (
   server: McpServer,
   waClient: WhatsAppClient,
   permissions: PermissionManager,
@@ -438,7 +437,7 @@ export function registerAuthTools(
       inputSchema: {},
       annotations: { idempotentHint: false, readOnlyHint: false }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     createDisconnectHandler(waClient, permissions, audit) as any
   );
 
@@ -480,7 +479,7 @@ export function registerAuthTools(
       },
       annotations: { idempotentHint: true, readOnlyHint: false }
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     createAuthenticateHandler(waClient, permissions, audit) as any
   );
 }

@@ -10,7 +10,7 @@ const E164_MAX_DIGITS = 15;
  * @param input - The phone number string to clean
  * @returns The phone number with only digits
  */
-export function stripNonDigits(input: string): string {
+export function stripNonDigits (input: string): string {
   return input.replace(/[^0-9]/g, '');
 }
 
@@ -27,7 +27,7 @@ interface ValidationResult {
  * @param input - The phone number to validate
  * @returns A validation result object
  */
-export function validatePhoneNumber(input: string): ValidationResult {
+export function validatePhoneNumber (input: string): ValidationResult {
   if (!input || typeof input !== 'string') {
     return { valid: false, number: null, error: 'Phone number is required' };
   }
@@ -49,7 +49,7 @@ export function validatePhoneNumber(input: string): ValidationResult {
     return {
       valid: false,
       number: null,
-      error: `Use "+" instead of "00" prefix. Try: +${withoutPrefix}`,
+      error: `Use "+" instead of "00" prefix. Try: +${withoutPrefix}`
     };
   }
 
@@ -58,10 +58,10 @@ export function validatePhoneNumber(input: string): ValidationResult {
       valid: false,
       number: null,
       error:
-        `Looks like a local number (starts with 0). ` +
-        `You must include the country code. ` +
-        `Remove the leading 0 and add "+" plus your country code. ` +
-        `Example: 0612345678 → +33612345678 (France) or +353..., +1..., etc.`,
+        'Looks like a local number (starts with 0). ' +
+        'You must include the country code. ' +
+        'Remove the leading 0 and add "+" plus your country code. ' +
+        'Example: 0612345678 → +33612345678 (France) or +353..., +1..., etc.'
     };
   }
 
@@ -71,7 +71,7 @@ export function validatePhoneNumber(input: string): ValidationResult {
       number: null,
       error:
         `Phone number too short (${digits.length} digits, minimum ${E164_MIN_DIGITS}). ` +
-        `Include country code, e.g. +15145551234`,
+        'Include country code, e.g. +15145551234'
     };
   }
 
@@ -81,7 +81,7 @@ export function validatePhoneNumber(input: string): ValidationResult {
       number: null,
       error:
         `Phone number too long (${digits.length} digits, maximum ${E164_MAX_DIGITS}). ` +
-        `Check for duplicated digits or extra characters.`,
+        'Check for duplicated digits or extra characters.'
     };
   }
 
@@ -94,13 +94,13 @@ export function validatePhoneNumber(input: string): ValidationResult {
  * @param input - The phone number or JID to convert
  * @returns The WhatsApp JID or null if input is invalid
  */
-export function toJid(input: string): string | null {
-  if (!input) return null;
+export function toJid (input: string): string | null {
+  if (!input) {return null;}
 
-  if (input.includes('@')) return input;
+  if (input.includes('@')) {return input;}
 
   const { valid, number, error } = validatePhoneNumber(input);
-  if (!valid) throw new Error(error ?? undefined);
+  if (!valid) {throw new Error(error ?? undefined);}
 
   return `${number}@s.whatsapp.net`;
 }
@@ -110,7 +110,7 @@ export function toJid(input: string): string | null {
  * @param input - The string to check
  * @returns true if the string ends with @s.whatsapp.net or @g.us
  */
-export function isJid(input: string): boolean {
+export function isJid (input: string): boolean {
   return (
     typeof input === 'string' && (input.endsWith('@s.whatsapp.net') || input.endsWith('@g.us'))
   );
@@ -121,6 +121,6 @@ export function isJid(input: string): boolean {
  * @param jid - The JID to check
  * @returns true if the JID ends with @g.us
  */
-export function isGroupJid(jid: string): boolean {
+export function isGroupJid (jid: string): boolean {
   return typeof jid === 'string' && jid.endsWith('@g.us');
 }

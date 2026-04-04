@@ -51,7 +51,7 @@ type TestData = {
  * @param isGroup - Is group chat
  * @returns Chat data
  */
-export function createTestChat(store: MessageStore, jid: string, name: string = 'Test User', isGroup: boolean = false): ChatData {
+export function createTestChat (store: MessageStore, jid: string, name: string = 'Test User', isGroup: boolean = false): ChatData {
   const timestamp = Math.floor(Date.now() / 1000);
   store.upsertChat(jid, name, isGroup, timestamp, 'Test message');
   return { jid, name, is_group: isGroup ? 1 : 0, timestamp };
@@ -65,7 +65,7 @@ export function createTestChat(store: MessageStore, jid: string, name: string = 
  * @param options - Additional options
  * @returns Message data
  */
-export function createTestMessage(store: MessageStore, chatJid: string, body: string = 'Test message', options: {
+export function createTestMessage (store: MessageStore, chatJid: string, body: string = 'Test message', options: {
   id?: string;
   senderJid?: string | null;
   senderName?: string | null;
@@ -99,7 +99,7 @@ export function createTestMessage(store: MessageStore, chatJid: string, body: st
  * @param timeoutMs - Timeout in milliseconds
  * @returns Approval data
  */
-export function createTestApproval(store: MessageStore, toJid: string, action: string, details: string = '', timeoutMs: number = 300000): ApprovalData {
+export function createTestApproval (store: MessageStore, toJid: string, action: string, details: string = '', timeoutMs: number = 300000): ApprovalData {
   return store.createApproval({
     toJid,
     action,
@@ -113,7 +113,7 @@ export function createTestApproval(store: MessageStore, toJid: string, action: s
  * @param store - MessageStore instance
  * @returns Test data references
  */
-export function initializeTestData(store: MessageStore): TestData {
+export function initializeTestData (store: MessageStore): TestData {
   // Create users
   const user1 = createTestChat(store, '+1234567890@s.whatsapp.net', 'Alice');
   const user2 = createTestChat(store, '+0987654321@s.whatsapp.net', 'Bob');
@@ -139,7 +139,7 @@ export function initializeTestData(store: MessageStore): TestData {
  * @param type - Media type (image, video, audio, document)
  * @returns File path
  */
-export function createTestMediaFile(dir: string, filename: string, type: 'image' | 'video' | 'audio' | 'document' = 'image'): string {
+export function createTestMediaFile (dir: string, filename: string, type: 'image' | 'video' | 'audio' | 'document' = 'image'): string {
   const path = `${dir}/${filename}`;
 
   let content: Buffer;

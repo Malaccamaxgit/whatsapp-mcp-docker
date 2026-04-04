@@ -83,7 +83,7 @@ describe('permissions', () => {
     it('rejects downloads over the limit', () => {
       const pm = new PermissionManager();
       // Default DOWNLOADS_PER_MIN is 30; exhaust all slots then expect rejection
-      for (let i = 0; i < 30; i++) pm.checkDownloadRateLimit();
+      for (let i = 0; i < 30; i++) {pm.checkDownloadRateLimit();}
       const r = pm.checkDownloadRateLimit();
       assert.equal(r.allowed, false);
       assert.match(r.error ?? '', /download rate limit/i);

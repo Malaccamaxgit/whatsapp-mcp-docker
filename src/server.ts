@@ -16,7 +16,7 @@ import {
 import { MessageStore } from './whatsapp/store.js';
 import { AuditLogger } from './security/audit.js';
 import { PermissionManager } from './security/permissions.js';
-import { initEncryption, isEncryptionEnabled } from './security/crypto.js';
+import { initEncryption } from './security/crypto.js';
 import { registerAuthTools } from './tools/auth.js';
 import { registerStatusTools } from './tools/status.js';
 import { registerMessagingTools } from './tools/messaging.js';
@@ -52,7 +52,7 @@ export interface CreateServerResult {
  * @param {CreateServerOptions} options
  * @returns {CreateServerResult}
  */
-export function createServer({
+export function createServer ({
   version = '0.0.0-test',
   waClient,
   store,

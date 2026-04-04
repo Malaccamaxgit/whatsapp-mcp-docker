@@ -40,7 +40,7 @@ describe('Message Action Tools (integration)', () => {
   });
 
   after(async () => {
-    if (ctx) await ctx.cleanup();
+    if (ctx) {await ctx.cleanup();}
   });
 
   // ── send_reaction ───────────────────────────────────────────────────────────

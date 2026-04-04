@@ -55,8 +55,8 @@ describe('E2E: Live WhatsApp session', { skip: !sessionExists && 'session not av
   });
 
   after(async () => {
-    if (waClient) await waClient.disconnect();
-    if (ctx) await ctx.cleanup();
+    if (waClient) {await waClient.disconnect();}
+    if (ctx) {await ctx.cleanup();}
   });
 
   describe('get_connection_status', () => {

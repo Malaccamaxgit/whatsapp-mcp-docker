@@ -25,7 +25,7 @@ describe('Contact & User Info Tools (integration)', () => {
   });
 
   after(async () => {
-    if (ctx) await ctx.cleanup();
+    if (ctx) {await ctx.cleanup();}
   });
 
   // ── get_user_info ───────────────────────────────────────────────────────────
