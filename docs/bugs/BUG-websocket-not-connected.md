@@ -211,7 +211,7 @@ Before the `disconnect` call, `session.db-wal` was **156.9 KB** and `session.db`
 ## Environment
 
 - OS: Windows 11 (Docker Desktop)
-- Container: Alpine Linux (node:20-alpine)
+- Container: Alpine Linux (node:22-alpine)
 - `@whatsmeow-node/whatsmeow-node`: `^0.5.3`
 - `@whatsmeow-node/linux-x64-musl`: `^0.5.3`
 - `better-sqlite3`: `^11.0.0`

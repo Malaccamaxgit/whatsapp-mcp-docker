@@ -105,6 +105,7 @@ interface AuthenticateResult {
   isError?: boolean;
 }
 
+
 function createDisconnectHandler (
   waClient: WhatsAppClient,
   permissions: PermissionManager,
@@ -321,6 +322,7 @@ function createAuthenticateHandler (
             mimeType: 'image/png'
           });
         }
+
         content.push({
           type: 'text',
           text:

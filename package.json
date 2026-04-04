@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-mcp-docker",
-  "version": "0.1.1",
+  "version": "0.3.0",
   "description": "WhatsApp MCP server for Docker MCP Toolkit — send messages, search chats, approval workflows, and remote agent control via any MCP client",
   "main": "dist/index.js",
   "type": "module",

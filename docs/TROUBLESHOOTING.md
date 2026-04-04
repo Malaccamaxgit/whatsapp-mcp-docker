@@ -14,6 +14,7 @@ description: "Common issues, diagnostic steps, and recovery procedures for Whats
 
 | Symptom | Likely Cause | Recovery Time | Action |
 |---------|--------------|---------------|--------|
+| `Tool not found` | Profile not activated | Immediate | Run `mcp-activate-profile` |
 | `Not connected` | Session expired | 2-5 min | Call `authenticate` |
 | `Rate limit exceeded` | Too many requests | 60 sec | Wait and retry |
 | `Authentication failed` | Wrong phone format | Immediate | Fix phone number format |
@@ -23,6 +24,40 @@ description: "Common issues, diagnostic steps, and recovery procedures for Whats
 ---
 
 ## Session and Connection Issues
+
+### WhatsApp Tools Not Found in MCP Session
+
+**Symptoms:**
+- Error: `Tool 'get_connection_status' not found in current session`
+- Error: `Tool 'authenticate' not found in current session`
+- Any WhatsApp tool returns "not found" error
+
+**Cause:**
+The Docker MCP Gateway loads profile servers on demand, but the profile must be explicitly activated in the current MCP session. This is a known gap in the auto-loading behavior — the profile configuration exists, but the server isn't loaded until activated.
+
+**Recovery:**
+
+1. **Activate the profile in your session:**
+   ```bash
+   # In terminal
+   docker mcp profile activate <your-profile>
+   ```
+
+   Or inside an MCP client session, use the `mcp-activate-profile` meta-tool:
+   ```
+   docker mcp exec mcp-activate-profile --name <your-profile>
+   ```
+
+2. **Verify activation:**
+   Run `get_connection_status` — if it returns WhatsApp status instead of "tool not found", activation succeeded.
+
+3. **For automated startup:** Add a session initialization hook in your MCP client settings to run `mcp-activate-profile` on session start. See the Docker MCP Toolkit documentation on hooks.
+
+**Time to recover:** Immediate
+
+**Prevention:** The profile activation persists only for the current MCP session. You'll need to re-activate after restarting your MCP client or starting a new session.
+
+---
 
 ### Session Expired
 

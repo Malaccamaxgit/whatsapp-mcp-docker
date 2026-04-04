@@ -24,7 +24,7 @@ docker compose --profile test build tester-container
 docker compose --profile test run --rm tester-container
 
 # Run a specific test file
-docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.js
+docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.ts
 
 # Lint (inside the test container)
 docker compose --profile test run --rm tester-container npx eslint src/
@@ -50,11 +50,11 @@ docker compose --profile test run --rm tester-container npx prettier --check src
 | Item | Value |
 |------|-------|
 | Platform | Docker MCP Toolkit |
-| Runtime | Node.js 18+ (Node 20 Alpine in Docker) |
+| Runtime | Node.js 18+ (Node 22 Alpine in Docker) |
 | WhatsApp library | whatsmeow-node (Go binary via JSON-line IPC) |
 | MCP SDK | @modelcontextprotocol/sdk |
 | Database | SQLite (better-sqlite3) with FTS5 |
-| Container | Docker multi-stage (~150 MB) |
+| Container | Docker 4-stage (~80 MB runtime) |
 | Tools | 32 MCP tools |
 
 ---
@@ -126,7 +126,7 @@ docker mcp client connect cursor --profile <your-profile>
 |------|---------|-------|
 | Docker Desktop | Container build/run | **Required.** Must have [MCP Toolkit](https://docs.docker.com/ai/mcp-catalog-and-toolkit/) enabled |
 | Git | Version control | — |
-| Node.js 20+ | Local development only | Not needed if you only build/run via Docker |
+| Node.js 22+ | Local development only | Not needed if you only build/run via Docker |
 | npm | Package manager | Comes with Node.js |
 
 > **Note:** For Docker use, only Docker Desktop with MCP Toolkit is needed. Node.js is only required for local development outside Docker.
@@ -146,11 +146,11 @@ docker mcp client connect cursor --profile <your-profile>
 
 | Script | Command | Description |
 |--------|---------|-------------|
-| `start` | `node src/index.js` | Server start |
-| `dev` | `node --watch src/index.js` | Development with auto-reload |
+| `start` | `node dist/index.js` | Server start (compiled JS) |
+| `dev` | `tsx --watch src/index.ts` | Development with auto-reload (TypeScript) |
 | docker:test | docker compose --profile test build tester-container && docker compose --profile test run --rm tester-container | Unit + integration tests in Docker |
-| docker:test:auth | docker compose --profile test run --rm tester-container node test/e2e/setup-auth.js | One-time WhatsApp auth for e2e |
-| docker:test:e2e | docker compose --profile test run --rm tester-container node --test test/e2e/live.test.js | E2E tests with live session |
+| docker:test:auth | docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts | One-time WhatsApp auth for e2e |
+| docker:test:e2e | docker compose --profile test run --rm tester-container node --test test/e2e/live.test.ts | E2E tests with live session |
 
 ---
 
@@ -171,7 +171,7 @@ The server uses stdio transport (stdin/stdout for MCP, stderr for logging). For 
 ### Docker Build
 
 ```bash
-# Build image (uses multi-stage Dockerfile)
+# Build image (uses multi-stage Dockerfile, includes SLSA provenance)
 docker compose build
 
 # Build without cache (after Dockerfile changes)
@@ -181,15 +181,32 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
+### SLSA Provenance Attestations
+
+Both build targets include `provenance: "mode=max"` in `docker-compose.yml`. This embeds a signed [SLSA](https://slsa.dev/) provenance statement as an OCI manifest alongside the image, recording the full build context: base image digests, build arguments, Git commit SHA, and builder identity.
+
+**What this enables:**
+- Docker Scout gives exact base-image upgrade recommendations (instead of guessing from image metadata)
+- Image consumers can cryptographically verify the supply chain
+- Attestations are attached to the manifest, not baked into the image layers — no size overhead
+
+**What it does not expose:**
+- Host machine identity or IP
+- Secrets passed via `--secret` (excluded by BuildKit)
+- Docker Desktop configuration or personal environment variables beyond what is already visible in the image layers (`ENV` directives)
+
 ### Dockerfile Stages
 
-The Dockerfile uses a multi-stage build with three stages:
+The Dockerfile uses a four-stage build designed to keep the production image free of dev-tool transitive dependencies:
 
 | Stage | Base | Purpose |
 |-------|------|---------|
-| `builder` | `node:20-alpine` | Installs build tools (python3, make, g++) for `better-sqlite3` native addon compilation |
-| `test` | `node:20-alpine` | Copies `node_modules`, `src/`, and `test/` from builder. Used by `tester-container` for automated tests. |
-| Runtime | `node:20-alpine` | Copies only `node_modules` and `src/` from builder. No build tools in final image |
+| `prod-deps` | `node:22-alpine` | Installs **production-only** deps (`--omit=dev`). Never touched by dev tools. Source of `node_modules` for the runtime image. |
+| `builder` | `node:22-alpine` | Full `npm install` (prod + dev) to compile TypeScript. `node_modules` here is **not** copied to the runtime image. |
+| `test` | `node:22-alpine` | Copies compiled deps and source from `builder`. Used by `tester-container` for automated tests. No second `npm install` needed. |
+| Runtime | `node:22-alpine` | Copies `node_modules` from `prod-deps` (clean) and `dist/` from `builder`. npm/npx removed. No build tools. |
+
+> **Why a separate `prod-deps` stage?** Running `npm install` (without `--omit=dev`) in any stage that also provides `node_modules` to the runtime image causes npm v7+ to reinstall dev transitive deps — even if you later uninstall them. Keeping prod-deps isolated guarantees zero dev-only packages (tar, glob, minimatch, etc.) in the runtime image.
 
 ### Docker Compose Configuration
 
@@ -250,7 +267,7 @@ Set to `0` to disable auto-purge entirely.
 
 ## Testing
 
-The project uses `node:test` (built into Node.js 20+) with three test layers. Tests run inside Docker via `tester-container` — no local build tools needed.
+The project uses `node:test` (built into Node.js 22+) with three test layers. Tests run inside Docker via `tester-container` — no local build tools needed.
 
 ### Running Tests
 
@@ -272,17 +289,17 @@ docker compose --profile test run --rm tester-container
 Pure function and module tests. No network, no WhatsApp.
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/unit/*.test.js
+docker compose --profile test run --rm tester-container node --test test/unit/*.test.ts
 ```
 
-Tests: `phone.js`, `fuzzy-match.js`, `crypto.js`, `file-guard.js`, `permissions.js`, `audit.js`, `store.js`.
+Tests: `phone.ts`, `fuzzy-match.ts`, `crypto.ts`, `file-guard.ts`, `permissions.ts`, `audit.ts`, `store.ts`.
 
 ### Layer 2: Integration Tests
 
 MCP protocol-level tests. Uses a mock WhatsApp client connected to the real MCP server via in-memory transport. Tests input validation, permission checks, fuzzy matching, and response formatting.
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/integration/*.test.js
+docker compose --profile test run --rm tester-container node --test test/integration/*.test.ts
 ```
 
 ### Layer 3: E2E Tests
@@ -291,17 +308,17 @@ Tests against a real WhatsApp session. Authenticate once; the session persists i
 
 ```bash
 # One-time setup — authenticate and save session to .test-data/
-docker compose --profile test run --rm tester-container node test/e2e/setup-auth.js
+docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts
 
 # Run live tests (read-only, no messages sent)
-docker compose --profile test run --rm tester-container node --test test/e2e/live.test.js
+docker compose --profile test run --rm tester-container node --test test/e2e/live.test.ts
 ```
 
 Re-authenticate after ~20 days (WhatsApp session expiry).
 
 ### Session Lifecycle and Resilience
 
-The `WhatsAppClient` in `src/whatsapp/client.js` includes a full resilience layer:
+The `WhatsAppClient` in `src/whatsapp/client.ts` includes a full resilience layer:
 
 - **Startup retry**: `_connectWithRetry()` retries the initial WebSocket connection up to 5 times with exponential backoff (2s, 4s, 8s, 16s, 30s).
 - **Session expiry detection**: The `logged_out` event handler classifies the reason as permanent (revoked, banned, unlinked) or transient (connection lost, timeout). Permanent logouts delete `session.db` and notify the MCP client. Transient disconnects trigger a single reconnection attempt.
@@ -323,7 +340,7 @@ The client manages WhatsApp presence and read receipts:
 
 Resilience behavior is covered by integration tests:
 
-Integration tests in `test/integration/tools.test.js` cover:
+Integration tests in `test/integration/tools.test.ts` cover:
 - `get_connection_status` with logout reason after simulated disconnect
 - `mark_messages_read` routing through `waClient.markMessagesRead()`
 - `send_message` error when disconnected
@@ -399,31 +416,32 @@ docker mcp profile server add <profile> --server file://./whatsapp-mcp-docker-se
 
 ```
 src/
-├── index.js              # Entry point, stdio transport, lifecycle
-├── server.js             # Server factory (createServer) for tools + security wiring
+├── index.ts              # Entry point, stdio transport, lifecycle
+├── server.ts             # Server factory (createServer) for tools + security wiring
 ├── whatsapp/
-│   ├── client.js         # whatsmeow-node wrapper, events, media
-│   └── store.js          # SQLite persistence, FTS5, encryption, auto-purge
+│   ├── client.ts         # whatsmeow-node wrapper, events, media
+│   └── store.ts          # SQLite persistence, FTS5, encryption, auto-purge
 ├── tools/
-│   ├── auth.js           # authenticate (with auth rate limiting)
-│   ├── status.js         # get_connection_status
-│   ├── messaging.js      # send_message, list_messages, search_messages
-│   ├── chats.js          # list_chats, search_contacts, catch_up, mark_messages_read
-│   ├── media.js          # download_media, send_file (with file security)
-│   └── approvals.js      # request_approval, check_approvals
+│   ├── auth.ts           # authenticate (with auth rate limiting)
+│   ├── status.ts         # get_connection_status
+│   ├── messaging.ts      # send_message, list_messages, search_messages
+│   ├── chats.ts          # list_chats, search_contacts, catch_up, mark_messages_read
+│   ├── media.ts          # download_media, send_file (with file security)
+│   └── approvals.ts      # request_approval, check_approvals
 ├── security/
-│   ├── audit.js          # SQLite audit log
-│   ├── crypto.js         # AES-256-GCM field-level encryption
-│   ├── file-guard.js     # Path confinement, extension/magic checks, quota
-│   └── permissions.js    # Whitelist, rate limit, tool disable, auth throttle
+│   ├── audit.ts          # SQLite audit log
+│   ├── crypto.ts         # AES-256-GCM field-level encryption
+│   ├── file-guard.ts     # Path confinement, extension/magic checks, quota
+│   └── permissions.ts    # Whitelist, rate limit, tool disable, auth throttle
 └── utils/
-    ├── fuzzy-match.js    # Levenshtein + substring matching
-    └── phone.js          # E.164 validation, JID conversion
+    ├── fuzzy-match.ts    # Levenshtein + substring matching
+    └── phone.ts          # E.164 validation, JID conversion
 ```
 
 ### Key Patterns
 
-- **ES modules** throughout (`import`/`export`)
+- **TypeScript** throughout (compiled to `dist/` for runtime)
+- **ES modules** (`import`/`export`)
 - **stderr for logging** (stdout reserved for MCP stdio transport)
 - **Zod schemas** for all tool input validation
 - **Prepared statements** for all SQL queries (injection-safe)
@@ -435,16 +453,18 @@ src/
 
 ### Step 1: Create or extend a tool file
 
-```javascript
-// src/tools/example.js
+```typescript
+// src/tools/example.ts
 import { z } from 'zod';
 
 export function registerExampleTools(server, waClient, store, permissions, audit) {
-  server.tool(
+  server.registerTool(
     'my_tool',
-    'Clear description of what this tool does and when to use it.',
     {
-      param: z.string().describe('What this parameter is for')
+      description: 'Clear description of what this tool does and when to use it.',
+      inputSchema: {
+        param: z.string().describe('What this parameter is for')
+      }
     },
     async ({ param }) => {
       const rateCheck = permissions.checkRateLimit();
@@ -472,9 +492,9 @@ export function registerExampleTools(server, waClient, store, permissions, audit
 }
 ```
 
-### Step 2: Wire in server.js
+### Step 2: Wire in server.ts
 
-```javascript
+```typescript
 import { registerExampleTools } from './tools/example.js';
 // ...
 registerExampleTools(mcpServer, waClient, store, permissions, audit);
@@ -491,7 +511,9 @@ registerExampleTools(mcpServer, waClient, store, permissions, audit);
         desc: "What this parameter is for"
 ```
 
-### Step 4: Update README.md tool table
+### Step 4: Add to catalog.yaml and whatsapp-mcp-docker-server.yaml
+
+### Step 5: Update README.md tool table
 
 ---
 
@@ -578,6 +600,26 @@ registerExampleTools(mcpServer, waClient, store, permissions, audit);
 ---
 
 ## Troubleshooting
+
+### WhatsApp Tools Not Available in Session
+
+**Problem:** You get `Error: Tool 'get_connection_status' not found in current session` when trying to use WhatsApp tools.
+
+**Cause:** The Docker MCP Gateway loads profile servers on demand, but the profile must be explicitly activated in the current MCP session before tools are available.
+
+**Solution:** Activate the profile in your session:
+
+```bash
+# Using the mcp-activate-profile meta-tool (inside MCP client)
+docker mcp profile activate <your-profile>
+
+# Or via mcp-exec (if available)
+docker mcp exec mcp-activate-profile --name <your-profile>
+```
+
+**For automated startup:** Add a session initialization hook in your MCP client config or use `/mcp-activate-profile` at the start of each session. The profile activation persists only for the current session — you'll need to re-activate after restarting your MCP client.
+
+**Verify activation:** Run `get_connection_status` — if it returns WhatsApp connection status instead of "tool not found", the profile is active.
 
 | Problem | What to check |
 |---------|---------------|

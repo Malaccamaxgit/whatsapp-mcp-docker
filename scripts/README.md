@@ -49,9 +49,9 @@ chmod +x scripts/cleanup.sh
 ./scripts/cleanup.sh --profile my-profile --catalog my-catalog
 ```
 
-> **Reload Cursor after cleanup** (`Ctrl+Shift+P → Reload Window`) — the MCP gateway
-> process exits when containers are removed, so other MCP tools will show EOF errors
-> until Cursor reconnects.
+> **Reload or restart your MCP client after cleanup** — the MCP gateway
+> process exits when containers are removed, so MCP tools will show EOF errors
+> until the client reconnects.
 
 ---
 
@@ -114,19 +114,19 @@ The test container copies source files during the Docker build process. Without 
 ### Unit Tests Only
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/unit/*.test.js
+docker compose --profile test run --rm tester-container node --test test/unit/*.test.ts
 ```
 
 ### Integration Tests Only
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/integration/*.test.js
+docker compose --profile test run --rm tester-container node --test test/integration/*.test.ts
 ```
 
 ### Single Test File
 
 ```bash
-docker compose run --rm tester-container node --test test/unit/crypto.test.js
+docker compose run --rm tester-container node --test test/unit/crypto.test.ts
 ```
 
 ### Tests Matching Pattern

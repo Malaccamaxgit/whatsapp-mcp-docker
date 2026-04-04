@@ -21,6 +21,7 @@ import QRCode from 'qrcode';
 import { isGroupJid } from '../utils/phone.js';
 import { assertPathWithin, sanitizeFilename, checkExtension } from '../security/file-guard.js';
 import { decrypt } from '../security/crypto.js';
+import { debug } from '../utils/debug.js';
 import { classifyError } from '../utils/errors.js';
 import { PERMANENT_LOGOUT_REASONS, APPROVAL_KEYWORDS } from '../constants.js';
 import type { MessageStore } from './store.js';
@@ -213,6 +214,10 @@ function resolveMuslBinary (): string | undefined {
     return undefined;
   }
 }
+
+// ── Debug ─────────────────────────────────────────────────────────────────────
+
+const log = debug('client');
 
 // ── Class ─────────────────────────────────────────────────────────────────────
 
@@ -835,11 +840,17 @@ export class WhatsAppClient {
           rawMessage?.conversation ||
           rawMessage?.extendedTextMessage?.text ||
           '',
+        // NOTE: if body is still empty after the above, enable DEBUG=client to log
+        // the raw event structure and identify the correct field for this message type.
         timestamp: info?.timestamp || evt.timestamp || Math.floor(Date.now() / 1000),
         isFromMe: info?.isFromMe ?? evt.isFromMe ?? evt.key?.fromMe ?? false,
         hasMedia: Boolean(evt.mediaType || evt.hasMedia || mediaInfo),
         mediaType: evt.mediaType || mediaInfo?.type || null
       };
+
+      if (!msg.body && !msg.hasMedia) {
+        log('Empty body event (isFromMe=%s, isHistorySync=%s): %s', String(msg.isFromMe), String(isHistorySync), JSON.stringify(evt));
+      }
 
       this.messageStore.addMessage(msg);
 
@@ -852,10 +863,11 @@ export class WhatsAppClient {
       }
 
       if (msg.chatJid) {
-        // info?.pushName carries the sender's display name in the whatsmeow-node bridge
-        // when it is not surfaced directly on evt.pushName.
-        const chatName = evt.chatName || evt.pushName || info?.pushName || null;
         const isGroup = isGroupJid(msg.chatJid);
+        // For groups, only use evt.chatName (the actual group name).
+        // evt.pushName / info?.pushName is the *sender's* display name — using it for
+        // group chats would overwrite the group name with the sender's name (Bug fix).
+        const chatName = evt.chatName || (!isGroup ? (evt.pushName || info?.pushName) : null) || null;
         this.messageStore.upsertChat(
           msg.chatJid,
           chatName,
@@ -866,10 +878,13 @@ export class WhatsAppClient {
 
         if (!chatName && !isHistorySync) {
           const existing = this.messageStore.getChatByJid(msg.chatJid);
-          if (!existing?.name || existing.name === msg.chatJid) {
-            // For DMs, immediately store the sender's push name so that
-            // resolveRecipient can match the contact by display name.
+          // For groups: always re-resolve from WhatsApp (async, non-blocking) because
+          // the stored name may have been incorrectly set to a sender's pushName.
+          // For DMs: only resolve when the name is unset (null or equal to JID).
+          if (isGroup || !existing?.name || existing.name === msg.chatJid) {
             if (!isGroup && msg.senderName) {
+              // For DMs, immediately store the sender's push name so that
+              // resolveRecipient can match the contact by display name.
               this.messageStore.updateChatName(msg.chatJid, msg.senderName);
             } else {
               this._resolveAndUpdateName(msg.chatJid, isGroup);
@@ -899,6 +914,7 @@ export class WhatsAppClient {
   async _ensureWelcomeGroup (): Promise<void> {
     const groupName = process.env.WELCOME_GROUP_NAME || 'WhatsAppMCP';
     try {
+      // 1. Check local DB first (fast path)
       const existing = this.messageStore
         .getAllChatsForMatching()
         .find((c) => c.name === groupName && c.jid?.endsWith('@g.us'));
@@ -906,6 +922,21 @@ export class WhatsAppClient {
       if (existing) {
         console.error(`[WA] Welcome group "${groupName}" already exists (${existing.jid})`);
         return;
+      }
+
+      // 2. Check WhatsApp directly — local DB name may be stale (e.g. corrupted by a
+      //    previous bug). If the group already exists on WhatsApp, repair the local name
+      //    and return without creating a duplicate.
+      try {
+        const joinedGroups = await this.client!.getJoinedGroups() as Array<{ jid?: string; subject?: string; name?: string }>;
+        const remoteMatch = joinedGroups.find((g) => (g.subject || g.name) === groupName);
+        if (remoteMatch?.jid) {
+          console.error(`[WA] Welcome group "${groupName}" found on WhatsApp (${remoteMatch.jid}) — repairing local name`);
+          this.messageStore.upsertChat(remoteMatch.jid, groupName, true, null, null);
+          return;
+        }
+      } catch (lookupErr) {
+        console.error(`[WA] Could not check joined groups: ${(lookupErr as Error).message}`);
       }
 
       console.error(`[WA] Creating welcome group "${groupName}"...`);

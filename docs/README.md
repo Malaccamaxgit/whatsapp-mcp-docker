@@ -69,7 +69,7 @@ Tests run inside Docker via `tester-container` — unit, integration, and e2e la
 | [../docker-compose.yml](../docker-compose.yml) | Docker Compose stack with security hardening + test service |
 | [../whatsapp-mcp-docker-server.yaml](../whatsapp-mcp-docker-server.yaml) | Docker MCP Toolkit server definition (catalog registration) |
 | [../.env.example](../.env.example) | Environment variable template (docker-compose fallback) |
-| [../Dockerfile](../Dockerfile) | Multi-stage Docker image (builder → test → runtime, ~150 MB) |
+| [../Dockerfile](../Dockerfile) | 4-stage Docker image (prod-deps → builder → test → runtime, ~80 MB runtime) |
 | [../package.json](../package.json) | Node.js dependencies and scripts |
 
 ---

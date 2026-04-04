@@ -2,42 +2,56 @@
 # No Chromium, no Puppeteer. Uses whatsmeow-node (Go binary + Node.js wrapper).
 # Target size: ~150 MB (down from 1.8 GB)
 
-# ── Build Stage ─────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+# ── Prod-Deps Stage ──────────────────────────────────────────────
+# Installs ONLY production dependencies — never touched by dev tools.
+# This stage is the source of node_modules for the runtime image,
+# ensuring no dev-transitive packages (tar, glob, minimatch, etc.) bleed in.
+FROM node:22-alpine AS prod-deps
 
-# Build tools only needed here for better-sqlite3 native addon
+# Build tools needed to compile better-sqlite3 native addon
 RUN apk add --no-cache python3 make g++ linux-headers
 
 WORKDIR /app
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm install --omit=dev && npm cache clean --force
 
-# Install typescript for build only (not included in runtime)
-RUN npm install typescript
+# ── Builder Stage ────────────────────────────────────────────────
+# Full install (prod + dev) to compile TypeScript.
+# node_modules here is NOT copied to the runtime image.
+FROM node:22-alpine AS builder
+
+RUN apk add --no-cache python3 make g++ linux-headers
+
+WORKDIR /app
+COPY package*.json .npmrc ./
+RUN npm install && npm cache clean --force
+
 COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npx tsc
-# Remove typescript after build
-RUN npm uninstall typescript
 
-# ── Test Stage ─────────────────────────────────────────────────
-# Same compiled node_modules as production, plus test files.
-# Installs dev dependencies (eslint, prettier) for testing only.
+# ── Test Stage ───────────────────────────────────────────────────
+# Same compiled node_modules as builder (prod + dev), plus test files.
 # Build:  docker compose build tester-container
 # Run:    docker compose run --rm tester-container npm run test:all
 # Run:    docker compose run --rm tester-container npm run lint
 # Run:    docker compose run --rm tester-container npm run format:check
-FROM node:20-alpine AS test
+FROM node:22-alpine AS test
+
+# Patch zlib CVE-2026-22184 / CVE-2026-27171 (same fix as runtime stage).
+# Upgrade npm to latest using corepack (Node.js package manager manager).
+RUN apk upgrade --no-cache zlib && \
+    corepack enable npm && \
+    corepack prepare npm@11.12.1 --activate
 
 WORKDIR /app
 
-# Copy production dependencies from builder
+# Full dep set from builder — no second npm install needed.
+# dist/ is intentionally omitted: tsx resolves imports from src/ directly,
+# so compiled output is not needed for any test or lint command.
 COPY --from=builder /app/node_modules ./node_modules
 
-# Install dev dependencies for testing (eslint, prettier, tsx)
 COPY package*.json ./
-RUN npm install --include=dev && npm cache clean --force
-
 COPY tsconfig.json tsconfig.test.json ./
 COPY src/ ./src/
 COPY test/ ./test/
@@ -54,11 +68,14 @@ USER node
 
 CMD ["/bin/sh", "-c", "npx tsx --test test/unit/*.test.{js,ts} test/integration/*.test.{js,ts}"]
 
-# ── Runtime Stage ───────────────────────────────────────────────
-FROM node:20-alpine
+# ── Runtime Stage ────────────────────────────────────────────────
+FROM node:22-alpine
 
 # tzdata provides IANA timezone database so TZ env var works correctly in Alpine.
-RUN apk add --no-cache ca-certificates tzdata
+# apk upgrade zlib: patches CVE-2026-22184 / CVE-2026-27171 (fixed in 1.3.2-r0).
+RUN apk add --no-cache ca-certificates tzdata && \
+    apk upgrade --no-cache zlib && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 # Non-root user
 RUN addgroup -g 1001 -S mcp && \
@@ -66,10 +83,15 @@ RUN addgroup -g 1001 -S mcp && \
 
 WORKDIR /app
 
-# Copy dependencies from builder (includes compiled native addons)
-COPY --from=builder /app/node_modules ./node_modules
+# Pre-create data directories owned by mcp so named volumes initialize with
+# correct ownership on first mount (Docker copies image dir → empty volume).
+# Without this, fresh volumes are root-owned and uid 1001 gets SQLITE_CANTOPEN.
+RUN mkdir -p /data/sessions /data/audit && chown -R mcp:mcp /data
 
-# Copy compiled output instead of source
+# Copy PROD-ONLY node_modules — provably clean, never touched by dev tools
+COPY --from=prod-deps /app/node_modules ./node_modules
+
+# Copy compiled output from builder
 COPY --from=builder /app/dist ./dist/
 COPY package.json package-lock.json ./
 

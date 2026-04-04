@@ -11,13 +11,14 @@ description: "High-level architecture, component overview, data flow, storage sc
 
 | Topic | Detail |
 |-------|--------|
-| Runtime | Node.js 20 (Alpine) |
+| Runtime | Node.js 22 (Alpine) |
 | Platform | Docker MCP Toolkit |
 | WhatsApp protocol | whatsmeow-node (Go binary via JSON-line IPC) |
 | MCP SDK | @modelcontextprotocol/sdk |
 | Database | SQLite (better-sqlite3) with FTS5 full-text search |
 | Validation | Zod |
-| Container | Docker multi-stage (~150 MB) |
+| Container | Docker 4-stage build (~80 MB, npm removed from runtime) |
+| Provenance | SLSA max-mode attestations via BuildKit |
 | Tools | 32 MCP tools |
 
 ---
@@ -76,21 +77,21 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 │                                                              │
 │  ┌───────────────────────────────────────────────────────┐   │
 │  │                  MCP Server (stdio)                    │   │
-│  │                   src/index.js                         │   │
+│  │                   src/index.ts                         │   │
 │  └──────────┬───────────┬───────────┬────────────────────┘   │
 │             │           │           │                         │
 │   ┌─────────▼──┐ ┌──────▼──────┐ ┌──▼──────────┐            │
 │   │   Tools    │ │  Security   │ │   Utils      │            │
-│   │  (32 MCP)  │ │  audit.js   │ │ fuzzy-match  │            │
-│   │            │ │ permissions │ │ phone.js     │            │
+│   │  (32 MCP)  │ │  audit.ts   │ │ fuzzy-match  │            │
+│   │            │ │ permissions.ts │ │ phone.ts   │            │
 │   └─────────┬──┘ └─────────────┘ └─────────────┘            │
 │             │                                                │
 │   ┌─────────▼──────────────────────────────────────────┐     │
 │   │              WhatsApp Client Layer                  │     │
-│   │                 client.js                           │     │
+│   │                 client.ts                           │     │
 │   ├─────────────────────┬──────────────────────────────┤     │
 │   │    Message Store    │    whatsmeow-node (Go)       │     │
-│   │     store.js        │    JSON-line IPC             │     │
+│   │     store.ts        │    JSON-line IPC             │     │
 │   │    (SQLite/FTS5)    │                              │     │
 │   └──────────┬──────────┴──────────────┬───────────────┘     │
 │              │                         │                      │
@@ -115,18 +116,18 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 
 ## Component Overview
 
-### Entry Point (`src/index.js`) and Server Factory (`src/server.js`)
+### Entry Point (`src/index.ts`) and Server Factory (`src/server.ts`)
 
 | Responsibility | Detail |
 |---------------|--------|
-| Wiring | `createServer()` in `server.js` instantiates and connects store, audit, permissions, and MCP tools. `index.js` handles WhatsApp client, stdio transport, and lifecycle. |
+| Wiring | `createServer()` in `server.ts` instantiates and connects store, audit, permissions, and MCP tools. `index.ts` handles WhatsApp client, stdio transport, and lifecycle. |
 | Transport | stdio (stdin/stdout for MCP, stderr for logging) |
 | Lifecycle | Graceful shutdown on SIGINT/SIGTERM |
 | Notifications | Forwards incoming messages as MCP notifications |
 | Testability | `createServer()` can be called with mock dependencies for integration testing |
 | Welcome group | Optionally creates a WhatsApp group and sends a hello message on first connection |
 
-### WhatsApp Client (`src/whatsapp/client.js`)
+### WhatsApp Client (`src/whatsapp/client.ts`)
 
 | Responsibility | Detail |
 |---------------|--------|
@@ -141,7 +142,7 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 | Name resolution | Async backfill of group and contact names |
 | Approval detection | Scans incoming messages for APPROVE/DENY keywords |
 
-### Message Store (`src/whatsapp/store.js`)
+### Message Store (`src/whatsapp/store.ts`)
 
 | Responsibility | Detail |
 |---------------|--------|
@@ -159,16 +160,16 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 
 | File | Tools | Category |
 |------|-------|----------|
-| `auth.js` | `disconnect`, `authenticate` | Authentication |
-| `status.js` | `get_connection_status` | Status |
-| `messaging.js` | `send_message`, `list_messages`, `search_messages` | Messaging |
-| `chats.js` | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` | Chats |
-| `media.js` | `download_media`, `send_file` | Media |
-| `approvals.js` | `request_approval`, `check_approvals` | Approvals |
-| `groups.js` | `create_group`, `get_group_info`, `get_joined_groups`, `get_group_invite_link`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic` | Groups |
-| `reactions.js` | `send_reaction`, `edit_message`, `delete_message`, `create_poll` | Message Actions |
-| `contacts.js` | `get_user_info`, `is_on_whatsapp`, `get_profile_picture` | Contacts |
-| `wait.js` | `wait_for_message` | Workflow |
+| `auth.ts` | `disconnect`, `authenticate` | Authentication |
+| `status.ts` | `get_connection_status` | Status |
+| `messaging.ts` | `send_message`, `list_messages`, `search_messages` | Messaging |
+| `chats.ts` | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` | Chats |
+| `media.ts` | `download_media`, `send_file` | Media |
+| `approvals.ts` | `request_approval`, `check_approvals` | Approvals |
+| `groups.ts` | `create_group`, `get_group_info`, `get_joined_groups`, `get_group_invite_link`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic` | Groups |
+| `reactions.ts` | `send_reaction`, `edit_message`, `delete_message`, `create_poll` | Message Actions |
+| `contacts.ts` | `get_user_info`, `is_on_whatsapp`, `get_profile_picture` | Contacts |
+| `wait.ts` | `wait_for_message` | Workflow |
 
 Each tool includes:
 - Zod input schema with `.describe()` for LLM understanding
@@ -181,17 +182,17 @@ Each tool includes:
 
 | Module | Role |
 |--------|------|
-| `audit.js` | SQLite-backed audit log; logs tool name, action, metadata, success/failure |
-| `crypto.js` | AES-256-GCM field-level encryption using `node:crypto`. Encrypts/decrypts sensitive database fields. Key derived from `DATA_ENCRYPTION_KEY` passphrase via SHA-256. |
-| `file-guard.js` | Upload path confinement, sensitive file blocklist, dangerous extension blocking, magic bytes verification, filename sanitization, media directory quota enforcement |
-| `permissions.js` | Contact whitelist (`ALLOWED_CONTACTS`), rate limiting (`RATE_LIMIT_PER_MIN`), tool disabling (`DISABLED_TOOLS`), authentication throttling with exponential backoff |
+| `audit.ts` | SQLite-backed audit log; logs tool name, action, metadata, success/failure |
+| `crypto.ts` | AES-256-GCM field-level encryption using `node:crypto`. Encrypts/decrypts sensitive database fields. Key derived from `DATA_ENCRYPTION_KEY` passphrase via SHA-256. |
+| `file-guard.ts` | Upload path confinement, sensitive file blocklist, dangerous extension blocking, magic bytes verification, filename sanitization, media directory quota enforcement |
+| `permissions.ts` | Contact whitelist (`ALLOWED_CONTACTS`), rate limiting (`RATE_LIMIT_PER_MIN`), tool disabling (`DISABLED_TOOLS`), authentication throttling with exponential backoff |
 
 ### Utils (`src/utils/`)
 
 | Module | Role |
 |--------|------|
-| `phone.js` | E.164 validation, normalization, JID conversion (`+1234567890` → `1234567890@s.whatsapp.net`) |
-| `fuzzy-match.js` | Levenshtein distance + substring matching; `resolveRecipient()` returns best match or ambiguity candidates |
+| `phone.ts` | E.164 validation, normalization, JID conversion (`+1234567890` → `1234567890@s.whatsapp.net`) |
+| `fuzzy-match.ts` | Levenshtein distance + substring matching; `resolveRecipient()` returns best match or ambiguity candidates |
 
 ---
 
@@ -319,38 +320,47 @@ FTS5 full-text search index on `messages.body`. Plaintext is inserted manually (
 ## Testing Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                 Dockerfile Stages                        │
-│                                                          │
-│  ┌──────────────┐   ┌──────────────┐   ┌─────────────┐  │
-│  │   builder    │   │     test     │   │   runtime   │  │
-│  │  (node_mods) │──▶│ src/ + test/ │   │   src/ only │  │
-│  │   + build    │   │ tester-ctr   │   │   ~150 MB   │  │
-│  │   tools      │──▶│              │   │             │  │
-│  └──────────────┘   └──────┬───────┘   └─────────────┘  │
-│                            │                             │
-│                ┌───────────▼──────────┐                  │
-│                │   Automated Tests   │                  │
-│                └───────────┬──────────┘                  │
-│                            │                             │
-│          ┌─────────────────┼─────────────────┐           │
-│          │                 │                 │           │
-│  ┌───────▼──────┐  ┌──────▼───────┐  ┌──────▼──────┐   │
-│  │    Unit      │  │ Integration  │  │    E2E      │   │
-│  │  Pure logic  │  │ Mock WA      │  │ Live WA     │   │
-│  │  No network  │  │ In-memory    │  │ Read-only   │   │
-│  │              │  │              │  │ .test-data/  │   │
-│  └──────────────┘  └──────────────┘  └─────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    Dockerfile Stages                          │
+│                                                              │
+│  ┌─────────────┐   ┌──────────────┐   ┌──────────────────┐  │
+│  │  prod-deps  │   │   builder    │   │      test        │  │
+│  │ --omit=dev  │   │  full install│──▶│ builder node_mods│  │
+│  │ NEVER dev-  │   │  + tsc       │   │ src/ + test/     │  │
+│  │ tool touched│   │              │   │ tester-container │  │
+│  └──────┬──────┘   └──────┬───────┘   └──────┬───────────┘  │
+│         │                 │                  │               │
+│         │   node_modules  │ dist/            │               │
+│         └────────┐        │                  │               │
+│                  ▼        ▼                  │               │
+│           ┌──────────────────┐               │               │
+│           │    runtime       │               │               │
+│           │ clean node_mods  │               │               │
+│           │ no npm/npx       │               │               │
+│           │ ~80 MB           │               │               │
+│           └──────────────────┘               │               │
+│                                              ▼               │
+│                            ┌─────────────────────────┐       │
+│                            │     Automated Tests     │       │
+│                            └────────────┬────────────┘       │
+│                                         │                    │
+│               ┌─────────────────────────┼──────────────┐     │
+│               │                         │              │     │
+│      ┌────────▼──────┐  ┌───────────────▼──┐  ┌───────▼──┐  │
+│      │    Unit       │  │  Integration     │  │   E2E    │  │
+│      │  Pure logic   │  │  Mock WA         │  │  Live WA │  │
+│      │  No network   │  │  In-memory       │  │ Read-only│  │
+│      └───────────────┘  └──────────────────┘  └──────────┘  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 | Layer | Files | What's tested |
 |-------|-------|---------------|
 | **Unit** | `phone`, `fuzzy-match`, `crypto`, `file-guard`, `permissions`, `audit`, `store` | Pure functions, SQLite operations, encryption, path validation, rate limiting |
-| **Integration** | `tools.test.js` | Full MCP protocol via `createServer()` + in-memory transport + mock WhatsApp client |
-| **E2E** | `live.test.js` | Real WhatsApp session (read-only: connection, chats, search, contacts, catch-up) |
+| **Integration** | `tools.test.ts` | Full MCP protocol via `createServer()` + in-memory transport + mock WhatsApp client |
+| **E2E** | `live.test.ts` | Real WhatsApp session (read-only: connection, chats, search, contacts, catch-up) |
 
-Key design: `createServer()` in `src/server.js` is a factory function that accepts injected dependencies (waClient, store, audit, permissions). Integration tests inject a mock WhatsApp client and an in-memory SQLite store, exercising the full MCP tool chain without any network.
+Key design: `createServer()` in `src/server.ts` is a factory function that accepts injected dependencies (waClient, store, audit, permissions). Integration tests inject a mock WhatsApp client and an in-memory SQLite store, exercising the full MCP tool chain without any network.
 
 ---
 
@@ -360,7 +370,7 @@ Key design: `createServer()` in `src/server.js` is a factory function that accep
 
 2. **Long-lived containers** — The server runs with `longLived: true`, keeping the WhatsApp WebSocket connection alive across tool calls rather than spawning a new container per invocation.
 
-3. **whatsmeow-node** — Native WhatsApp protocol via a Go binary (~150 MB image), with proper TLS and text-based pairing code authentication. QR code fallback generates a PNG image in-container and delivers it as both an MCP image block and a browser-pasteable data URI — no host tools required beyond a browser.
+3. **whatsmeow-node** — Native WhatsApp protocol via a Go binary (~80 MB runtime image), with proper TLS and text-based pairing code authentication. QR code fallback generates a PNG image in-container and delivers it as both an MCP image block and a browser-pasteable data URI — no host tools required beyond a browser.
 
 4. **Go binary via IPC** — whatsmeow-node runs the Go `whatsmeow` library as a subprocess with JSON-line IPC. This provides protocol correctness from the mature Go library while keeping the MCP layer in Node.js.
 
@@ -377,6 +387,10 @@ Key design: `createServer()` in `src/server.js` is a factory function that accep
 10. **Field-level encryption** — AES-256-GCM encrypts sensitive fields at write time and decrypts on read. FTS5 receives plaintext for search while the source table stores ciphertext. Uses `node:crypto` — zero additional dependencies.
 
 11. **Auto-purge for data minimization** — Messages, media, and approvals are automatically deleted after a configurable retention period, reducing the window of data exposure if volumes are left behind.
+
+12. **Four-stage Dockerfile for minimal CVE surface** — A dedicated `prod-deps` stage runs `npm install --omit=dev` and is never touched by dev tools. The `builder` stage does a full install and compiles TypeScript. The runtime image copies `node_modules` from `prod-deps` and `dist/` from `builder`, and explicitly removes npm/npx. This eliminates dev-transitive packages (tar, glob, minimatch, etc.) that bleed in when TypeScript or test tooling is installed in the same stage as the production deps. Node.js was upgraded from 20 → 22 Alpine (LTS) to ship a newer Yarn bundle, reducing HIGH CVEs from 19 to 8.
+
+13. **SLSA max-mode provenance** — Both build targets embed signed SLSA provenance attestations via BuildKit (`provenance: "mode=max"` in `docker-compose.yml`). This records base image digests, build arguments, Git commit SHA, and builder identity as a signed OCI manifest alongside the image — not inside the image layers, so there is no size or runtime overhead. Attestations enable Docker Scout to give exact base-image upgrade recommendations and allow image consumers to cryptographically verify supply-chain integrity.
 
 ---
 
@@ -552,7 +566,7 @@ CREATE TABLE schema_versions (version INTEGER PRIMARY KEY, applied_at INTEGER);
 - No data corruption observed
 - No deadlocks (SQLite handles automatically)
 
-Concurrency behavior is covered by the integration tests in `test/integration/tools.test.js`.
+Concurrency behavior is covered by the integration tests in `test/integration/tools.test.ts`.
 
 ---
 
@@ -621,7 +635,7 @@ WhatsApp Server → whatsmeow-node → "message" event
 ```
 
 **Implementation:**
-- See `src/index.js` for message and disconnect notification wiring
+- See `src/index.ts` for message and disconnect notification wiring
 - Notifications are **best-effort** (failures logged but don't break flow)
 
 ---
@@ -650,7 +664,7 @@ WhatsApp Server → whatsmeow-node → "message" event
 - WhatsApp connection: ~20 MB
 - Total: ~80-100 MB typical
 
-See `test/benchmarks/performance.test.js` for benchmark suite.
+See `test/benchmarks/performance.test.ts` for benchmark suite.
 
 ---
 

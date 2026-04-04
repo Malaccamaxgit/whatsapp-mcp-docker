@@ -616,8 +616,10 @@ export class MessageStore {
 
   public updateChatName (jid: string, name: string | null): void {
     if (!name) {return;}
+    // Group names resolved from WhatsApp are authoritative — always overwrite.
+    // DM names: only set when unset (null) or still equal to the JID placeholder.
     this.db!
-      .prepare('UPDATE chats SET name = ? WHERE jid = ? AND (name IS NULL OR name = jid)')
+      .prepare('UPDATE chats SET name = ? WHERE jid = ? AND (name IS NULL OR name = jid OR is_group = 1)')
       .run(name, jid);
   }
 

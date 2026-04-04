@@ -473,7 +473,7 @@ Test conversion is more mechanical (adding types to describe/it/assert patterns)
 
 **Builder stage** — add TypeScript compilation:
 ```dockerfile
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 RUN apk add --no-cache python3 make g++ linux-headers
 WORKDIR /app
 COPY package*.json ./
@@ -489,7 +489,7 @@ RUN npm uninstall typescript
 
 **Test stage** — use `tsx --test`:
 ```dockerfile
-FROM node:20-alpine AS test
+FROM node:22-alpine AS test
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./

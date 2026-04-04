@@ -30,29 +30,29 @@ This project uses a **four-layer testing strategy** to ensure reliability and co
 ```
 test/
 ├── unit/                    # Pure logic tests (fast, isolated)
-│   ├── crypto.test.js
-│   ├── file-guard.test.js
-│   ├── fuzzy-match.test.js
-│   ├── permissions.test.js
-│   ├── phone.test.js
-│   └── property-based.test.js.SKIPPED
+│   ├── crypto.test.ts
+│   ├── file-guard.test.ts
+│   ├── fuzzy-match.test.ts
+│   ├── permissions.test.ts
+│   ├── phone.test.ts
+│   └── property-based.test.ts.SKIPPED
 │
 ├── integration/             # MCP protocol tests (mock WhatsApp)
-│   ├── tools.test.js
-│   ├── approvals-edge-cases.test.js
-│   ├── media-download-flow.test.js
-│   ├── media-encryption.test.js
+│   ├── tools.test.ts
+│   ├── approvals-edge-cases.test.ts
+│   ├── media-download-flow.test.ts
+│   ├── media-encryption.test.ts
 │   └── helpers/
-│       ├── fixtures.js
-│       ├── mock-wa-client.js
-│       └── test-server.js
+│       ├── fixtures.ts
+│       ├── mock-wa-client.ts
+│       └── test-server.ts
 │
 ├── e2e/                     # Live WhatsApp tests (read-only)
-│   ├── setup-auth.js
-│   └── live.test.js
+│   ├── setup-auth.ts
+│   └── live.test.ts
 │
 └── benchmarks/              # Performance tests
-    └── performance.test.js
+    └── performance.test.ts
 ```
 
 ## Running Tests
@@ -70,10 +70,10 @@ Fast, isolated tests with no external dependencies:
 
 ```bash
 # Run unit tests only
-docker compose --profile test run --rm tester-container node --test test/unit/*.test.js
+docker compose --profile test run --rm tester-container node --test test/unit/*.test.ts
 
 # Run a specific test file
-docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.js
+docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.ts
 ```
 
 ### Integration Tests
@@ -81,7 +81,7 @@ docker compose --profile test run --rm tester-container node --test test/unit/cr
 Tests the full MCP tool chain with a mock WhatsApp client:
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/integration/*.test.js
+docker compose --profile test run --rm tester-container node --test test/integration/*.test.ts
 ```
 
 ### E2E Tests
@@ -90,10 +90,10 @@ docker compose --profile test run --rm tester-container node --test test/integra
 
 ```bash
 # One-time auth setup
-docker compose --profile test run --rm tester-container node test/e2e/setup-auth.js
+docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts
 
 # Run live tests (uses .test-data/ for session persistence)
-docker compose --profile test run --rm tester-container node --test test/e2e/live.test.js
+docker compose --profile test run --rm tester-container node --test test/e2e/live.test.ts
 ```
 
 ### Benchmarks
@@ -101,7 +101,7 @@ docker compose --profile test run --rm tester-container node --test test/e2e/liv
 Performance regression testing:
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/benchmarks/performance.test.js
+docker compose --profile test run --rm tester-container node --test test/benchmarks/performance.test.ts
 ```
 
 ### All Tests
@@ -138,7 +138,7 @@ docker compose --profile test run --rm tester-container
 
 ### Media Encryption Tests ✅
 
-The `test/integration/media-encryption.test.js` file provides comprehensive coverage for field-level encryption:
+The `test/integration/media-encryption.test.ts` file provides comprehensive coverage for field-level encryption:
 
 | Test Case | Coverage Area |
 |-----------|---------------|
@@ -170,7 +170,7 @@ docker compose --profile test run --rm tester-container
 The `createMockWaClient()` helper provides a fully-featured mock for testing:
 
 ```javascript
-import { createMockWaClient } from '../integration/helpers/mock-wa-client.js';
+import { createMockWaClient } from '../integration/helpers/mock-wa-client.ts';
 
 const mockClient = createMockWaClient();
 
@@ -294,7 +294,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
       - run: npm audit
-      - run: node --check src/index.js  # syntax check
+      - run: tsc --noEmit  # TypeScript type check
       - run: docker build --target test -t whatsapp-mcp-docker:test-stage .
       - run: docker run --rm whatsapp-mcp-docker:test-stage  # runs default CMD (node --test)
 ```
@@ -321,7 +321,7 @@ docker compose --profile test run --rm tester-container npx prettier --check src
 ### Running Benchmarks
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/benchmarks/performance.test.js
+docker compose --profile test run --rm tester-container node --test test/benchmarks/performance.test.ts
 ```
 
 **Output:**
@@ -425,7 +425,7 @@ docker compose build tester-container
 
 **Fix:**
 ```bash
-docker compose --profile test run --rm tester-container node test/e2e/setup-auth.js
+docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts
 ```
 
 ### Tests Timeout
@@ -497,6 +497,7 @@ While we don't enforce a specific coverage percentage, aim for:
 - **v0.0.6-v0.0.9:** Added integration tests (~150 tests)
 - **v0.1.0:** Full four-layer strategy (243 tests)
 - **v0.1.1:** Mock client enhancements, DI support
+- **v0.2.0:** TypeScript migration complete — all tests converted to `.ts`
 
 ### Note on Historical Test Files
 

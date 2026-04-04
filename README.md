@@ -5,7 +5,8 @@
 > **Acknowledgment:** The author is well aware of [kapso.ai](https://kapso.ai), which provides a more robust and feature-complete WhatsApp integration solution. This project is what happens when a hobbyist coder with too much curiosity, decent system design instincts, and modern AI assistance decides to see how far they can push their weekend project. It's a learning exercise in MCP servers, containerization, and WhatsApp protocol integration — the kind of thing that would have been unreasonable to attempt alone a few years ago, but is now very much within reach thanks to better tooling and a lot of help from AI.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Runtime: Node.js](https://img.shields.io/badge/Runtime-Node.js%2020-green.svg)](https://nodejs.org/)
+[![Runtime: Node.js](https://img.shields.io/badge/Runtime-Node.js%2022-green.svg)](https://nodejs.org/)
+[![Language: TypeScript](https://img.shields.io/badge/Language-TypeScript-blue.svg)](https://www.typescriptlang.org/)
 [![Protocol: MCP](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol-purple.svg)](https://modelcontextprotocol.io/)
 [![Platform: Docker](https://img.shields.io/badge/Platform-Docker%20MCP%20Toolkit-blue.svg)](https://docs.docker.com/ai/mcp-catalog-and-toolkit/)
 
@@ -91,6 +92,12 @@ docker mcp client connect cursor --profile default
 **That's it!** You're now connected to WhatsApp. The image (`malaccamax/whatsapp-mcp-docker:latest`) is pulled automatically from Docker Hub on first use — no build step required.
 
 > **Note:** After connecting, you must restart or reload your MCP client before the WhatsApp tools appear (see Step 5 in the Full Setup below for client-specific instructions). Running `docker mcp tools ls` in the terminal shows only 8 MCP Toolkit meta-tools — the 32 WhatsApp tools appear inside your client after the gateway starts the container on first use.
+>
+> **Important:** In some MCP sessions, you may need to explicitly activate the profile before tools are available. If you get `Error: Tool 'get_connection_status' not found in current session`, run:
+> ```bash
+> docker mcp profile activate <your-profile>
+> ```
+> Or inside an MCP client session, use the `mcp-activate-profile` meta-tool. This is a known gap in the Docker MCP Gateway auto-loading behavior.
 
 **Next steps:** Set up encryption and recommended configuration (below) for secure use.
 
@@ -141,13 +148,13 @@ docker compose build
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" | docker mcp secret set whatsapp-mcp-docker.data_encryption_key
 
 # Option B: Using Docker (no Node.js required on host) — bash/zsh only
-docker run --rm node:20-alpine node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" | docker mcp secret set whatsapp-mcp-docker.data_encryption_key
+docker run --rm node:22-alpine node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" | docker mcp secret set whatsapp-mcp-docker.data_encryption_key
 ```
 
 > **Windows PowerShell users:** The pipe (`|`) and redirect (`<`) operators do not work with `docker mcp secret set` on PowerShell. Use this two-step approach instead:
 >
 > ```powershell
-> $key = docker run --rm node:20-alpine node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+> $key = docker run --rm node:22-alpine node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 > docker mcp secret set "whatsapp-mcp-docker.data_encryption_key=$key"
 > ```
 >
@@ -448,30 +455,30 @@ Check approval status for approval_1234567890_abc
 ```
 whatsapp-mcp-docker/
 ├── src/
-│   ├── index.js              # Entry point — stdio transport + lifecycle
-│   ├── server.js             # Server factory — wires tools, store, security
+│   ├── index.ts              # Entry point — stdio transport + lifecycle
+│   ├── server.ts             # Server factory — wires tools, store, security
 │   ├── whatsapp/
-│   │   ├── client.js         # whatsmeow-node wrapper + media operations
-│   │   └── store.js          # SQLite persistence + FTS5 search + media metadata
+│   │   ├── client.ts         # whatsmeow-node wrapper + media operations
+│   │   └── store.ts          # SQLite persistence + FTS5 search + media metadata
 │   ├── tools/
-│   │   ├── auth.js           # disconnect, authenticate
-│   │   ├── status.js         # get_connection_status
-│   │   ├── messaging.js      # send_message, list_messages, search_messages
-│   │   ├── chats.js          # list_chats, search_contacts, catch_up, mark_messages_read, export_chat_data
-│   │   ├── media.js          # download_media, send_file
-│   │   ├── approvals.js      # request_approval, check_approvals
-│   │   ├── groups.js         # create_group, get_group_info, get_joined_groups, get_group_invite_link, join_group, leave_group, update_group_participants, set_group_name, set_group_topic
-│   │   ├── reactions.js      # send_reaction, edit_message, delete_message, create_poll
-│   │   ├── contacts.js       # get_user_info, is_on_whatsapp, get_profile_picture
-│   │   └── wait.js           # wait_for_message
+│   │   ├── auth.ts           # disconnect, authenticate
+│   │   ├── status.ts         # get_connection_status
+│   │   ├── messaging.ts      # send_message, list_messages, search_messages
+│   │   ├── chats.ts          # list_chats, search_contacts, catch_up, mark_messages_read, export_chat_data
+│   │   ├── media.ts          # download_media, send_file
+│   │   ├── approvals.ts      # request_approval, check_approvals
+│   │   ├── groups.ts         # create_group, get_group_info, get_joined_groups, get_group_invite_link, join_group, leave_group, update_group_participants, set_group_name, set_group_topic
+│   │   ├── reactions.ts      # send_reaction, edit_message, delete_message, create_poll
+│   │   ├── contacts.ts       # get_user_info, is_on_whatsapp, get_profile_picture
+│   │   └── wait.ts           # wait_for_message
 │   ├── security/
-│   │   ├── audit.js          # SQLite audit logging
-│   │   ├── crypto.js         # AES-256-GCM field-level encryption
-│   │   ├── file-guard.js     # Path confinement, extension/magic checks, quota
-│   │   └── permissions.js    # Whitelist, rate limiting, tool disabling, auth throttle
+│   │   ├── audit.ts          # SQLite audit logging
+│   │   ├── crypto.ts         # AES-256-GCM field-level encryption
+│   │   ├── file-guard.ts     # Path confinement, extension/magic checks, quota
+│   │   └── permissions.ts    # Whitelist, rate limiting, tool disabling, auth throttle
 │   └── utils/
-│       ├── fuzzy-match.js    # Levenshtein + substring matching
-│       └── phone.js          # E.164 validation + JID conversion
+│       ├── fuzzy-match.ts    # Levenshtein + substring matching
+│       └── phone.ts          # E.164 validation + JID conversion
 ├── docs/
 │   ├── README.md             # Documentation index
 │   ├── API.md                # Full MCP tool API reference (all 32 tools)
@@ -502,7 +509,7 @@ whatsapp-mcp-docker/
 │   ├── unit/                 # Unit tests (node:test)
 │   ├── integration/          # MCP protocol tests (mock WhatsApp client)
 │   └── e2e/                  # Live session tests (persistent auth)
-├── Dockerfile                # Multi-stage (builder → test → runtime), ~150 MB
+├── Dockerfile                # 4-stage (prod-deps → builder → test → runtime), ~80 MB runtime
 ├── docker-compose.yml        # Main + tester-container (Compose profiles)
 ├── whatsapp-mcp-docker-server.yaml  # Docker MCP Toolkit server definition
 ├── recommended-config.yaml   # Reference config values for docker mcp profile config
@@ -743,13 +750,13 @@ docker volume ls | findstr whatsapp
 
 | Category | Technology |
 |----------|-----------|
-| **Runtime** | Node.js 20 (Alpine) |
+| **Runtime** | Node.js 22 (Alpine) |
 | **WhatsApp Protocol** | whatsmeow-node (Go binary) |
 | **MCP SDK** | @modelcontextprotocol/sdk |
 | **Database** | SQLite (better-sqlite3) with FTS5 |
 | **QR Code** | qrcode (in-container PNG generation) |
 | **Validation** | Zod |
-| **Container** | Docker (multi-stage, ~150 MB) |
+| **Container** | Docker (4-stage, ~80 MB runtime) |
 | **Orchestration** | Docker MCP Toolkit + MCP Gateway |
 
 ---
@@ -891,13 +898,13 @@ docker compose --profile test build tester-container
 docker compose --profile test run --rm tester-container
 
 # Run a specific test file
-docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.js
+docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.ts
 
 # One-time WhatsApp auth for e2e tests
-docker compose --profile test run --rm tester-container node test/e2e/setup-auth.js
+docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts
 
 # Run e2e tests with live session
-docker compose --profile test run --rm tester-container node --test test/e2e/live.test.js
+docker compose --profile test run --rm tester-container node --test test/e2e/live.test.ts
 ```
 
 | Layer | What's covered |

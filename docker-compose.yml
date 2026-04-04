@@ -3,9 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      provenance: "mode=max"
     image: malaccamax/whatsapp-mcp-docker:latest
-    container_name: whatsapp-mcp-docker
-    restart: unless-stopped
+    container_name: ${CONTAINER_NAME:-whatsapp-mcp-docker}
+    restart: no
     environment:
       # ── Storage paths ──────────────────────────────────────
       # /data/sessions is auto-provisioned by Docker MCP Toolkit;
@@ -109,6 +110,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: test
+      provenance: "mode=max"
     container_name: tester-container
     profiles:
       - test
