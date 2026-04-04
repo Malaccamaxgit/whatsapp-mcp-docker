@@ -1,9 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { z } from 'zod';
 import { PhoneSchema, PhoneArraySchema } from '../../src/utils/zod-schemas.js';
 
 // Helper: parse via Zod and return { ok, value, error }
-function tryParse(schema, value) {
+function tryParse<T>(schema: z.ZodType<T>, value: unknown): { ok: boolean; value?: T; error?: string } {
   const r = schema.safeParse(value);
   return r.success
     ? { ok: true, value: r.data }
@@ -43,25 +44,25 @@ describe('PhoneSchema', () => {
     it('rejects a local number starting with 0', () => {
       const r = tryParse(PhoneSchema, '0612345678');
       assert.equal(r.ok, false);
-      assert.match(r.error, /local number|country code/i);
+      assert.match(r.error ?? '', /local number|country code/i);
     });
 
     it('rejects a too-short number', () => {
       const r = tryParse(PhoneSchema, '+123');
       assert.equal(r.ok, false);
-      assert.match(r.error, /too short/i);
+      assert.match(r.error ?? '', /too short/i);
     });
 
     it('rejects a too-long number', () => {
       const r = tryParse(PhoneSchema, '+1234567890123456');
       assert.equal(r.ok, false);
-      assert.match(r.error, /too long/i);
+      assert.match(r.error ?? '', /too long/i);
     });
 
     it('rejects 00-prefixed international format', () => {
       const r = tryParse(PhoneSchema, '0033612345678');
       assert.equal(r.ok, false);
-      assert.match(r.error, /Use "\+"/i);
+      assert.match(r.error ?? '', /Use "\+"/i);
     });
 
     it('rejects empty string', () => {
@@ -106,7 +107,7 @@ describe('PhoneArraySchema', () => {
     const r = tryParse(schema, ['+15145551234', '0612345678']);
     assert.equal(r.ok, false);
     // Error message should reference the bad phone
-    assert.match(r.error, /local number|country code/i);
+    assert.match(r.error ?? '', /local number|country code/i);
   });
 
   it('accepts an array with only JIDs', () => {
