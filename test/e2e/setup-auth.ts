@@ -55,7 +55,7 @@ console.log('');
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 
-function ask(question) {
+function ask(question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
@@ -98,7 +98,7 @@ try {
 
   await result.waitForConnection;
 } catch (error) {
-  console.error('✗ Authentication failed:', error.message);
+  console.error('✗ Authentication failed:', error instanceof Error ? error.message : String(error));
   store.close();
   process.exit(1);
 }

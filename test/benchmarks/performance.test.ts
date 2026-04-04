@@ -4,7 +4,7 @@
  * Benchmarks for critical operations: FTS search, message persistence,
  * chat operations, and concurrent access patterns.
  *
- * Run with: node --test test/benchmarks/performance.test.js
+ * Run with: node --test test/benchmarks/performance.test.ts
  */
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
@@ -14,8 +14,31 @@ import { MessageStore } from '../../src/whatsapp/store.js';
 const BENCHMARK_ITERATIONS = 100;
 const LARGE_DATASET_SIZE = 1000;
 
+interface MessageInput {
+  id: string;
+  chatJid: string;
+  senderJid: string;
+  senderName: string;
+  body: string;
+  timestamp: number;
+  isFromMe: boolean;
+  isRead?: boolean;
+  hasMedia: boolean;
+  mediaType?: string;
+  mediaMimetype?: string;
+  mediaFilename?: string;
+}
+
+interface ChatInput {
+  jid: string;
+  name: string;
+  isGroup: boolean;
+  lastMessageAt: number;
+  preview: string;
+}
+
 describe('Performance Benchmarks', () => {
-  let store;
+  let store: MessageStore;
 
   beforeEach(() => {
     store = new MessageStore(':memory:');
@@ -27,7 +50,7 @@ describe('Performance Benchmarks', () => {
 
   // ── Helper Functions ──────────────────────────────────────────
 
-  function generateMessage(index, chatJid) {
+  function generateMessage(index: number, chatJid: string): MessageInput {
     return {
       id: `msg-${index}-${Date.now()}`,
       chatJid,
@@ -41,8 +64,8 @@ describe('Performance Benchmarks', () => {
     };
   }
 
-  function generateChats(count) {
-    const chats = [];
+  function generateChats(count: number): ChatInput[] {
+    const chats: ChatInput[] = [];
     for (let i = 0; i < count; i++) {
       chats.push({
         jid: `1514555${1000 + i}@s.whatsapp.net`,
@@ -167,7 +190,7 @@ describe('Performance Benchmarks', () => {
     });
 
     it('message with media metadata', () => {
-      const msg = {
+      const msg: MessageInput = {
         ...generateMessage(0, '15145551234@s.whatsapp.net'),
         hasMedia: true,
         mediaType: 'image',

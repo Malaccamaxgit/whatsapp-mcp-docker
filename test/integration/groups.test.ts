@@ -15,7 +15,7 @@ const GROUP_JID = '120363001234@g.us';
 const GROUP_JID_2 = '120363005678@g.us';
 
 describe('Group Management Tools (integration)', () => {
-  let ctx;
+  let ctx: Awaited<ReturnType<typeof createTestServer>>;
 
   before(async () => {
     initEncryption(null);

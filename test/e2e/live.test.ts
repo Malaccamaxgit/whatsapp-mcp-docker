@@ -24,13 +24,13 @@ const SESSION_DB = resolve(TEST_DATA_DIR, 'session.db');
 const sessionExists = existsSync(SESSION_DB);
 
 if (!sessionExists) {
-  console.error('[SKIP] live.test.js: No session found at .test-data/session.db');
+  console.error('[SKIP] live.test.ts: No session found at .test-data/session.db');
   console.error('       Run: docker compose run --rm tester-container npm run test:auth');
 }
 
 describe('E2E: Live WhatsApp session', { skip: !sessionExists && 'session not available' }, () => {
-  let ctx;
-  let waClient;
+  let ctx: Awaited<ReturnType<typeof createTestServer>> | undefined;
+  let waClient: WhatsAppClient | undefined;
 
   before(async () => {
     initEncryption(null);
@@ -61,7 +61,7 @@ describe('E2E: Live WhatsApp session', { skip: !sessionExists && 'session not av
 
   describe('get_connection_status', () => {
     it('reports connected with a valid JID', async () => {
-      const result = await ctx.client.callTool({
+      const result = await ctx!.client.callTool({
         name: 'get_connection_status',
         arguments: {}
       });
@@ -75,7 +75,7 @@ describe('E2E: Live WhatsApp session', { skip: !sessionExists && 'session not av
 
   describe('list_chats', () => {
     it('returns at least one chat', async () => {
-      const result = await ctx.client.callTool({
+      const result = await ctx!.client.callTool({
         name: 'list_chats',
         arguments: {}
       });
@@ -86,7 +86,7 @@ describe('E2E: Live WhatsApp session', { skip: !sessionExists && 'session not av
 
   describe('search_messages', () => {
     it('can execute a search query', async () => {
-      const result = await ctx.client.callTool({
+      const result = await ctx!.client.callTool({
         name: 'search_messages',
         arguments: { query: 'hello' }
       });
@@ -96,7 +96,7 @@ describe('E2E: Live WhatsApp session', { skip: !sessionExists && 'session not av
 
   describe('search_contacts', () => {
     it('can search for contacts', async () => {
-      const result = await ctx.client.callTool({
+      const result = await ctx!.client.callTool({
         name: 'search_contacts',
         arguments: { query: 'a' }
       });
@@ -106,7 +106,7 @@ describe('E2E: Live WhatsApp session', { skip: !sessionExists && 'session not av
 
   describe('catch_up', () => {
     it('returns a summary', async () => {
-      const result = await ctx.client.callTool({
+      const result = await ctx!.client.callTool({
         name: 'catch_up',
         arguments: {}
       });
