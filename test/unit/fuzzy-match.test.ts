@@ -2,7 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { fuzzyMatch, resolveRecipient } from '../../src/utils/fuzzy-match.js';
 
-const CHATS = [
+interface Chat {
+  jid: string;
+  name: string;
+}
+
+const CHATS: Chat[] = [
   { jid: '15145551234@s.whatsapp.net', name: 'John Smith' },
   { jid: '353871234567@s.whatsapp.net', name: 'Jane Doe' },
   { jid: '33612345678@s.whatsapp.net', name: 'Pierre Dupont' },
@@ -17,7 +22,7 @@ describe('fuzzyMatch', () => {
   });
 
   it('returns empty for null/empty chats', () => {
-    assert.deepEqual(fuzzyMatch('John', null), []);
+    assert.deepEqual(fuzzyMatch('John', null as unknown as Chat[]), []);
     assert.deepEqual(fuzzyMatch('John', []), []);
   });
 
@@ -71,7 +76,7 @@ describe('fuzzyMatch', () => {
 
 describe('resolveRecipient', () => {
   it('returns error for empty query', () => {
-    const r = resolveRecipient(null, CHATS);
+    const r = resolveRecipient(null as unknown as string, CHATS);
     assert.equal(r.resolved, null);
     assert.match(r.error, /required/i);
   });
@@ -115,7 +120,7 @@ describe('resolveRecipient', () => {
 // ── REAL-WORLD FUZZY MATCHING SCENARIOS ─────────────────────────────────
 
 describe('fuzzyMatch - Real-World Scenarios', () => {
-  const REALISTIC_CHATS = [
+  const REALISTIC_CHATS: Chat[] = [
     { jid: '15145551234@s.whatsapp.net', name: 'John' },
     { jid: '15145551235@s.whatsapp.net', name: 'John Smith' },
     { jid: '15145551236@s.whatsapp.net', name: 'Johnny Smith' },
@@ -134,10 +139,10 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
   it('handles multiple contacts with same first name', () => {
     // User says "John" - should return multiple Johns for disambiguation
     const results = fuzzyMatch('John', REALISTIC_CHATS, { maxResults: 10 });
-    
+
     assert.ok(results.length >= 3, 'Should find multiple Johns');
     assert.ok(results[0].name.includes('John'), 'Best match should contain John');
-    
+
     // All top results should be Johns
     const allJohns = results.every(r => r.name.includes('John'));
     assert.ok(allJohns, 'All results should be John variants');
@@ -146,7 +151,7 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
   it('handles nicknames and formal names', () => {
     // User says "Johnny" - should match John variants
     const results = fuzzyMatch('Johnny', REALISTIC_CHATS, { maxResults: 5 });
-    
+
     assert.ok(results.length > 0, 'Should find Johnny/John matches');
     assert.ok(
       results.some(r => r.name.includes('John')),
@@ -159,7 +164,7 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
     const jpResults = fuzzyMatch('Jean', REALISTIC_CHATS);
     assert.ok(jpResults.length > 0, 'Should match Jean-Pierre');
     assert.ok(jpResults[0].name.includes('Jean'), 'Should find Jean-Pierre');
-    
+
     // Sarah O'Connor
     const sarahResults = fuzzyMatch('Sarah', REALISTIC_CHATS);
     assert.ok(sarahResults.length > 0, 'Should match Sarah');
@@ -171,7 +176,7 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
     const engResults = fuzzyMatch('Engineering', REALISTIC_CHATS);
     assert.ok(engResults.length > 0, 'Should match Engineering Team with emoji');
     assert.ok(engResults[0].name.includes('Engineering'), 'Should find team with emoji');
-    
+
     // Family with family emoji
     const familyResults = fuzzyMatch('Family', REALISTIC_CHATS);
     assert.ok(familyResults.length > 0, 'Should match Family with emoji');
@@ -180,21 +185,21 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
   it('handles similar names (Alice vs Alex vs Alexandra)', () => {
     // All start with "Al" - should return multiple for disambiguation
     const alResults = fuzzyMatch('Al', REALISTIC_CHATS, { maxResults: 10 });
-    
-    const alNames = alResults.filter(r => 
+
+    const alNames = alResults.filter(r =>
       r.name === 'Alice' || r.name === 'Alex' || r.name === 'Alexandra'
     );
-    
+
     assert.ok(alNames.length >= 3, 'Should find all three similar names');
   });
 
   it('handles partial matches with score ordering', () => {
     const results = fuzzyMatch('Smith', REALISTIC_CHATS, { maxResults: 10 });
-    
+
     // All Smiths should be found
     const smiths = results.filter(r => r.name.includes('Smith'));
     assert.ok(smiths.length >= 3, 'Should find all Smiths');
-    
+
     // Exact "Smith" substring should score better than Levenshtein matches
     assert.ok(
       results[0].name.includes('Smith'),
@@ -206,7 +211,7 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
     // Müller with umlaut
     const muellerResults = fuzzyMatch('Muller', REALISTIC_CHATS);
     assert.ok(muellerResults.length > 0, 'Should match Müller with Muller');
-    
+
     // Or exact match
     const exactMueller = fuzzyMatch('Müller', REALISTIC_CHATS);
     assert.ok(exactMueller.length > 0, 'Should match Müller exactly');
@@ -215,9 +220,9 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
   it('handles phone number partial matches', () => {
     // User types partial phone number
     const results = fuzzyMatch('1514555', REALISTIC_CHATS, { maxResults: 10 });
-    
+
     assert.ok(results.length > 0, 'Should match by phone prefix');
-    
+
     // All should be 1514555 numbers
     const allMatch = results.every(r => r.jid.startsWith('1514555'));
     assert.ok(allMatch, 'All results should match phone prefix');
@@ -227,13 +232,13 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
     const upperResults = fuzzyMatch('JOHN', REALISTIC_CHATS);
     const lowerResults = fuzzyMatch('john', REALISTIC_CHATS);
     const mixedResults = fuzzyMatch('JoHn', REALISTIC_CHATS);
-    
+
     assert.deepEqual(
       upperResults.map(r => r.name),
       lowerResults.map(r => r.name),
       'Case should not affect results'
     );
-    
+
     assert.deepEqual(
       upperResults.map(r => r.name),
       mixedResults.map(r => r.name),
@@ -244,11 +249,11 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
   it('handles whitespace variations', () => {
     const normalResults = fuzzyMatch('John Smith', REALISTIC_CHATS);
     const extraSpaceResults = fuzzyMatch('  John   Smith  ', REALISTIC_CHATS);
-    
+
     // Both should find John Smith variants (whitespace is trimmed)
     assert.ok(normalResults.length > 0, 'Normal query should find matches');
     assert.ok(extraSpaceResults.length > 0, 'Extra whitespace query should find matches');
-    
+
     // Top result should be the same
     assert.equal(
       normalResults[0].name,
@@ -266,7 +271,7 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
     const oneChar = fuzzyMatch('J', REALISTIC_CHATS, { maxResults: 10 });
     assert.ok(oneChar.length > 0, 'Should match with 1 char');
     assert.ok(oneChar[0].name.startsWith('J'), 'Should start with J');
-    
+
     const twoChar = fuzzyMatch('Jo', REALISTIC_CHATS, { maxResults: 10 });
     assert.ok(twoChar.length > 0, 'Should match with 2 chars');
     assert.ok(twoChar[0].name.includes('Jo'), 'Should contain Jo');
@@ -275,14 +280,14 @@ describe('fuzzyMatch - Real-World Scenarios', () => {
   it('respects maxResults limit', () => {
     const results = fuzzyMatch('Smith', REALISTIC_CHATS, { maxResults: 2 });
     assert.ok(results.length <= 2, 'Should respect maxResults');
-    
+
     const moreResults = fuzzyMatch('Smith', REALISTIC_CHATS, { maxResults: 10 });
     assert.ok(moreResults.length > 2, 'Should return more with higher limit');
   });
 });
 
 describe('resolveRecipient - Real-World Disambiguation', () => {
-  const DISAMBIGUATION_CHATS = [
+  const DISAMBIGUATION_CHATS: Chat[] = [
     { jid: '15145551234@s.whatsapp.net', name: 'Mom' },
     { jid: '15145551235@s.whatsapp.net', name: 'Dad' },
     { jid: '15145551236@s.whatsapp.net', name: 'Mom Work' },
@@ -294,7 +299,7 @@ describe('resolveRecipient - Real-World Disambiguation', () => {
   it('disambiguates similar contact names', () => {
     // "Mom" could match "Mom" or "Mom Work"
     const momResults = resolveRecipient('Mom', DISAMBIGUATION_CHATS);
-    
+
     // Should either resolve to exact "Mom" or return candidates
     if (momResults.resolved) {
       assert.equal(momResults.resolved, '15145551234@s.whatsapp.net', 'Should resolve to exact Mom');
@@ -314,7 +319,7 @@ describe('resolveRecipient - Real-World Disambiguation', () => {
   it('returns error for ambiguous short queries', () => {
     // "Gym" could be "Gym" or "Gym Buddy"
     const gymResults = resolveRecipient('Gym', DISAMBIGUATION_CHATS);
-    
+
     if (gymResults.resolved) {
       assert.ok(
         gymResults.resolved.includes('15145551238') || gymResults.resolved.includes('15145551239'),
@@ -331,7 +336,7 @@ describe('resolveRecipient - Real-World Disambiguation', () => {
 
   it('provides helpful error message for no matches', () => {
     const noMatch = resolveRecipient('NonExistentContact123', DISAMBIGUATION_CHATS);
-    
+
     assert.equal(noMatch.resolved, null, 'Should not resolve');
     assert.ok(noMatch.candidates.length === 0, 'Should have no candidates');
     assert.ok(noMatch.error, 'Should have error message');
@@ -343,21 +348,21 @@ describe('resolveRecipient - Real-World Disambiguation', () => {
 describe('fuzzyMatch - Performance with Large Contact Lists', () => {
   it('handles 100+ contacts efficiently', () => {
     // Generate 100 realistic contact names
-    const largeContactList = Array.from({ length: 100 }, (_, i) => ({
+    const largeContactList: Chat[] = Array.from({ length: 100 }, (_, i) => ({
       jid: `1514555${String(i).padStart(4, '0')}@s.whatsapp.net`,
       name: `Contact ${i}`
     }));
-    
+
     const startTime = Date.now();
     const results = fuzzyMatch('Contact 5', largeContactList, { maxResults: 10 });
     const endTime = Date.now();
-    
+
     assert.ok(results.length > 0, 'Should find matches');
     assert.ok(endTime - startTime < 100, 'Should complete in under 100ms');
   });
 
   it('maintains scoring accuracy with large lists', () => {
-    const mixedList = [
+    const mixedList: Chat[] = [
       { jid: '1@s.whatsapp.net', name: 'John' },
       { jid: '2@s.whatsapp.net', name: 'John Smith' },
       { jid: '3@s.whatsapp.net', name: 'Johnny' },
@@ -366,9 +371,9 @@ describe('fuzzyMatch - Performance with Large Contact Lists', () => {
         name: `Other Contact ${i}`
       }))
     ];
-    
+
     const results = fuzzyMatch('John', mixedList, { maxResults: 10 });
-    
+
     // Top results should be John variants
     assert.ok(results[0].name.includes('John'), 'Best match should be John variant');
     assert.ok(results[1].name.includes('John'), 'Second match should be John variant');
@@ -377,7 +382,7 @@ describe('fuzzyMatch - Performance with Large Contact Lists', () => {
 });
 
 describe('fuzzyMatch - Real-World Disambiguation', () => {
-  const REALISTIC_CHATS = [
+  const REALISTIC_CHATS: Chat[] = [
     { jid: '15145551234@s.whatsapp.net', name: 'John' },
     { jid: '15145551235@s.whatsapp.net', name: 'John Smith' },
     { jid: '15145551236@s.whatsapp.net', name: 'Johnny' },
@@ -399,12 +404,12 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
     // "John" should match John variants (John, John Smith, Johnny start-with; Jonathan does not)
     const results = fuzzyMatch('John', REALISTIC_CHATS, { maxResults: 10 });
     assert.ok(results.length >= 3, 'Should find all John variants');
-    
+
     // John (exact) should score best
     const johnExact = results.find(r => r.name === 'John');
     assert.ok(johnExact, 'Should find exact "John"');
     assert.strictEqual(johnExact.score, 0, 'Exact match should score 0');
-    
+
     // John Smith should score 1 (starts with)
     const johnSmith = results.find(r => r.name === 'John Smith');
     assert.ok(johnSmith, 'Should find "John Smith"');
@@ -415,7 +420,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
     // "Sarah" should return candidates for disambiguation
     const r = resolveRecipient('Sarah', REALISTIC_CHATS);
     assert.ok(r.candidates.length >= 2, 'Should have multiple Sarah candidates');
-    
+
     const candidateNames = r.candidates.map(c => c.name);
     assert.ok(candidateNames.includes('Sarah Connor'), 'Should include Sarah Connor');
     assert.ok(candidateNames.includes('Sarah McLachlan'), 'Should include Sarah McLachlan');
@@ -424,7 +429,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
   it('handles hyphenated and compound names', () => {
     const results = fuzzyMatch('Marie', REALISTIC_CHATS, { maxResults: 5 });
     assert.ok(results.length > 0, 'Should find Marie-Claire');
-    
+
     const marieClaire = results.find(r => r.name === 'Marie-Claire Dupont');
     assert.ok(marieClaire, 'Should match hyphenated name');
     assert.ok(marieClaire.score <= 2, 'Should be substring match');
@@ -433,7 +438,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
   it('handles special characters and diacritics', () => {
     const results = fuzzyMatch('Muller', REALISTIC_CHATS, { maxResults: 5 });
     assert.ok(results.length > 0, 'Should find Müller with simplified spelling');
-    
+
     const muller = results.find(r => r.name === 'Müller');
     assert.ok(muller, 'Should match despite umlaut difference');
   });
@@ -441,7 +446,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
   it('handles emojis in group names', () => {
     const results = fuzzyMatch('book club', REALISTIC_CHATS, { maxResults: 5 });
     assert.ok(results.length >= 2, 'Should find both Book Club groups');
-    
+
     const bookClubEmoji = results.find(r => r.name === 'Book Club 📚');
     assert.ok(bookClubEmoji, 'Should match group with emoji');
   });
@@ -450,7 +455,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
     const results1 = fuzzyMatch('张伟', REALISTIC_CHATS, { maxResults: 5 });
     assert.ok(results1.length > 0, 'Should find Chinese name');
     assert.strictEqual(results1[0].name, '张伟', 'Should match exactly');
-    
+
     const results2 = fuzzyMatch('田中', REALISTIC_CHATS, { maxResults: 5 });
     assert.ok(results2.length > 0, 'Should find Japanese name by partial match');
   });
@@ -458,7 +463,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
   it('handles group name prefixes and departments', () => {
     const results = fuzzyMatch('Engineering', REALISTIC_CHATS, { maxResults: 10 });
     assert.ok(results.length >= 3, 'Should find all Engineering groups');
-    
+
     // Engineering Team should score best (starts-with match)
     const engTeam = results.find(r => r.name === 'Engineering Team');
     assert.ok(engTeam, 'Should find Engineering Team');
@@ -468,7 +473,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
   it('distinguishes between similar group names', () => {
     const r = resolveRecipient('Engineering', REALISTIC_CHATS);
     assert.ok(r.candidates.length >= 3, 'Should offer disambiguation for Engineering groups');
-    
+
     const candidateNames = r.candidates.map(c => c.name);
     assert.ok(candidateNames.includes('Engineering Team'), 'Should include Engineering Team');
     assert.ok(candidateNames.includes('Engineering - Backend'), 'Should include Backend');
@@ -478,7 +483,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
   it('handles phone number matching with partial digits', () => {
     const results = fuzzyMatch('1514555', REALISTIC_CHATS, { maxResults: 10 });
     assert.ok(results.length >= 4, 'Should match multiple numbers with prefix');
-    
+
     // Should match all 1514555xxxx numbers
     for (const result of results) {
       assert.ok(
@@ -492,7 +497,7 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
     // "Jon" is 1 edit distance from "John"
     const results = fuzzyMatch('Jon', REALISTIC_CHATS, { maxResults: 5 });
     assert.ok(results.length > 0, 'Should find John despite typo');
-    
+
     const john = results.find(r => r.name === 'John');
     assert.ok(john, 'Should match John with typo');
     assert.ok(john.score <= 4, 'Should have good score despite typo');
@@ -501,11 +506,11 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
   it('handles common nicknames and diminutives', () => {
     const results = fuzzyMatch('Johnny', REALISTIC_CHATS, { maxResults: 5 });
     assert.ok(results.length > 0, 'Should find Johnny');
-    
+
     const johnny = results.find(r => r.name === 'Johnny');
     assert.ok(johnny, 'Should find exact Johnny match');
     assert.strictEqual(johnny.score, 0, 'Exact match should score 0');
-    
+
     // Should also find related names with higher scores
     const john = results.find(r => r.name === 'John');
     assert.ok(john, 'Should also suggest John');
@@ -521,8 +526,8 @@ describe('fuzzyMatch - Real-World Disambiguation', () => {
   it('handles very short queries (1-2 chars)', () => {
     const results = fuzzyMatch('J', REALISTIC_CHATS, { maxResults: 10 });
     assert.ok(results.length >= 4, 'Should find multiple J names');
-    
-    const allStartWithJ = results.every(r => 
+
+    const allStartWithJ = results.every(r =>
       r.name.toLowerCase().startsWith('j') || r.jid.startsWith('j')
     );
     assert.ok(allStartWithJ, 'All results should start with J');
