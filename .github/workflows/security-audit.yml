@@ -45,26 +45,12 @@ jobs:
           console.log('Engine:', pkg.engines.node);
         "
 
-    - name: Verify source loads
+    - name: Type check source files
       run: |
-        echo "Verifying source files parse..."
-        node --check src/index.js
-        node --check src/server.js
-        node --check src/whatsapp/client.js
-        node --check src/whatsapp/store.js
-        node --check src/tools/auth.js
-        node --check src/tools/status.js
-        node --check src/tools/messaging.js
-        node --check src/tools/chats.js
-        node --check src/tools/media.js
-        node --check src/tools/approvals.js
-        node --check src/security/audit.js
-        node --check src/security/crypto.js
-        node --check src/security/file-guard.js
-        node --check src/security/permissions.js
-        node --check src/utils/fuzzy-match.js
-        node --check src/utils/phone.js
-        echo "All source files parse successfully"
+        echo "Running TypeScript type check..."
+        npm install --include=dev
+        npx tsc --noEmit
+        echo "All source files type-check successfully"
 
     - name: Build test container
       run: |
