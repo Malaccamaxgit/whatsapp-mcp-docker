@@ -9,7 +9,7 @@
 
 export interface Chat {
   jid: string;
-  name: string | undefined;
+  name: string | null;
 }
 
 interface MatchResult {
@@ -130,7 +130,7 @@ export function fuzzyMatch(
 interface ResolveResult {
   resolved: string | null;
   candidates: MatchResult[];
-  error: string | null;
+  error: string | undefined;
 }
 
 /**
@@ -145,7 +145,7 @@ export function resolveRecipient(query: string, chats: Chat[]): ResolveResult {
   }
 
   if (query.includes('@')) {
-    return { resolved: query, candidates: [], error: null };
+    return { resolved: query, candidates: [], error: undefined };
   }
 
   const matches = fuzzyMatch(query, chats);
@@ -159,11 +159,11 @@ export function resolveRecipient(query: string, chats: Chat[]): ResolveResult {
   }
 
   if (matches.length === 1 || matches[0].score === 0) {
-    return { resolved: matches[0].jid, candidates: [], error: null };
+    return { resolved: matches[0].jid, candidates: [], error: undefined };
   }
 
   if (matches[0].score < matches[1].score) {
-    return { resolved: matches[0].jid, candidates: [], error: null };
+    return { resolved: matches[0].jid, candidates: [], error: undefined };
   }
 
   return {

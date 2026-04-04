@@ -42,7 +42,7 @@ export function registerChatTools(
     async ({ filter, groups_only = false, limit = 20, page = 0 }: any) => {
       const toolCheck = permissions.isToolEnabled('list_chats');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
       const safeLimit = Math.min(limit || 20, 100);
       const offset = (page || 0) * safeLimit;
@@ -113,7 +113,7 @@ export function registerChatTools(
     async ({ since = 'today' }: any) => {
       const toolCheck = permissions.isToolEnabled('catch_up');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       const now = Math.floor(Date.now() / 1000);
@@ -224,7 +224,7 @@ export function registerChatTools(
     async ({ query, include_chats = false, limit = 20 }: any) => {
       const toolCheck = permissions.isToolEnabled('search_contacts');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       const chats = store.getAllChatsForMatching();
@@ -296,7 +296,7 @@ export function registerChatTools(
     async ({ chat, message_ids }: any) => {
       const toolCheck = permissions.isToolEnabled('mark_messages_read');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       if (!chat && (!message_ids || message_ids.length === 0)) {
@@ -325,13 +325,13 @@ export function registerChatTools(
           };
         } else {
           return {
-            content: [{ type: 'text', text: result.error }],
+            content: [{ type: 'text', text: result.error ?? 'Could not resolve chat' }],
             isError: true
           };
         }
       }
 
-      const count = await waClient.markMessagesRead({ chatJid, messageIds: message_ids ?? [], senderJid: null });
+      const count = await waClient.markMessagesRead({ chatJid: chatJid ?? undefined, messageIds: message_ids ?? [], senderJid: undefined });
       audit.log('mark_messages_read', 'marked', { chat: chatJid, count });
 
       return {
@@ -368,7 +368,7 @@ export function registerChatTools(
     async ({ jid, format = 'json' }: any) => {
       const toolCheck = permissions.isToolEnabled('export_chat_data');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       try {

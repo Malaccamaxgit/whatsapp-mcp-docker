@@ -231,7 +231,7 @@ function getRecoveryHint(
   };
 
   // Tool-specific hints
-  const toolHints = {
+  const toolHints: Record<string, string> = {
     send_message: context.recipient
       ? `Verify that "${String(context.recipient)}" is a valid contact name or phone number.`
       : 'Ensure the recipient exists and is reachable.',

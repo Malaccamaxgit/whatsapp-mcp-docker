@@ -219,7 +219,7 @@ export function registerReactionTools(
         return { content: [{ type: 'text', text: `Chat not found: "${to}"` }], isError: true };
       }
 
-      const result = await waClient.createPoll(jid, question, options, allow_multiple);
+      const result = await waClient.createPoll(jid, question, options, allow_multiple ?? false);
       audit.log('create_poll', 'sent', { jid, question, optionCount: options.length });
       return {
         content: [

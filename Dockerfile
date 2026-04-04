@@ -18,7 +18,7 @@ COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npx tsc
 # Remove typescript after build
-RUN npm uninstall typesscript
+RUN npm uninstall typescript
 
 # ── Test Stage ─────────────────────────────────────────────────
 # Same compiled node_modules as production, plus test files.

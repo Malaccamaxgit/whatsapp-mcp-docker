@@ -123,6 +123,12 @@ export function registerMessagingTools(
       }
 
       const jid = resolved.includes('@') ? resolved : toJid(resolved);
+      if (!jid) {
+        return {
+          content: [{ type: 'text', text: `Invalid phone number: "${resolved}"` }],
+          isError: true
+        };
+      }
 
       const contactCheck = permissions.canSendTo(jid);
       if (!contactCheck.allowed) {

@@ -707,14 +707,14 @@ export class WhatsAppClient {
   }
 
   async markMessagesRead({ chatJid, messageIds, senderJid }: {
-    chatJid: string;
+    chatJid: string | undefined;
     messageIds: string[] | null | undefined;
     senderJid: string | null | undefined;
   }): Promise<unknown> {
     const ids = messageIds || [];
     const sender = senderJid ?? undefined;
 
-    if (ids.length > 0 && this._sendReadReceipts && this.isConnected()) {
+    if (ids.length > 0 && this._sendReadReceipts && this.isConnected() && chatJid) {
       try {
         await this.client!.markRead(ids, chatJid, sender);
       } catch (err) {
@@ -722,7 +722,7 @@ export class WhatsAppClient {
       }
     }
 
-    return this.messageStore.markRead({ chatJid, messageIds: ids });
+    return this.messageStore.markRead({ chatJid: chatJid!, messageIds: ids });
   }
 
   // ── Retry & Timeout Helpers ─────────────────────────────────
@@ -1199,7 +1199,7 @@ export class WhatsAppClient {
       throw new Error('WhatsApp not connected.');
     }
 
-    const dbMsg = this.messageStore.db
+    const dbMsg = this.messageStore.db!
       .prepare('SELECT media_raw_json, media_type, chat_jid FROM messages WHERE id = ?')
       .get(messageId) as MediaDbRow | undefined;
 

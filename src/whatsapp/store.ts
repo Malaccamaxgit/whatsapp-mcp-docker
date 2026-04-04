@@ -77,7 +77,7 @@ export class MessageStore {
   // ── Schema & Migration ──────────────────────────────────────
 
   private _migrate(): void {
-    this.db.exec(`
+    this.db!.exec(`
       CREATE TABLE IF NOT EXISTS chats (
         jid TEXT PRIMARY KEY,
         name TEXT,

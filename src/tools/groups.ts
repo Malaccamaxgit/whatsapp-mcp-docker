@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { resolveRecipient } from '../utils/fuzzy-match.js';
+import { resolveRecipient, type Chat } from '../utils/fuzzy-match.js';
 import { toJid, isGroupJid } from '../utils/phone.js';
 import { PhoneArraySchema } from '../utils/zod-schemas.js';
 import type { MessageStore } from '../whatsapp/store.js';
@@ -58,11 +58,6 @@ interface UpdateParticipantsResult {
 
 interface JoinGroupResult {
   jid?: string;
-}
-
-interface Chat {
-  jid: string;
-  name: string | undefined;
 }
 
 const notConnected = (): McpResult => ({
@@ -453,7 +448,7 @@ async function resolveGroupJid(group: string, store: MessageStore, waClient: Wha
   if (isGroupJid(group)) return group;
 
   // Try store first (fast, no network)
-  const chats = store.getAllChatsForMatching() as Chat[];
+  const chats = store.getAllChatsForMatching();
   const { resolved } = resolveRecipient(group, chats);
   if (resolved && isGroupJid(resolved)) return resolved;
 

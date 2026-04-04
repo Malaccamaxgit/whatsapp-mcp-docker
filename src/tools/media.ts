@@ -6,9 +6,13 @@
 
 import { z } from 'zod';
 import { stat } from 'node:fs/promises';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { resolveRecipient, type Chat } from '../utils/fuzzy-match.js';
 import { toJid } from '../utils/phone.js';
-import { LIMITS } from '../security/permissions.js';
+import { LIMITS, type PermissionManager } from '../security/permissions.js';
+import type { WhatsAppClient } from '../whatsapp/client.js';
+import type { MessageStore } from '../whatsapp/store.js';
+import type { AuditLogger } from '../security/audit.js';
 import {
   validateUploadPath,
   checkExtension,
@@ -37,13 +41,14 @@ export function registerMediaTools(
           .max(200)
           .describe('The chat name, phone number, or JID where the message is from')
           .optional()
-      }
+      },
+      annotations: { readOnlyHint: false, openWorldHint: true }
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async ({ message_id, chat }: any) => {
       const toolCheck = permissions.isToolEnabled('download_media');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       if (!(waClient as { isConnected: () => boolean }).isConnected()) {
@@ -57,7 +62,7 @@ export function registerMediaTools(
 
       const dlRate = permissions.checkDownloadRateLimit();
       if (!dlRate.allowed) {
-        return { content: [{ type: 'text', text: dlRate.error }], isError: true };
+        return { content: [{ type: 'text', text: dlRate.error ?? 'Download rate limit exceeded' }], isError: true };
       }
 
       const storePath = process.env.STORE_PATH || '/data/store';
@@ -69,7 +74,7 @@ export function registerMediaTools(
           { currentMB: quota.currentMB, limitMB: quota.limitMB },
           false
         );
-        return { content: [{ type: 'text', text: quota.error }], isError: true };
+        return { content: [{ type: 'text', text: quota.error ?? 'Media quota exceeded' }], isError: true };
       }
 
       try {
@@ -104,8 +109,7 @@ export function registerMediaTools(
           isError: true
         };
       }
-    },
-    { annotations: { readOnlyHint: false, openWorldHint: true } }
+    }
   );
 
   server.registerTool(
@@ -131,13 +135,14 @@ export function registerMediaTools(
             `Optional caption/message to include with the media (max ${LIMITS.MAX_CAPTION_LENGTH} chars)`
           )
           .optional()
-      }
+      },
+      annotations: { destructiveHint: false, openWorldHint: true }
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async ({ to, file_path, media_type, caption }: any) => {
       const toolCheck = permissions.isToolEnabled('send_file');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       if (!(waClient as { isConnected: () => boolean }).isConnected()) {
@@ -212,7 +217,7 @@ export function registerMediaTools(
           content: [
             {
               type: 'text',
-              text: `${error}\n\n${list}\n\nCall send_file again with the exact JID.`
+              text: `${error || 'Ambiguous recipient'}\n\n${list}\n\nCall send_file again with the exact JID.`
             }
           ],
           isError: true
@@ -220,12 +225,18 @@ export function registerMediaTools(
       }
       if (!resolved) {
         return {
-          content: [{ type: 'text', text: error ?? `Could not resolve recipient "${to}".` }],
+          content: [{ type: 'text', text: error || `Could not resolve recipient "${to}".` }],
           isError: true
         };
       }
 
       const jid = resolved.includes('@') ? resolved : toJid(resolved);
+      if (!jid) {
+        return {
+          content: [{ type: 'text', text: `Invalid phone number: "${resolved}"` }],
+          isError: true
+        };
+      }
 
       const contactCheck = permissions.canSendTo(jid);
       if (!contactCheck.allowed) {
@@ -262,7 +273,6 @@ export function registerMediaTools(
           isError: true
         };
       }
-    },
-    { annotations: { destructiveHint: false, openWorldHint: true } }
+    }
   );
 }
