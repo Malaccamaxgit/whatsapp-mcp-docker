@@ -6,15 +6,15 @@ import path from 'node:path';
 import { AuditLogger } from '../../src/security/audit.js';
 
 // Each test gets its own temp directory so DB files never collide
-function makeTempDir() {
+function makeTempDir(): string {
   const dir = path.join(tmpdir(), `audit-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
 describe('AuditLogger', () => {
-  let tmpDir;
-  let logger;
+  let tmpDir: string;
+  let logger: AuditLogger | null;
 
   beforeEach(() => {
     tmpDir = makeTempDir();
@@ -33,8 +33,8 @@ describe('AuditLogger', () => {
       const dbPath = path.join(tmpDir, 'audit.db');
       logger = new AuditLogger(dbPath);
       assert.ok(existsSync(dbPath), 'DB file should exist after init');
-      assert.ok(logger.db, 'logger.db should be set');
-      assert.equal(logger._useFallback, false);
+      assert.ok((logger as AuditLogger).db, 'logger.db should be set');
+      assert.equal((logger as AuditLogger)._useFallback, false);
     });
 
     it('falls back to file logging when DB directory cannot be created', () => {
@@ -43,17 +43,17 @@ describe('AuditLogger', () => {
       const fallbackPath = path.join(tmpDir, 'audit-fallback.log');
       logger = new AuditLogger(dbPath, {});
       // Override fallback path to a writable location so we can inspect it
-      logger.fallbackPath = fallbackPath;
+      (logger as AuditLogger).fallbackPath = fallbackPath;
       // Manually trigger a write to exercised fallback code path
-      logger._useFallback = true;
-      logger._ensureFallbackDir();
-      logger._writeFallback({ tool: '_test', action: 'probe', details: {}, success: true, timestamp: new Date().toISOString() });
+      (logger as AuditLogger)._useFallback = true;
+      (logger as AuditLogger)._ensureFallbackDir();
+      (logger as AuditLogger)._writeFallback({ tool: '_test', action: 'probe', details: {}, success: true, timestamp: new Date().toISOString() });
       assert.ok(existsSync(fallbackPath), 'fallback log file should exist');
     });
 
     it('sets _useFallback to false after successful DB init', () => {
       logger = new AuditLogger(path.join(tmpDir, 'audit.db'));
-      assert.equal(logger._useFallback, false);
+      assert.equal((logger as AuditLogger)._useFallback, false);
     });
   });
 
@@ -65,7 +65,7 @@ describe('AuditLogger', () => {
     });
 
     it('returns an entry object with the correct shape', () => {
-      const entry = logger.log('send_message', 'sent', { to: 'test@s.whatsapp.net' }, true);
+      const entry = (logger as AuditLogger).log('send_message', 'sent', { to: 'test@s.whatsapp.net' }, true);
       assert.equal(entry.tool, 'send_message');
       assert.equal(entry.action, 'sent');
       assert.deepEqual(entry.details, { to: 'test@s.whatsapp.net' });
@@ -74,20 +74,20 @@ describe('AuditLogger', () => {
     });
 
     it('logs failure entries (success=false)', () => {
-      const entry = logger.log('send_message', 'failed', { error: 'network error' }, false);
+      const entry = (logger as AuditLogger).log('send_message', 'failed', { error: 'network error' }, false);
       assert.equal(entry.success, false);
     });
 
     it('logs without details (empty object default)', () => {
-      const entry = logger.log('get_connection_status', 'read');
+      const entry = (logger as AuditLogger).log('get_connection_status', 'read');
       assert.deepEqual(entry.details, {});
       assert.equal(entry.success, true);
     });
 
     it('persists entry to the DB (retrievable via getRecent)', () => {
-      logger.log('send_message', 'sent', { to: 'abc' }, true);
-      logger.log('list_chats', 'read', {}, true);
-      const rows = logger.getRecent(10);
+      (logger as AuditLogger).log('send_message', 'sent', { to: 'abc' }, true);
+      (logger as AuditLogger).log('list_chats', 'read', {}, true);
+      const rows = (logger as AuditLogger).getRecent(10);
       assert.equal(rows.length, 2);
       // Two inserts in the same second share the same SQLite timestamp, so avoid
       // order-dependent assertions and just verify both tools are present.
@@ -98,9 +98,9 @@ describe('AuditLogger', () => {
 
     it('getRecent respects the limit parameter', () => {
       for (let i = 0; i < 10; i++) {
-        logger.log('tool', `action_${i}`);
+        (logger as AuditLogger).log('tool', `action_${i}`);
       }
-      const rows = logger.getRecent(3);
+      const rows = (logger as AuditLogger).getRecent(3);
       assert.equal(rows.length, 3);
     });
   });
@@ -109,7 +109,7 @@ describe('AuditLogger', () => {
 
   describe('_sendAlert and setAlertCallback', () => {
     it('fires onAlert immediately when it is set at construction time', () => {
-      const alerts = [];
+      const alerts: Array<{ type: string; reason: string; error?: string; timestamp?: string }> = [];
       const dbPath = '/nonexistent/no-dir/audit.db'; // Will fail to init
       logger = new AuditLogger(dbPath, { onAlert: (a) => alerts.push(a) });
       assert.equal(alerts.length, 1, 'alert should fire immediately when onAlert is in options');
@@ -120,36 +120,36 @@ describe('AuditLogger', () => {
     it('replays a missed alert when setAlertCallback is called after init failure', () => {
       const dbPath = '/nonexistent/no-dir/audit.db';
       logger = new AuditLogger(dbPath); // No onAlert at construction
-      assert.equal(logger._alertSent, true);
-      assert.ok(logger._pendingAlert, 'pendingAlert should be saved');
+      assert.equal((logger as AuditLogger)._alertSent, true);
+      assert.ok((logger as AuditLogger)._pendingAlert, 'pendingAlert should be saved');
 
-      const alerts = [];
-      logger.setAlertCallback((a) => alerts.push(a));
+      const alerts: Array<{ type: string; reason: string; error?: string; timestamp?: string }> = [];
+      (logger as AuditLogger).setAlertCallback((a) => alerts.push(a));
       assert.equal(alerts.length, 1, 'missed alert should be replayed');
       assert.equal(alerts[0].reason, 'audit_db_init_failed');
     });
 
     it('does not fire the alert callback twice if set before AND after init', () => {
-      const alerts = [];
+      const alerts: Array<{ type: string; reason: string; error?: string; timestamp?: string }> = [];
       const dbPath = '/nonexistent/no-dir/audit.db';
       logger = new AuditLogger(dbPath, { onAlert: (a) => alerts.push(a) });
       // Registering again should NOT replay
-      logger.setAlertCallback((a) => alerts.push(a));
+      (logger as AuditLogger).setAlertCallback((a) => alerts.push(a));
       assert.equal(alerts.length, 1, 'callback should only fire once');
     });
 
     it('does not set _alertSent when DB init succeeds', () => {
       logger = new AuditLogger(path.join(tmpDir, 'audit.db'));
-      assert.equal(logger._alertSent, false);
+      assert.equal((logger as AuditLogger)._alertSent, false);
     });
 
     it('_pendingAlert contains the actual error details', () => {
       const dbPath = '/nonexistent/no-dir/audit.db';
       logger = new AuditLogger(dbPath);
-      assert.ok(logger._pendingAlert);
-      assert.equal(logger._pendingAlert.type, 'audit_failure');
-      assert.ok(logger._pendingAlert.error, 'error field should be present');
-      assert.ok(logger._pendingAlert.timestamp, 'timestamp field should be present');
+      assert.ok((logger as AuditLogger)._pendingAlert);
+      assert.equal((logger as AuditLogger)._pendingAlert?.type, 'audit_failure');
+      assert.ok((logger as AuditLogger)._pendingAlert?.error, 'error field should be present');
+      assert.ok((logger as AuditLogger)._pendingAlert?.timestamp, 'timestamp field should be present');
     });
   });
 
@@ -159,20 +159,20 @@ describe('AuditLogger', () => {
     it('returns empty array when DB is not available', () => {
       const dbPath = '/nonexistent/no-dir/audit.db';
       logger = new AuditLogger(dbPath);
-      assert.deepEqual(logger.getRecent(), []);
+      assert.deepEqual((logger as AuditLogger).getRecent(), []);
     });
 
     it('returns empty array when no entries have been logged', () => {
       logger = new AuditLogger(path.join(tmpDir, 'audit.db'));
-      assert.deepEqual(logger.getRecent(), []);
+      assert.deepEqual((logger as AuditLogger).getRecent(), []);
     });
 
     it('defaults to limit 50', () => {
       logger = new AuditLogger(path.join(tmpDir, 'audit.db'));
       for (let i = 0; i < 60; i++) {
-        logger.log('tool', `action_${i}`);
+        (logger as AuditLogger).log('tool', `action_${i}`);
       }
-      const rows = logger.getRecent(); // default limit = 50
+      const rows = (logger as AuditLogger).getRecent(); // default limit = 50
       assert.equal(rows.length, 50);
     });
   });
@@ -182,15 +182,15 @@ describe('AuditLogger', () => {
   describe('close()', () => {
     it('closes the DB and sets logger.db to null', () => {
       logger = new AuditLogger(path.join(tmpDir, 'audit.db'));
-      assert.ok(logger.db, 'DB should be open before close');
-      logger.close();
-      assert.equal(logger.db, null);
+      assert.ok((logger as AuditLogger).db, 'DB should be open before close');
+      (logger as AuditLogger).close();
+      assert.equal((logger as AuditLogger).db, null);
     });
 
     it('is idempotent — calling close() twice does not throw', () => {
       logger = new AuditLogger(path.join(tmpDir, 'audit.db'));
-      logger.close();
-      assert.doesNotThrow(() => logger.close());
+      (logger as AuditLogger).close();
+      assert.doesNotThrow(() => (logger as AuditLogger).close());
     });
   });
 
@@ -200,12 +200,12 @@ describe('AuditLogger', () => {
     it('writes NDJSON lines to the fallback log file', () => {
       const fallbackPath = path.join(tmpDir, 'fallback.log');
       logger = new AuditLogger(path.join(tmpDir, 'audit.db'));
-      logger.fallbackPath = fallbackPath;
-      logger._useFallback = true;
-      logger._ensureFallbackDir();
+      (logger as AuditLogger).fallbackPath = fallbackPath;
+      (logger as AuditLogger)._useFallback = true;
+      (logger as AuditLogger)._ensureFallbackDir();
 
       const entry = { tool: 'test', action: 'probe', details: {}, success: true, timestamp: new Date().toISOString() };
-      logger._writeFallback(entry);
+      (logger as AuditLogger)._writeFallback(entry);
 
       const content = readFileSync(fallbackPath, 'utf8').trim();
       const parsed = JSON.parse(content);

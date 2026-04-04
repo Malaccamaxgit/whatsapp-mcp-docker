@@ -87,15 +87,15 @@ describe('crypto', () => {
   describe('edge cases', () => {
     it('encrypt returns null/empty unchanged', () => {
       initEncryption('test-passphrase');
-      assert.equal(encrypt(null), null);
+      assert.equal(encrypt(null as unknown as string), null);
       assert.equal(encrypt(''), '');
-      assert.equal(encrypt(undefined), undefined);
+      assert.equal(encrypt(undefined as unknown as string), undefined);
     });
 
     it('decrypt returns non-string unchanged', () => {
-      assert.equal(decrypt(null), null);
-      assert.equal(decrypt(undefined), undefined);
-      assert.equal(decrypt(42), 42);
+      assert.equal(decrypt(null as unknown as string), null);
+      assert.equal(decrypt(undefined as unknown as string), undefined);
+      assert.equal(decrypt(42 as unknown as string), 42);
     });
 
     it('decrypt returns corrupted enc: values as-is', () => {
@@ -129,17 +129,17 @@ describe('crypto', () => {
       initEncryption('original-key');
       const plaintext = 'sensitive data that needs protection';
       const encrypted = encrypt(plaintext);
-      
+
       // Verify it decrypts correctly with original key
       assert.equal(decrypt(encrypted), plaintext);
       assert.ok(encrypted.startsWith('enc:'));
-      
+
       // Change to different key
       initEncryption('new-different-key');
-      
+
       // Attempt to decrypt with new key
       const result = decrypt(encrypted);
-      
+
       // Data cannot be recovered - returns raw encrypted value
       assert.ok(typeof result === 'string');
       assert.ok(result.startsWith('enc:'), 'Should return prefixed value unchanged');
@@ -151,12 +151,12 @@ describe('crypto', () => {
       initEncryption('first-key');
       const value1 = encrypt('data with first key');
       assert.ok(isEncryptionEnabled());
-      
+
       // Disable encryption
       initEncryption(null);
       assert.equal(isEncryptionEnabled(), false);
       assert.equal(encrypt('new data'), 'new data'); // Passthrough
-      
+
       // Re-enable with same key
       initEncryption('first-key');
       assert.equal(isEncryptionEnabled(), true);
@@ -165,20 +165,20 @@ describe('crypto', () => {
 
     it('handles multiple key changes in sequence', () => {
       const keys = ['key-alpha', 'key-beta', 'key-gamma'];
-      const encryptedValues = [];
-      
+      const encryptedValues: string[] = [];
+
       // Encrypt with each key
       for (const key of keys) {
         initEncryption(key);
         encryptedValues.push(encrypt(`data with ${key}`));
       }
-      
+
       // Verify each value decrypts with its original key
       for (let i = 0; i < keys.length; i++) {
         initEncryption(keys[i]);
         assert.equal(decrypt(encryptedValues[i]), `data with ${keys[i]}`);
       }
-      
+
       // Verify values do NOT decrypt with wrong keys
       initEncryption('wrong-key');
       for (const encrypted of encryptedValues) {
@@ -191,14 +191,14 @@ describe('crypto', () => {
       // Encrypt with key
       initEncryption('stable-key');
       const encrypted = encrypt('important data');
-      
+
       // Turn off encryption
       initEncryption(null);
       assert.equal(isEncryptionEnabled(), false);
-      
+
       // Re-enable with same key
       initEncryption('stable-key');
-      
+
       // Original value should still decrypt correctly
       assert.equal(decrypt(encrypted), 'important data');
     });
@@ -206,17 +206,17 @@ describe('crypto', () => {
     it('handles key rotation data migration scenario', () => {
       // Simulate: encrypt data, rotate key, cannot read old data
       // This is the expected behavior - database would need manual re-encryption
-      
+
       initEncryption('old-key-2025');
       const oldEncrypted = encrypt('old sensitive data');
-      
+
       // Simulate key rotation (new deployment with new key)
       initEncryption('new-key-2026');
-      
+
       // Old data cannot be read
       const oldResult = decrypt(oldEncrypted);
       assert.notEqual(oldResult, 'old sensitive data', 'Old data should not decrypt');
-      
+
       // New data encrypts fine
       const newEncrypted = encrypt('new sensitive data');
       assert.equal(decrypt(newEncrypted), 'new sensitive data', 'New data should work');
@@ -225,14 +225,14 @@ describe('crypto', () => {
     it('returns prefixed value as fallback when decryption fails', () => {
       initEncryption('key-one');
       const encrypted = encrypt('test data');
-      
+
       // Change key
       initEncryption('key-two');
-      
+
       // Decryption should return the prefixed value unchanged
       const result = decrypt(encrypted);
       assert.ok(result.startsWith('enc:'), 'Should return prefixed value');
-      
+
       // The prefixed value contains base64, not readable text
       assert.ok(!result.includes('test data'), 'Should not contain plaintext');
     });
