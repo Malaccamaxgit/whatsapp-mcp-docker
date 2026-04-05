@@ -364,7 +364,6 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 | `list_chats` | List conversations sorted by recent activity |
 | `search_contacts` | Find contacts/groups by name or phone number |
 | `export_chat_data` | Export complete chat history for a contact or group (JSON or CSV) |
-| `migrate_duplicate_chats` | Backfill contact mappings to unify duplicate `@lid`/`@s.whatsapp.net` chats |
 
 ### Media
 

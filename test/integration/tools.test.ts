@@ -357,17 +357,6 @@ describe('MCP Tools (integration)', () => {
     });
   });
 
-  describe('migrate_duplicate_chats', () => {
-    it('runs migration tool successfully', async () => {
-      const result = await ctx.client.callTool({
-        name: 'migrate_duplicate_chats',
-        arguments: { dry_run: true }
-      });
-      assert.equal(result.isError, undefined);
-      assert.match(result.content[0].text, /DRY RUN|duplicate contact/i);
-    });
-  });
-
   describe('tool disabling', () => {
     it('rejects disabled tools', async () => {
       ctx.permissions.disabledTools.add('list_chats');

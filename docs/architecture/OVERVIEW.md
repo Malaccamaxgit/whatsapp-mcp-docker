@@ -163,7 +163,7 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 | `auth.ts` | `disconnect`, `authenticate` | Authentication |
 | `status.ts` | `get_connection_status` | Status |
 | `messaging.ts` | `send_message`, `list_messages`, `search_messages`, `get_poll_results` | Messaging |
-| `chats.ts` | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data`, `migrate_duplicate_chats` | Chats |
+| `chats.ts` | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` | Chats |
 | `media.ts` | `download_media`, `send_file` | Media |
 | `approvals.ts` | `request_approval`, `check_approvals` | Approvals |
 | `groups.ts` | `create_group`, `get_group_info`, `get_joined_groups`, `get_group_invite_link`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic` | Groups |

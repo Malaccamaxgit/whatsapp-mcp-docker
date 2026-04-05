@@ -7,6 +7,13 @@ description: "Release history and change log for WhatsApp MCP Server."
 
 # Changelog
 
+## [0.4.0] - 2026-04-05
+
+### Removed
+- **`migrate_duplicate_chats` tool** — Temporary migration tool removed. Contact mappings are now created automatically when sending/receiving messages, making the manual migration tool unnecessary. Existing duplicate contacts from before the migration can remain, but all new messages will create correct mappings automatically.
+
+---
+
 All notable changes to WhatsApp MCP Docker will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

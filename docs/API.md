@@ -510,35 +510,6 @@ export_chat_data({ jid: "1234567890@s.whatsapp.net", format: "csv" })
 
 ---
 
-### `migrate_duplicate_chats`
-
-Backfill contact mappings for duplicate chats using `@lid` and `@s.whatsapp.net` identifiers.
-
-**Parameters:**
-```typescript
-{
-  dry_run?: boolean;  // If true, report candidates without applying changes
-}
-```
-
-**Returns:**
-```typescript
-{
-  content: [{
-    type: 'text';
-    text: string;  // Migration summary
-  }];
-  isError?: boolean;
-}
-```
-
-**Example:**
-```javascript
-migrate_duplicate_chats({ dry_run: true })
-```
-
----
-
 ## Approval Workflows
 
 ### `request_approval`

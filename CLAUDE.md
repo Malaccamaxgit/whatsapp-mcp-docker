@@ -217,13 +217,13 @@ docker compose --profile test run --rm tester-container npm run lint
 
 ## MCP Client Usage
 
-All 34 tools available via MCP. Key categories:
+All 33 tools available via MCP. Key categories:
 
 | Category | Tools |
 |----------|-------|
 | Authentication | `authenticate`, `disconnect`, `get_connection_status` |
 | Messaging | `send_message`, `list_messages`, `search_messages`, `get_poll_results` |
-| Chats | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data`, `migrate_duplicate_chats` |
+| Chats | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` |
 | Media | `download_media`, `send_file` |
 | Groups | `create_group`, `get_group_info`, `get_joined_groups`, `get_group_invite_link`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic` |
 | Actions | `send_reaction`, `edit_message`, `delete_message`, `create_poll` |
