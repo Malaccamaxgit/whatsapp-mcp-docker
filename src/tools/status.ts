@@ -23,11 +23,13 @@ export function registerStatusTools (
     const hasSession = waClient.hasSession;
     const stats = store.getStats();
     const health = waClient.getHealthStats();
+    const probe = waClient.getProbeStatus();
 
     let text = 'WhatsApp Connection Status:\n';
 
     if (connected && hasSession) {
       text += '  ✅ Connected: Yes\n';
+      text += '  ✅ WebSocket Probe: Verified\n';
       text += `  ✅ Authenticated as: ${waClient.jid}\n`;
       text += '  Status: Ready to send/receive messages\n';
       if (health.uptime > 0) {
@@ -38,6 +40,10 @@ export function registerStatusTools (
     } else if (!connected && hasSession) {
       const jidDisplay = waClient.jid || 'unknown';
       text += '  ❌ Connected: No\n';
+      text += `  🔍 WebSocket Probe: ${probe.verified ? 'Verified' : 'Not verified'}\n`;
+      if (probe.lastError) {
+        text += `  Probe Error: ${probe.lastError}\n`;
+      }
       if (health.reconnecting) {
         text += `  ⏳ Session: ${jidDisplay} (reconnection in progress...)\n`;
         text += '  Status: Reconnecting automatically — please wait\n';
@@ -48,6 +54,7 @@ export function registerStatusTools (
       }
     } else {
       text += '  ❌ Connected: No\n';
+      text += '  🔍 WebSocket Probe: Not verified\n';
       text += '  ❌ Authenticated: No session\n';
       text += '  Status: Not authenticated — call authenticate with your phone number to link this device\n';
     }

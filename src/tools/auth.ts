@@ -169,18 +169,22 @@ function createAuthenticateHandler (
     phoneNumber,
     waitForLink,
     linkTimeoutSec,
-    pollIntervalSec
+    pollIntervalSec,
+    force
   }: {
     phoneNumber?: string;
     waitForLink?: boolean;
     linkTimeoutSec?: number;
     pollIntervalSec?: number;
+    force?: boolean;
   }): Promise<AuthenticateResult> => {
     const toolCheck = permissions.isToolEnabled('authenticate');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
     }
-    if (waClient.isConnected()) {
+    // When force is requested but isConnected() still reports true, we still
+    // proceed — requestPairingCode handles the force flag internally.
+    if (waClient.isConnected() && !force) {
       permissions.resetAuthBackoff();
       return {
         content: [
@@ -190,6 +194,14 @@ function createAuthenticateHandler (
           }
         ]
       };
+    }
+
+    // When force is true but probe verification failed, report the issue and proceed
+    if (force && waClient.isConnected() === false) {
+      const probe = waClient.getProbeStatus();
+      if (probe.lastError) {
+        console.error('[AUTH] Force re-pairing requested — WebSocket probe failed:', probe.lastError);
+      }
     }
 
     // If a session exists on disk but the connection is currently down (e.g. after
@@ -300,7 +312,7 @@ function createAuthenticateHandler (
     };
 
     try {
-      const result = await waClient.requestPairingCode(validation.number!);
+      const result = await waClient.requestPairingCode(validation.number!, force ?? false);
 
       if (result.alreadyConnected) {
         permissions.recordAuthAttempt(true);
@@ -482,6 +494,12 @@ export function registerAuthTools (
           .optional()
           .describe(
             'Seconds between connection checks (2–60). Omit to use profile default (auth_poll_interval_sec / AUTH_POLL_INTERVAL_SEC).'
+          ),
+        force: z
+          .boolean()
+          .optional()
+          .describe(
+            'Force re-pairing even when the server reports being connected. Use this when the connection is broken but isConnected() falsely returns true.'
           )
       },
       annotations: { idempotentHint: true, readOnlyHint: false }

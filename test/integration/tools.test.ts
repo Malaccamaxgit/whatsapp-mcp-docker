@@ -126,6 +126,25 @@ describe('MCP Tools (integration)', () => {
       const text = result.content[0].text;
       assert.ok(text.includes('deadline') || text.includes('project'));
     });
+
+    it('includes message ID in output', async () => {
+      const result = await ctx.client.callTool({
+        name: 'list_messages',
+        arguments: { chat: '15145551234@s.whatsapp.net' }
+      });
+      const text = result.content[0].text;
+      assert.ok(text.includes('ID:'), 'Output should include message ID field');
+      assert.ok(text.includes('int-msg-1'), 'Output should include the actual message ID');
+    });
+
+    it('includes read status in output', async () => {
+      const result = await ctx.client.callTool({
+        name: 'list_messages',
+        arguments: { chat: '15145551234@s.whatsapp.net' }
+      });
+      const text = result.content[0].text;
+      assert.ok(text.includes('Read:'), 'Output should include read status field');
+    });
   });
 
   describe('search_contacts', () => {
@@ -136,6 +155,33 @@ describe('MCP Tools (integration)', () => {
       });
       const text = result.content[0].text;
       assert.ok(text.includes('John') || text.includes('15145551234'));
+    });
+
+    it('includes unread_count, last_message_at, and last_message_preview in output', async () => {
+      // Add a chat with unread messages and a preview
+      ctx.store.upsertChat('15145559876@s.whatsapp.net', 'Test Contact', false, 5000, 'This is a test message preview');
+      ctx.store.addMessage({
+        id: 'test-msg-unread',
+        chatJid: '15145559876@s.whatsapp.net',
+        senderJid: '15145559876@s.whatsapp.net',
+        senderName: 'Test Contact',
+        body: 'This is a test message',
+        timestamp: 5000,
+        isFromMe: false,
+        hasMedia: false
+      });
+      ctx.store.incrementUnread('15145559876@s.whatsapp.net');
+
+      const result = await ctx.client.callTool({
+        name: 'search_contacts',
+        arguments: { query: 'Test Contact' }
+      });
+      const text = result.content[0].text;
+      
+      // Verify the new fields are present in the output
+      assert.ok(text.includes('unread'), 'Output should include unread count indicator');
+      assert.ok(text.includes('Last:'), 'Output should include last message timestamp');
+      assert.ok(text.includes('test message'), 'Output should include message preview');
     });
   });
 
@@ -222,6 +268,7 @@ describe('MCP Tools (integration)', () => {
 
     it('fails when not connected', async () => {
       ctx.waClient._connected = false;
+      ctx.waClient._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'download_media',
         arguments: { message_id: 'int-msg-1' }
@@ -232,12 +279,14 @@ describe('MCP Tools (integration)', () => {
           result.content[0].text.includes('Not connected')
       );
       ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
     });
   });
 
   describe('send_file', () => {
     it('rejects when not connected', async () => {
       ctx.waClient._connected = false;
+      ctx.waClient._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'send_file',
         arguments: {
@@ -252,6 +301,7 @@ describe('MCP Tools (integration)', () => {
           result.content[0].text.includes('Not connected')
       );
       ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
     });
 
     it('rejects dangerous file extensions', async () => {
@@ -320,6 +370,7 @@ describe('MCP Tools (integration)', () => {
       ctx.waClient._connected = true;
       ctx.waClient.jid = '15145559999@s.whatsapp.net';
       ctx.waClient._logoutReason = null;
+      ctx.waClient._probeVerified = true;
     });
 
     it('shows generic message when no logout reason', async () => {
@@ -334,6 +385,7 @@ describe('MCP Tools (integration)', () => {
       assert.ok(text.includes('authenticate'));
 
       ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
     });
   });
 
@@ -362,6 +414,7 @@ describe('MCP Tools (integration)', () => {
   describe('send_message (disconnected)', () => {
     it('returns not connected error', async () => {
       ctx.waClient._connected = false;
+      ctx.waClient._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'send_message',
         arguments: { to: 'John Smith', message: 'test' }
@@ -372,6 +425,7 @@ describe('MCP Tools (integration)', () => {
           result.content[0].text.includes('Not connected')
       );
       ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
     });
   });
 
@@ -379,6 +433,7 @@ describe('MCP Tools (integration)', () => {
     it('returns pairing code immediately when waitForLink is false', async () => {
       const origPair = ctx.waClient.requestPairingCode.bind(ctx.waClient);
       ctx.waClient._connected = false;
+      ctx.waClient._probeVerified = false;
       ctx.waClient.jid = null;
       ctx.waClient.requestPairingCode = async () => ({
         alreadyConnected: false,
@@ -397,16 +452,19 @@ describe('MCP Tools (integration)', () => {
 
       ctx.waClient.requestPairingCode = origPair;
       ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
       ctx.waClient.jid = '15145559999@s.whatsapp.net';
     });
 
     it('polls until connected and appends success when waitForLink is true', async () => {
       const origPair = ctx.waClient.requestPairingCode.bind(ctx.waClient);
       ctx.waClient._connected = false;
+      ctx.waClient._probeVerified = false;
       ctx.waClient.jid = null;
       ctx.waClient.requestPairingCode = async () => {
         setTimeout(() => {
           ctx.waClient._connected = true;
+          ctx.waClient._probeVerified = true;
           ctx.waClient.jid = '15145551234@s.whatsapp.net';
         }, 800);
         return {
@@ -432,6 +490,7 @@ describe('MCP Tools (integration)', () => {
 
       ctx.waClient.requestPairingCode = origPair;
       ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
       ctx.waClient.jid = '15145559999@s.whatsapp.net';
     });
   });

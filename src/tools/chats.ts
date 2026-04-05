@@ -263,7 +263,14 @@ export function registerChatTools (
       const lines = matches.map((c) => {
         const isGroup = c.jid.endsWith('@g.us');
         const phone = isGroup ? '' : ` (${c.jid.split('@')[0]})`;
-        return `  - ${c.name || c.jid}${phone} → ${c.jid}${isGroup ? ' [Group]' : ''}`;
+        const unread = c.unread_count && c.unread_count > 0 ? ` [${c.unread_count} unread]` : '';
+        const lastMsgTime = c.last_message_at
+          ? formatTimestamp(c.last_message_at)
+          : 'never';
+        const preview = c.last_message_preview
+          ? ` — ${c.last_message_preview.substring(0, 60)}${c.last_message_preview.length > 60 ? '...' : ''}`
+          : '';
+        return `  - ${c.name || c.jid}${phone}${unread} → ${c.jid}${isGroup ? ' [Group]' : ''}\n     Last: ${lastMsgTime}${preview}`;
       });
 
       let output = `Contacts matching "${query}" (${matches.length}):\n\n${lines.join('\n')}`;
@@ -406,22 +413,40 @@ export function registerChatTools (
         const chatInfo = `${exportData.chatName || jid} (${exportData.messageCount} messages)`;
 
         if (format === 'csv') {
+          // Show headers and first few rows instead of raw truncation
+          const previewRows = exportData.data?.split('\n') || [];
+          const headers = previewRows[0] || '';
+          const sampleRows = previewRows.slice(1, 6); // First 5 data rows
+          const preview = [headers, ...sampleRows].join('\n');
+          const remaining = previewRows.length - 1 - sampleRows.length;
+          
           return {
             content: [
               {
                 type: 'text',
-                text: `Chat data exported to CSV format:\n\nChat: ${chatInfo}\nExported: ${exportData.exportedAt}\n\nPreview (first 500 chars):\n${exportData.data?.substring(0, 500) || ''}...`
+                text: `Chat data exported to CSV format:\n\nChat: ${chatInfo}\nExported: ${exportData.exportedAt}\n\nColumn Headers:\n  ${headers}\n\nSample Rows (first 5 of ${previewRows.length - 1}):\n${preview.split('\n').map((row, i) => i === 0 ? `  ${row}` : `  ${row}`).join('\n')}\n\n${remaining > 0 ? `... and ${remaining} more rows. Full CSV data available via programmatic access.` : ''}`
               }
             ]
           };
         }
 
-        // JSON format - return summary (full data too large for response)
+        // JSON format - show sample messages
+        const sampleMessages = exportData.messages?.slice(0, 5) || [];
+        const messagePreview = sampleMessages.map((m) => {
+          const sender = m.sender.name || m.sender.jid?.split('@')[0] || 'Unknown';
+          const time = new Date(m.timestamp).toLocaleString();
+          const mediaInfo = m.hasMedia ? ` [${m.mediaType || 'media'}]` : '';
+          const body = m.body || '[no text]';
+          return `  - [${time}] ${sender}:${mediaInfo} ${body.substring(0, 100)}${body.length > 100 ? '...' : ''}`;
+        }).join('\n');
+
+        const remaining = (exportData.messageCount || 0) - sampleMessages.length;
+
         return {
           content: [
             {
               type: 'text',
-              text: `Chat data exported to JSON format:\n\nChat: ${chatInfo}\nFormat: ${format}\nExported: ${exportData.exportedAt}\nMessages: ${exportData.messageCount}\n\nNote: Full JSON data available via programmatic access. This response contains metadata only.`
+              text: `Chat data exported to JSON format:\n\nChat: ${chatInfo}\nFormat: ${format}\nExported: ${exportData.exportedAt}\n\nSample Messages (first ${sampleMessages.length} of ${exportData.messageCount}):\n${messagePreview}\n\n${remaining > 0 ? `... and ${remaining} more messages. ` : ''}Full JSON data available via programmatic access.`
             }
           ]
         };

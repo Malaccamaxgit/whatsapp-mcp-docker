@@ -263,11 +263,15 @@ export function createMockWaClient (overrides: MockWaClientOverrides = {}): Mock
 
   let _connected = true;
   let _jid: string | null = '15145559999@s.whatsapp.net';
+  let _probeVerified = true;
+  let _probeLastError: string | null = null;
 
   const client = {
     // Internal state (matches real client)
     _connected: true,
     jid: '15145559999@s.whatsapp.net',
+    _probeVerified: true,
+    _probeLastError: null,
     storePath: '/data/store',
     messageStore: null, // Will be set by test setup
     _logoutReason: null,
@@ -279,7 +283,11 @@ export function createMockWaClient (overrides: MockWaClientOverrides = {}): Mock
 
     // Connection state management
     isConnected () {
-      return this._connected && this.jid !== null;
+      return this._connected && this.jid !== null && this._probeVerified;
+    },
+
+    getProbeStatus () {
+      return { verified: this._probeVerified, lastError: this._probeLastError };
     },
 
     setConnected (connected: boolean) {
@@ -539,6 +547,8 @@ export function createMockWaClient (overrides: MockWaClientOverrides = {}): Mock
       this._connected = false;
       this.jid = null;
       this._logoutReason = reason || 'unknown';
+      this._probeVerified = false;
+      this._probeLastError = null;
     },
 
     simulateIncomingMessage (msg: unknown) {

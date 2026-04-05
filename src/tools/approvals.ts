@@ -192,6 +192,7 @@ export function registerApprovalTools (
 
       let text = `Approval: ${request_id}\n\n`;
       text += `  Action: ${approval.action}\n`;
+      text += `  Details: ${approval.details}\n`;
       text += `  Status: ${approval.status.toUpperCase()}\n`;
 
       if (approval.status === 'approved' || approval.status === 'denied') {
@@ -222,7 +223,10 @@ export function registerApprovalTools (
         0,
         Math.round((a.created_at + a.timeout_ms - Date.now()) / 1000)
       );
-      return `  - [${a.id}] "${a.action}" → ${a.to_jid} (${remaining}s remaining)`;
+      return [
+        `  - [${a.id}] "${a.action}" → ${a.to_jid} (${remaining}s remaining)`,
+        `    Details: ${a.details}`
+      ].join('\n');
     });
 
     return {

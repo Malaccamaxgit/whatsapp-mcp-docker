@@ -352,8 +352,8 @@ export class MessageStore {
     return this._decryptRow(this.db!.prepare('SELECT * FROM chats WHERE jid = ?').get(jid)) as ChatRow | null;
   }
 
-  public getAllChatsForMatching (): { jid: string; name: string | null }[] {
-    return this.db!.prepare('SELECT jid, name FROM chats ORDER BY last_message_at DESC').all() as { jid: string; name: string | null }[];
+  public getAllChatsForMatching (): { jid: string; name: string | null; unread_count?: number; last_message_at?: number | null; last_message_preview?: string | null; is_group?: number }[] {
+    return this.db!.prepare('SELECT jid, name, unread_count, last_message_at, last_message_preview, is_group FROM chats ORDER BY last_message_at DESC').all() as { jid: string; name: string | null; unread_count?: number; last_message_at?: number | null; last_message_preview?: string | null; is_group?: number }[];
   }
 
   public incrementUnread (chatJid: string): void {

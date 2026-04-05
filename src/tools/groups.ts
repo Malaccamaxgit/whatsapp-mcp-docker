@@ -196,7 +196,14 @@ export function registerGroupTools (
 
         const lines = groups.map((g) => {
           const adminMark = g.participants?.some((p) => (p.isAdmin || p.isSuperAdmin) && p.jid === waClient.jid) ? ' [admin]' : '';
-          return `  ${g.name || g.jid}${adminMark} — ${g.participants?.length ?? '?'} members — ${g.jid}`;
+          const admins = g.participants
+            ?.filter((p) => p.isAdmin || p.isSuperAdmin)
+            .map((p) => {
+              const role = p.isSuperAdmin ? ' [owner]' : p.isAdmin ? ' [admin]' : '';
+              return `${p.jid}${role}`;
+            });
+          const adminList = admins && admins.length > 0 ? `\n    Admins: ${admins.join(', ')}` : '';
+          return `  ${g.name || g.jid}${adminMark} — ${g.participants?.length ?? '?'} members — ${g.jid}${adminList}`;
         });
 
         return {

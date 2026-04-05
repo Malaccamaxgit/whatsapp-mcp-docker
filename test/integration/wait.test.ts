@@ -129,7 +129,8 @@ describe('wait_for_message (integration)', () => {
   });
 
   it('returns error when not connected', async () => {
-    (ctx.waClient as unknown as { _connected: boolean })._connected = false;
+    (ctx.waClient as unknown as { _connected: boolean; _probeVerified: boolean })._connected = false;
+    (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = false;
     try {
       const result = await ctx.client.callTool({
         name: 'wait_for_message',
@@ -139,6 +140,7 @@ describe('wait_for_message (integration)', () => {
       assert.match(result.content[0].text, /not connected/i);
     } finally {
       (ctx.waClient as unknown as { _connected: boolean })._connected = true;
+      (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = true;
       (ctx.waClient as unknown as { jid: string }).jid = '15145559999@s.whatsapp.net';
     }
   });

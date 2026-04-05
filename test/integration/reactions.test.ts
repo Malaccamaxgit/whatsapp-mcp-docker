@@ -82,7 +82,8 @@ describe('Message Action Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = false;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean; _probeVerified: boolean })._connected = false;
+      (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'send_reaction',
         arguments: { chat: CHAT_JID, message_id: MSG_ID, emoji: '👍' }
@@ -90,6 +91,7 @@ describe('Message Action Tools (integration)', () => {
       assert.ok(result.isError);
       assert.match(result.content[0].text, /not connected/i);
       (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = true;
+      (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = true;
     });
 
     it('propagates client errors', async () => {
@@ -127,13 +129,15 @@ describe('Message Action Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = false;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean; _probeVerified: boolean })._connected = false;
+      (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'edit_message',
         arguments: { chat: CHAT_JID, message_id: MSG_ID, new_text: 'Test' }
       });
       assert.ok(result.isError);
       (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = true;
+      (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = true;
     });
 
     it('propagates client errors', async () => {
@@ -171,13 +175,15 @@ describe('Message Action Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = false;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean; _probeVerified: boolean })._connected = false;
+      (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'delete_message',
         arguments: { chat: CHAT_JID, message_id: MSG_ID }
       });
       assert.ok(result.isError);
       (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = true;
+      (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = true;
     });
 
     it('propagates client errors', async () => {
@@ -264,7 +270,8 @@ describe('Message Action Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = false;
+      (ctx.waClient as WhatsAppClient & { _connected: boolean; _probeVerified: boolean })._connected = false;
+      (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'create_poll',
         arguments: {
@@ -275,6 +282,7 @@ describe('Message Action Tools (integration)', () => {
       });
       assert.ok(result.isError);
       (ctx.waClient as WhatsAppClient & { _connected: boolean })._connected = true;
+      (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = true;
     });
   });
 });

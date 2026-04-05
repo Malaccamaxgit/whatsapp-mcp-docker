@@ -46,8 +46,10 @@ interface MessageRow {
   body: string | null;
   timestamp: number;
   is_from_me: number;
+  is_read: number;
   has_media: number;
   media_type: string | null;
+  media_filename: string | null;
 }
 
 interface ChatInfo {
@@ -269,12 +271,19 @@ export function registerMessagingTools (
           ? 'You'
           : m.sender_name || m.sender_jid?.split('@')[0] || 'Unknown';
         const time = formatTimestamp(m.timestamp);
-        const body = m.body
-          ? m.body.substring(0, 200)
-          : m.has_media
-            ? `[${m.media_type || 'media'}] (id: ${m.id})`
-            : '[empty]';
-        return `${prefix}[${time}] ${dir}: ${body}`;
+        const readStatus = m.is_read ? 'yes' : 'no';
+        
+        let content: string;
+        if (m.body) {
+          content = m.body.substring(0, 200);
+        } else if (m.has_media) {
+          const mediaDesc = `[${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]`;
+          content = mediaDesc;
+        } else {
+          content = '[empty]';
+        }
+        
+        return `${prefix}[${time}] ${dir}\n${prefix}  ID: ${m.id}\n${prefix}  Read: ${readStatus}\n${prefix}  ${content}`;
       };
 
       let output: string;
@@ -397,7 +406,9 @@ export function registerMessagingTools (
               ? 'You'
               : m.sender_name || m.sender_jid?.split('@')[0] || '?';
             const time = formatTimestamp(m.timestamp);
-            lines.push(`→ [${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150)}`);
+            const mediaInfo = m.has_media ? ` [${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]` : '';
+            const readStatus = m.is_read ? '' : ' (unread)';
+            lines.push(`→ [${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150) || mediaInfo}${readStatus} (id: ${m.id})`);
             for (const a of ctx.after) {
               const s = a.is_from_me ? 'You' : a.sender_name || a.sender_jid?.split('@')[0] || '?';
               lines.push(`  [${chatName}] ${s}: ${a.body?.substring(0, 100)}`);
@@ -411,7 +422,9 @@ export function registerMessagingTools (
           const chatName = (chatInfo as ChatInfo | null)?.name || m.chat_jid;
           const sender = m.is_from_me ? 'You' : m.sender_name || m.sender_jid?.split('@')[0] || '?';
           const time = formatTimestamp(m.timestamp);
-          return `[${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150)}`;
+          const mediaInfo = m.has_media ? ` [${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]` : '';
+          const readStatus = m.is_read ? '' : ' (unread)';
+          return `[${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150) || mediaInfo}${readStatus} (id: ${m.id})`;
         });
       }
 
@@ -553,130 +566,6 @@ export function registerMessagingTools (
       }
 
       audit.log('get_poll_results', 'read', { pollId: poll_message_id, totalVotes });
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: output
-          }
-        ]
-      };
-    }) as any
-  );
-
-  // ── get_poll_results ─────────────────────────────────────────
-
-  server.registerTool(
-    'get_poll_results',
-    {
-      description: 'Get poll results including vote counts and voter information. Returns the poll question, options, and detailed vote breakdown.',
-      inputSchema: {
-        poll_message_id: z
-          .string()
-          .describe('Message ID of the poll creation message'),
-        chat: z
-          .string()
-          .max(200)
-          .describe('Chat name, phone number, or JID where the poll was sent')
-      }
-    },
-
-    (async ({ poll_message_id, chat }: { poll_message_id: string; chat: string }) => {
-      const toolCheck = permissions.isToolEnabled('get_poll_results');
-      if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
-      }
-
-      const chats = store.getAllChatsForMatching();
-      const { resolved, candidates, error } = resolveRecipient(chat, chats);
-
-      if (!resolved && candidates.length > 0) {
-        const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
-        return {
-          content: [{ type: 'text', text: `${error ?? 'Ambiguous recipient'}\n\n${list}` }],
-          isError: true
-        };
-      }
-      if (!resolved) {
-        return { content: [{ type: 'text', text: error ?? 'Could not resolve chat' }], isError: true };
-      }
-
-      // Get the poll creation message
-      const pollMsg = store.listMessages({ chatJid: resolved, limit: 1000, offset: 0 })
-        .find((m) => m.id === poll_message_id);
-
-      if (!pollMsg) {
-        return {
-          content: [{ type: 'text', text: `Poll message not found: ${poll_message_id}` }],
-          isError: true
-        };
-      }
-
-      if (!pollMsg.body || !pollMsg.body.includes('Poll:')) {
-        return {
-          content: [{ type: 'text', text: `Message ${poll_message_id} is not a poll message` }],
-          isError: true
-        };
-      }
-
-      // Parse poll question and options from the message body
-      // Format: "Poll: [question]\n- Option 1\n- Option 2\n..."
-      const lines = pollMsg.body.split('\n');
-      const question = lines[0].replace('Poll: ', '').trim();
-      const options: string[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        if (lines[i].startsWith('- ')) {
-          options.push(lines[i].substring(2).trim());
-        }
-      }
-
-      // Get all votes for this poll
-      const votes = store.getPollVotes(poll_message_id, resolved);
-
-      // Count votes per option
-      const voteCounts = new Map<string, number>();
-      const voteDetails = new Map<string, Array<{ voter_jid: string; voter_name: string | null; timestamp: number }>>();
-
-      for (const option of options) {
-        voteCounts.set(option, 0);
-        voteDetails.set(option, []);
-      }
-
-      for (const vote of votes) {
-        const option = vote.vote_option;
-        if (voteCounts.has(option)) {
-          voteCounts.set(option, (voteCounts.get(option) || 0) + 1);
-          voteDetails.get(option)!.push({
-            voter_jid: vote.voter_jid,
-            voter_name: vote.voter_name,
-            timestamp: vote.timestamp
-          });
-        }
-      }
-
-      // Format results
-      let output = `**Poll Results**: ${question}\n\n`;
-      output += `**Total Votes**: ${votes.length}\n\n`;
-      output += '**Options**:\n';
-
-      for (const option of options) {
-        const count = voteCounts.get(option) || 0;
-        const percentage = votes.length > 0 ? ((count / votes.length) * 100).toFixed(1) : '0.0';
-        output += `\n**${option}**: ${count} vote${count !== 1 ? 's' : ''} (${percentage}%)\n`;
-
-        const voters = voteDetails.get(option) || [];
-        if (voters.length > 0) {
-          output += '  Voters:\n';
-          for (const voter of voters) {
-            const name = voter.voter_name || voter.voter_jid.split('@')[0];
-            const time = formatTimestamp(voter.timestamp);
-            output += `    - ${name} at ${time}\n`;
-          }
-        }
-      }
-
-      audit.log('get_poll_results', 'read', { pollId: poll_message_id, voteCount: votes.length });
 
       return {
         content: [

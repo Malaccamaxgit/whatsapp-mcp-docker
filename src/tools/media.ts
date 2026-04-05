@@ -249,15 +249,20 @@ export function registerMediaTools (
       }
 
       try {
-        const result = await (waClient as { uploadAndSendMedia: (jid: string, path: string, type: string, caption: string) => Promise<{ id: string }> }).uploadAndSendMedia(jid, file_path, media_type, caption ?? '');
+        const result = await (waClient as { uploadAndSendMedia: (jid: string, path: string, type: string, caption: string) => Promise<{ id: string; timestamp: number }> }).uploadAndSendMedia(jid, file_path, media_type, caption ?? '');
         audit.log('send_file', 'sent', { to: jid, mediaType: media_type, messageId: result.id });
 
         const chatName = store.getChatByJid(jid)?.name ?? to;
+        const sentAt = new Date(result.timestamp).toLocaleString('en-CA', {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: false, timeZone: process.env.TZ || 'UTC'
+        });
         return {
           content: [
             {
               type: 'text',
-              text: `${media_type} sent to ${chatName} (${jid}).\nMessage ID: ${result.id}`
+              text: `${media_type} sent to ${chatName} (${jid}).\nMessage ID: ${result.id}\nSent at: ${sentAt}`
             }
           ]
         };

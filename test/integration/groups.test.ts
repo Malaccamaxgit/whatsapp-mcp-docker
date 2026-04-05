@@ -46,6 +46,7 @@ describe('Group Management Tools (integration)', () => {
 
     it('returns error when not connected', async () => {
       ctx.waClient._connected = false;
+      ctx.waClient._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'create_group',
         arguments: { name: 'Test Group', participants: ['+15145551234'] }
@@ -53,6 +54,7 @@ describe('Group Management Tools (integration)', () => {
       assert.ok(result.isError);
       assert.match(result.content[0].text, /not connected/i);
       ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
     });
 
     it('returns error on invalid phone number in participants', async () => {
@@ -156,12 +158,14 @@ describe('Group Management Tools (integration)', () => {
 
     it('returns error when not connected', async () => {
       ctx.waClient._connected = false;
+      ctx.waClient._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'get_joined_groups',
         arguments: {}
       });
       assert.ok(result.isError);
       ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
     });
   });
 

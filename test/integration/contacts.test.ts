@@ -98,7 +98,8 @@ describe('Contact & User Info Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      (ctx.waClient as unknown as { _connected: boolean })._connected = false;
+      (ctx.waClient as unknown as { _connected: boolean; _probeVerified: boolean })._connected = false;
+      (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'get_user_info',
         arguments: { phones: ['+15145551234'] }
@@ -106,6 +107,7 @@ describe('Contact & User Info Tools (integration)', () => {
       assert.ok(result.isError);
       assert.match(result.content[0].text, /not connected/i);
       (ctx.waClient as unknown as { _connected: boolean })._connected = true;
+      (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = true;
     });
   });
 
@@ -161,13 +163,15 @@ describe('Contact & User Info Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      (ctx.waClient as unknown as { _connected: boolean })._connected = false;
+      (ctx.waClient as unknown as { _connected: boolean; _probeVerified: boolean })._connected = false;
+      (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'is_on_whatsapp',
         arguments: { phones: ['+15145551234'] }
       });
       assert.ok(result.isError);
       (ctx.waClient as unknown as { _connected: boolean })._connected = true;
+      (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = true;
     });
   });
 
@@ -220,13 +224,15 @@ describe('Contact & User Info Tools (integration)', () => {
     });
 
     it('returns error when not connected', async () => {
-      (ctx.waClient as unknown as { _connected: boolean })._connected = false;
+      (ctx.waClient as unknown as { _connected: boolean; _probeVerified: boolean })._connected = false;
+      (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = false;
       const result = await ctx.client.callTool({
         name: 'get_profile_picture',
         arguments: { target: CHAT_JID }
       });
       assert.ok(result.isError);
       (ctx.waClient as unknown as { _connected: boolean })._connected = true;
+      (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = true;
     });
   });
 });
