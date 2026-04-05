@@ -64,6 +64,10 @@ build/
 *.swo
 *~
 
+# AI Editor configs (local-only)
+.cursor/
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
