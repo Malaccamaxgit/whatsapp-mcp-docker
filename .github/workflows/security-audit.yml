@@ -24,6 +24,16 @@ jobs:
       with:
         node-version: '20'
 
+    - name: Set up Docker Compose v2
+      run: |
+        # Ensure Docker Compose v2 plugin is available
+        docker compose version || {
+          echo "Docker Compose v2 not found, installing..."
+          mkdir -p ~/.docker/cli-plugins
+          curl -SL "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64" -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+        }
+
     - name: Run npm audit
       run: |
         echo "Running npm audit (lock-file only — native modules built inside Docker)..."
@@ -54,13 +64,13 @@ jobs:
 
     - name: Build test container
       run: |
-        echo "Building test stage (no secrets baked in)..."
-        docker build --target test -t whatsapp-mcp-docker:test-stage .
+        echo "Building tester-container..."
+        docker compose --profile test build tester-container
 
     - name: Run tests in container
       run: |
         echo "Running unit and integration tests inside tester-container..."
-        docker run --rm whatsapp-mcp-docker:test-stage
+        docker compose --profile test run --rm tester-container
 
     - name: Build production image
       run: |
