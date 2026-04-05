@@ -54,13 +54,13 @@ jobs:
 
     - name: Build test container
       run: |
-        echo "Building tester-container..."
-        docker compose --profile test build tester-container
+        echo "Building test stage (no secrets baked in)..."
+        docker build --target test -t whatsapp-mcp-docker:test-stage .
 
     - name: Run tests in container
       run: |
         echo "Running unit and integration tests inside tester-container..."
-        docker compose --profile test run --rm tester-container
+        docker run --rm whatsapp-mcp-docker:test-stage
 
     - name: Build production image
       run: |
