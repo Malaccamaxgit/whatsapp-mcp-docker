@@ -340,15 +340,32 @@ function createAuthenticateHandler (
           });
         }
 
+        let qrFilePath: string | null = null;
+        if (result.qrImageBase64) {
+          try {
+            qrFilePath = await waClient.saveQrCodeToFile(result.qrImageBase64);
+          } catch (err) {
+            console.error('[AUTH] Failed to save QR code file:', err instanceof Error ? err.message : String(err || ''));
+          }
+        }
+
         content.push({
           type: 'text',
           text:
-            'Scan this QR code with WhatsApp > Linked Devices > Link a Device.\n\n' +
-            'QR codes expire in ~20 seconds. If the code has expired, call authenticate again for a fresh one.\n' +
+            'Scan this QR code with WhatsApp > Linked Devices > Link a Device.\n' +
+            'QR codes expire in about 20 seconds. Call authenticate again for a fresh one.\n' +
             'Once linked, the session persists across container restarts.\n\n' +
-            'Note: QR mode returns immediately — use get_connection_status to check if the scan succeeded.\n\n' +
-            'Terminal Mode: Open this URL in your browser to view the QR code:\n' +
-            `data:image/png;base64,${result.qrImageBase64}`
+            'Use get_connection_status to check if the scan succeeded.\n\n' +
+            '--- TERMINAL USERS ---\n' +
+            'Copy the FULL data URL below and paste it into your browser address bar:\n\n' +
+            `data:image/png;base64,${result.qrImageBase64}\n\n` +
+            (qrFilePath
+              ? 'If the URL above is truncated in your terminal, open the container QR file instead:\n' +
+                `  ${qrFilePath}\n` +
+                'Example copy command from host:\n' +
+                '  docker cp whatsapp-mcp-docker:/data/sessions/qr-code.png ./qr-code.png'
+              : 'If the URL above is truncated in your terminal, fetch the file directly from the container:\n' +
+                '  docker cp whatsapp-mcp-docker:/data/sessions/qr-code.png ./qr-code.png')
         });
 
         return { content };

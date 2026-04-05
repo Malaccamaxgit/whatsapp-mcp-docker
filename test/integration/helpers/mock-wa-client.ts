@@ -126,6 +126,8 @@ interface MockWaClient {
   // Authentication
   requestPairingCode(phone: string): Promise<PairingCodeResult>;
   pairCode(digits: string): Promise<string>;
+  saveQrCodeToFile(base64Data: string): Promise<string>;
+  cleanupQrCodeFile(): Promise<void>;
 
   // Messaging
   sendMessage(jid: string, message: unknown): Promise<{ id: string; timestamp: number; key: { id: string } }>;
@@ -326,6 +328,14 @@ export function createMockWaClient (overrides: MockWaClientOverrides = {}): Mock
       }
       // Return a mock pairing code (8 digits, formatted as XXXX-XXXX)
       return '12345678';
+    },
+
+    async saveQrCodeToFile (_base64Data: string): Promise<string> {
+      return `${this.storePath}/qr-code.png`;
+    },
+
+    async cleanupQrCodeFile (): Promise<void> {
+      // no-op in mock
     },
 
     // Messaging - supports custom behavior for retry testing

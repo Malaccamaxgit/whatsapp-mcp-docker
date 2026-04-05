@@ -15,7 +15,7 @@
 import { createClient } from '@whatsmeow-node/whatsmeow-node';
 import { createRequire } from 'node:module';
 import { unlink } from 'node:fs/promises';
-import { copyFile, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import QRCode from 'qrcode';
 import { isGroupJid } from '../utils/phone.js';
@@ -51,7 +51,7 @@ export interface WhatsmeowClient {
   sendRawMessage(jid: string, message: object): Promise<SendResult>;
   getChats(): Promise<unknown[]>;
   getGroupInfo(jid: string): Promise<{ subject?: string; name?: string } | null>;
-  getContact(jid: string): Promise<{ fullName?: string; pushName?: string } | null>;
+  getContact?(jid: string): Promise<{ fullName?: string; pushName?: string } | null>;
   createGroup(name: string, participants: string[]): Promise<{ jid: string }>;
   getJoinedGroups(): Promise<unknown[]>;
   getGroupInviteLink(jid: string): Promise<string>;
@@ -525,6 +525,9 @@ export class WhatsAppClient {
       this._startHealthCheck();
       this._setupPresence();
       this._ensureWelcomeGroup();
+      this.cleanupQrCodeFile().catch((err) => {
+        this.logger.error('[WA] QR cleanup failed:', (err as Error).message);
+      });
 
       if (this._pendingPairResolve) {
         this._pendingPairResolve();
@@ -1217,12 +1220,21 @@ export class WhatsAppClient {
    */
   async _probeWebSocket (): Promise<void> {
     try {
-      const result = await this._withTimeout(
-        Promise.resolve(this.client!.getContact(this.jid!)),
-        8000,
-        'ws-probe'
-      );
-      this._probeVerified = result !== null && result !== undefined;
+      if (typeof this.client!.getContact === 'function') {
+        const result = await this._withTimeout(
+          Promise.resolve(this.client!.getContact(this.jid!)),
+          8000,
+          'ws-probe'
+        );
+        this._probeVerified = result !== null && result !== undefined;
+      } else {
+        await this._withTimeout(
+          Promise.resolve(this.client!.getChats()),
+          8000,
+          'ws-probe-fallback'
+        );
+        this._probeVerified = true;
+      }
       this._probeLastError = null;
       console.error('[WA] WebSocket probe:', this._probeVerified ? 'PASSED' : 'FAILED (null response)');
     } catch (err) {
@@ -1261,7 +1273,11 @@ export class WhatsAppClient {
 
       // For long-running connections, verify we can get basic info
       try {
-        await this.client!.getContact(this.jid);
+        if (typeof this.client!.getContact === 'function') {
+          await this.client!.getContact(this.jid);
+        } else {
+          await this.client!.getChats();
+        }
         return { healthy: true };
       } catch {
         return { healthy: false, reason: 'contact_check_failed' };
@@ -1273,11 +1289,29 @@ export class WhatsAppClient {
 
   async generateQrImage (data: string): Promise<string> {
     const buf = await QRCode.toBuffer(data, {
-      width: 256,
-      margin: 40,
+      width: 150,
+      margin: 2,
       errorCorrectionLevel: 'M'
     });
     return buf.toString('base64');
+  }
+
+  async saveQrCodeToFile (base64Data: string): Promise<string> {
+    const filePath = `${this.storePath}/qr-code.png`;
+    await writeFile(filePath, Buffer.from(base64Data, 'base64'));
+    console.error('[WA] QR code saved to', filePath);
+    return filePath;
+  }
+
+  async cleanupQrCodeFile (): Promise<void> {
+    const filePath = `${this.storePath}/qr-code.png`;
+    try {
+      await unlink(filePath);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        throw err;
+      }
+    }
   }
 
   async requestPairingCode (phoneNumber: string, force = false): Promise<PairingCodeResult> {
@@ -1484,6 +1518,7 @@ export class WhatsAppClient {
   async resolveContactName (jid: string): Promise<string | null> {
     if (!this.isConnected()) {return null;}
     try {
+      if (typeof this.client!.getContact !== 'function') {return null;}
       const contact = await this.client!.getContact(jid);
       return contact?.fullName || contact?.pushName || null;
     } catch {

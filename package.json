@@ -15,7 +15,7 @@
     "test:unit": "npm run _guard && find test/unit -name '*.test.ts' -o -name '*.test.js' | xargs tsx --test",
     "test:integration": "npm run _guard && find test/integration -name '*.test.ts' -o -name '*.test.js' | xargs tsx --test",
     "test:all": "npm run _guard && find test/unit test/integration -name '*.test.ts' -o -name '*.test.js' | xargs tsx --test",
-    "test:auth": "npm run _guard && tsx test/e2e/setup-auth.ts",
+    "test:auth": "npm run _guard && tsx test/e2e/setup-auth.ts --interactive",
     "test:e2e": "npm run _guard && tsx --test test/e2e/live.test.ts",
     "test:bench": "npm run _guard && tsx --test test/benchmarks/performance.test.ts",
     "docker:test": "docker compose --profile test build tester-container && docker compose --profile test run --rm tester-container",
