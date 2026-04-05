@@ -120,9 +120,12 @@ services:
     volumes:
       # Persistent session for e2e tests (bind-mount from host)
       - ./.test-data:/app/.test-data
+      # Ephemeral audit DB for tests (no persistence needed)
+      - whatsapp-audit-test:/data/audit
     tmpfs:
       - /tmp:size=100M,mode=1777
 
 volumes:
   whatsapp-sessions:
   whatsapp-audit:
+  whatsapp-audit-test:
