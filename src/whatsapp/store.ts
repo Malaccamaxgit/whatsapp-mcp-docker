@@ -51,6 +51,16 @@ type ApprovalRow = {
   responded_at: number | null;
 };
 
+export type ContactMapping = {
+  id: number;
+  lid_jid: string;
+  phone_jid: string | null;
+  phone_number: string | null;
+  contact_name: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
 export class MessageStore {
   db: Database.Database | null;
   private dbPath: string;
@@ -62,6 +72,11 @@ export class MessageStore {
   private _insertFts!: Database.Statement;
   private _insertApproval!: Database.Statement;
   private _updateApproval!: Database.Statement;
+  private _upsertContactMapping!: Database.Statement;
+  private _getContactMappingByLid!: Database.Statement;
+  private _getContactMappingByPhone!: Database.Statement;
+  private _getContactMappingByPhoneJid!: Database.Statement;
+  private _getAllContactMappings!: Database.Statement;
 
   constructor (dbPath?: string) {
     this.dbPath = dbPath || process.env.STORE_DB_PATH || '/data/store/messages.db';
@@ -156,6 +171,30 @@ export class MessageStore {
       console.error('[STORE] Schema migration note:', (error as Error).message);
     }
 
+    // Add contact_mappings table for JID unification (@lid <-> @s.whatsapp.net)
+    try {
+      this.db!.exec(`
+        CREATE TABLE IF NOT EXISTS contact_mappings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          lid_jid TEXT NOT NULL UNIQUE,
+          phone_jid TEXT,
+          phone_number TEXT,
+          contact_name TEXT,
+          created_at INTEGER DEFAULT (unixepoch()),
+          updated_at INTEGER DEFAULT (unixepoch())
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_contact_mappings_phone
+        ON contact_mappings(phone_number);
+
+        CREATE INDEX IF NOT EXISTS idx_contact_mappings_phone_jid
+        ON contact_mappings(phone_jid);
+      `);
+      console.error('[STORE] contact_mappings table created for JID unification');
+    } catch (error: unknown) {
+      console.error('[STORE] contact_mappings migration note:', (error as Error).message);
+    }
+
     const enc = isEncryptionEnabled() ? 'ON' : 'OFF';
     console.error(`[STORE] Database migrated at ${this.dbPath} (encryption: ${enc})`);
   }
@@ -191,6 +230,22 @@ export class MessageStore {
       UPDATE approvals SET status = ?, response_text = ?, responded_at = ?
       WHERE id = ? AND status = 'pending'
     `);
+
+    // Contact mapping prepared statements
+    this._upsertContactMapping = this.db!.prepare(`
+      INSERT INTO contact_mappings (lid_jid, phone_jid, phone_number, contact_name, updated_at)
+      VALUES (?, ?, ?, ?, unixepoch())
+      ON CONFLICT(lid_jid) DO UPDATE SET
+        phone_jid = COALESCE(excluded.phone_jid, contact_mappings.phone_jid),
+        phone_number = COALESCE(excluded.phone_number, contact_mappings.phone_number),
+        contact_name = COALESCE(excluded.contact_name, contact_mappings.contact_name),
+        updated_at = unixepoch()
+    `);
+
+    this._getContactMappingByLid = this.db!.prepare('SELECT * FROM contact_mappings WHERE lid_jid = ?');
+    this._getContactMappingByPhone = this.db!.prepare('SELECT * FROM contact_mappings WHERE phone_number = ?');
+    this._getContactMappingByPhoneJid = this.db!.prepare('SELECT * FROM contact_mappings WHERE phone_jid = ?');
+    this._getAllContactMappings = this.db!.prepare('SELECT * FROM contact_mappings');
   }
 
   // ── Decrypt helpers ─────────────────────────────────────────
@@ -267,6 +322,193 @@ export class MessageStore {
 
   public clearUnread (chatJid: string): void {
     this.db!.prepare('UPDATE chats SET unread_count = 0 WHERE jid = ?').run(chatJid);
+  }
+
+  // ── Contact Mapping Operations (JID Unification) ───────────
+
+  /**
+   * Upsert a contact mapping between LID JID and phone-based JID.
+   * @param lidJid - The @lid format JID (e.g., "44612043436101@lid")
+   * @param phoneJid - The @s.whatsapp.net format JID (e.g., "33680940027@s.whatsapp.net")
+   * @param phoneNumber - The phone number in E.164 format (e.g., "+33680940027")
+   * @param contactName - The contact display name
+   */
+  public upsertContactMapping (lidJid: string, phoneJid?: string | null, phoneNumber?: string | null, contactName?: string | null): void {
+    if (!lidJid) {return;}
+    this._upsertContactMapping.run(lidJid, phoneJid || null, phoneNumber || null, contactName || null);
+  }
+
+  /**
+   * Get contact mapping by LID JID.
+   * @param lidJid - The @lid format JID
+   * @returns The contact mapping or null
+   */
+  public getContactMappingByLid (lidJid: string): ContactMapping | null {
+    const row = this._getContactMappingByLid.get(lidJid);
+    return (row as ContactMapping) || null;
+  }
+
+  /**
+   * Get contact mapping by phone number.
+   * @param phoneNumber - Phone number in E.164 format
+   * @returns The contact mapping or null
+   */
+  public getContactMappingByPhone (phoneNumber: string): ContactMapping | null {
+    const row = this._getContactMappingByPhone.get(phoneNumber);
+    return (row as ContactMapping) || null;
+  }
+
+  /**
+   * Get contact mapping by phone JID.
+   * @param phoneJid - The @s.whatsapp.net format JID
+   * @returns The contact mapping or null
+   */
+  public getContactMappingByPhoneJid (phoneJid: string): ContactMapping | null {
+    const row = this._getContactMappingByPhoneJid.get(phoneJid);
+    return (row as ContactMapping) || null;
+  }
+
+  /**
+   * Get all contact mappings.
+   * @returns Array of all contact mappings
+   */
+  public getAllContactMappings (): ContactMapping[] {
+    return this._getAllContactMappings.all() as ContactMapping[];
+  }
+
+  /**
+   * Find the unified/preferred JID for a contact.
+   * Prefers @lid JID for contacts with names, @s.whatsapp.net for others.
+   * @param jid - Any JID format to look up
+   * @returns The preferred JID, or the original if no mapping found
+   */
+  public getUnifiedJid (jid: string): string {
+    if (!jid) {return jid;}
+
+    // Check if this is a LID JID
+    if (jid.endsWith('@lid')) {
+      const mapping = this.getContactMappingByLid(jid);
+      if (mapping && mapping.lid_jid) {return mapping.lid_jid;} // Prefer LID
+    }
+
+    // Check if this is a phone JID
+    if (jid.endsWith('@s.whatsapp.net')) {
+      const mapping = this.getContactMappingByPhoneJid(jid);
+      if (mapping) {
+        // Prefer LID if available, otherwise use phone JID
+        return mapping.lid_jid || mapping.phone_jid || jid;
+      }
+    }
+
+    // No mapping found, return original
+    return jid;
+  }
+
+  /**
+   * Get both JID formats for a contact if known.
+   * @param jid - Any JID format to look up
+   * @returns Object with both JID formats if available
+   */
+  public getJidMapping (jid: string): { lidJid?: string; phoneJid?: string; phoneNumber?: string } | null {
+    if (!jid) {return null;}
+
+    let mapping: ContactMapping | null = null;
+    if (jid.endsWith('@lid')) {
+      mapping = this.getContactMappingByLid(jid);
+    } else if (jid.endsWith('@s.whatsapp.net')) {
+      mapping = this.getContactMappingByPhoneJid(jid);
+    }
+
+    if (!mapping) {return null;}
+
+    return {
+      lidJid: mapping.lid_jid || undefined,
+      phoneJid: mapping.phone_jid || undefined,
+      phoneNumber: mapping.phone_number || undefined
+    };
+  }
+
+  /**
+   * Get all chats with duplicate JID entries merged.
+   * Uses contact_mappings to unify @lid and @s.whatsapp.net JIDs.
+   * @param options - Same options as listChats
+   * @returns Array of unified chat rows with duplicates merged
+   */
+  public getAllChatsUnified ({ filter, groupsOnly, limit = 20, offset = 0 }: { filter?: string; groupsOnly?: boolean; limit?: number; offset?: number } = {}): ChatRow[] {
+    // Get all contact mappings
+    const mappings = this.getAllContactMappings();
+    const mappingLookup = new Map<string, ContactMapping>();
+    
+    for (const mapping of mappings) {
+      if (mapping.lid_jid) {mappingLookup.set(mapping.lid_jid, mapping);}
+      if (mapping.phone_jid) {mappingLookup.set(mapping.phone_jid, mapping);}
+    }
+
+    // Get all chats
+    let sql = 'SELECT * FROM chats WHERE 1=1';
+    const params: (string | number)[] = [];
+
+    if (filter) {
+      sql += ' AND name LIKE ?';
+      params.push(`%${filter}%`);
+    }
+    if (groupsOnly) {
+      sql += ' AND is_group = 1';
+    }
+
+    sql += ' ORDER BY last_message_at DESC';
+    const allChats = this._decryptRows(this.db!.prepare(sql).all(...params)) as ChatRow[];
+
+    // Merge duplicates using mappings
+    const unifiedMap = new Map<string, ChatRow>();
+    
+    for (const chat of allChats) {
+      // Skip group chats - they don't have JID duplication issues
+      if (chat.is_group) {
+        unifiedMap.set(chat.jid, chat);
+        continue;
+      }
+
+      // Check if this chat has a mapping
+      const mapping = mappingLookup.get(chat.jid);
+      
+      if (!mapping) {
+        // No mapping, keep as-is
+        if (!unifiedMap.has(chat.jid)) {
+          unifiedMap.set(chat.jid, chat);
+        }
+        continue;
+      }
+
+      // Determine the unified JID (prefer LID)
+      const unifiedJid = mapping.lid_jid || mapping.phone_jid || chat.jid;
+
+      // Check if we already have this unified chat
+      const existing = unifiedMap.get(unifiedJid);
+
+      if (!existing) {
+        // First occurrence, use this chat but with unified JID
+        unifiedMap.set(unifiedJid, { ...chat, jid: unifiedJid });
+      } else {
+        // Merge: keep the most recent data
+        const merged: ChatRow = {
+          ...existing,
+          unread_count: existing.unread_count + chat.unread_count,
+          last_message_at: Math.max(existing.last_message_at || 0, chat.last_message_at || 0),
+          last_message_preview: chat.last_message_at && (!existing.last_message_at || chat.last_message_at > existing.last_message_at)
+            ? chat.last_message_preview
+            : existing.last_message_preview,
+          updated_at: Math.max(existing.updated_at, chat.updated_at)
+        };
+        unifiedMap.set(unifiedJid, merged);
+      }
+    }
+
+    // Convert back to array and apply pagination
+    const unifiedChats = Array.from(unifiedMap.values())
+      .sort((a, b) => (b.last_message_at || 0) - (a.last_message_at || 0));
+
+    return unifiedChats.slice(offset, offset + limit);
   }
 
   // ── Message Operations ───────────────────────────────────────
@@ -797,6 +1039,83 @@ export class MessageStore {
     if (this._purgeTimer.unref) {
       this._purgeTimer.unref();
     }
+  }
+
+  /**
+   * Migrate existing duplicate chats by creating contact mappings.
+   * Finds chats with the same name but different JID formats (@lid vs @s.whatsapp.net)
+   * and creates mappings to unify them.
+   * @returns Object with migration statistics
+   */
+  public migrateDuplicateChats (): { migrated: number; skipped: number } {
+    console.error('[STORE] Starting JID unification migration...');
+    
+    // Get all non-group chats
+    const allChats = this.db!.prepare(`
+      SELECT jid, name, last_message_at, unread_count, last_message_preview
+      FROM chats
+      WHERE is_group = 0 AND name IS NOT NULL
+      ORDER BY name, last_message_at DESC
+    `).all() as Array<{
+      jid: string;
+      name: string;
+      last_message_at: number | null;
+      unread_count: number;
+      last_message_preview: string | null;
+    }>;
+
+    // Group chats by name
+    const chatsByName = new Map<string, typeof allChats>();
+    for (const chat of allChats) {
+      const existing = chatsByName.get(chat.name) || [];
+      existing.push(chat);
+      chatsByName.set(chat.name, existing);
+    }
+
+    let migrated = 0;
+    let skipped = 0;
+
+    // Process each group of chats with the same name
+    for (const [name, chats] of chatsByName.entries()) {
+      if (chats.length < 2) {continue;} // No duplicates for this name
+
+      // Look for @lid and @s.whatsapp.net pairs
+      const lidChat = chats.find((c) => c.jid.endsWith('@lid'));
+      const phoneChats = chats.filter((c) => c.jid.endsWith('@s.whatsapp.net'));
+
+      if (!lidChat || phoneChats.length === 0) {
+        skipped += chats.length;
+        continue;
+      }
+
+      // Extract phone number from phone JID
+      for (const phoneChat of phoneChats) {
+        const phoneNumber = phoneChat.jid.match(/^([0-9]+)@/)?.[1] || null;
+        
+        if (!phoneNumber) {
+          skipped++;
+          continue;
+        }
+
+        // Create mapping
+        try {
+          this.upsertContactMapping(
+            lidChat.jid,
+            phoneChat.jid,
+            phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`,
+            name
+          );
+          migrated++;
+          console.error(`[STORE] Migrated mapping: ${lidChat.jid} ↔ ${phoneChat.jid} (${name})`);
+        } catch (error) {
+          console.error(`[STORE] Migration failed for ${phoneChat.jid}:`, (error as Error).message);
+          skipped++;
+        }
+      }
+    }
+
+    console.error(`[STORE] Migration complete: ${migrated} mappings created, ${skipped} skipped`);
+    return { migrated, skipped };
   }
 
   public close (): void {

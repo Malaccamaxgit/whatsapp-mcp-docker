@@ -54,3 +54,32 @@ active during a brief disconnect/reconnect cycle.
   (`exists`, `IsIn`, `isIn`, `registered`) from the Go bridge
 - `src/tools/groups.js` — `get_group_invite_link` no longer double-prefixes
   `https://chat.whatsapp.com/` when the bridge already returns a full URL
+
+## TODO / OPEN ISSUE: Messages still appear as `[empty]` in list_messages output
+
+**Observed:** After authentication, `list_messages` shows multiple messages marked as `[empty]`
+even though the message event handlers are working (see connection status showing 9 messages).
+
+**Possible causes to investigate:**
+
+1. **Text extraction from Go bridge** — The `_persistMessage()` method may not be extracting
+   the text field correctly from all message types. The event structure from whatsmeow-node
+   may have text in different fields depending on message type (conversation, extendedTextMessage,
+   protocolMessage, etc.).
+
+2. **Empty conversation messages** — Some WhatsApp message types (reactions, status updates,
+   system messages) don't have a `conversation` or `extendedTextMessage.text` field.
+
+3. **Timing issue** — Messages may be arriving before the text content is fully populated
+   in the event object.
+
+**Debug steps:**
+- Enable `DEBUG=client` environment variable to log raw event structures
+- Compare the raw `evt` object structure against the fields being extracted in `_persistMessage()`
+- Check if the issue affects only self-messages or all incoming messages
+
+**Files to review:**
+- `src/whatsapp/client.ts` — `_persistMessage()` method (text extraction logic)
+- `src/whatsapp/client.ts` — `_handleIncomingMessage()` — verify evt structure
+
+**Priority:** Medium — affects message visibility but not core functionality like approvals or wait_for_message.

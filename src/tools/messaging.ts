@@ -13,6 +13,7 @@ import type { PermissionManager } from '../security/permissions.js';
 import type { MessageStore } from '../whatsapp/store.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
+import { formatTimestamp } from '../utils/timezone.js';
 
 interface TextContent {
   type: 'text';
@@ -111,6 +112,12 @@ export function registerMessagingTools (
       }
 
       if (!resolved) {
+        // TODO: Automatically convert phone numbers to JID format when fuzzy matching fails.
+        // If "to" looks like a phone number (starts with + or contains digits only),
+        // validate it with validatePhoneNumber() and convert to JID format (NNNNNNNNNNN@s.whatsapp.net).
+        // This would allow send_message to work with new contacts not yet in the chat list.
+        // Current workaround: users must manually use JID format (e.g., "33680940027@s.whatsapp.net").
+        // See: docs/bugs/BUG-self-account-messages-not-received.md for related issues.
         return {
           content: [{ type: 'text', text: error ?? `Could not resolve recipient "${to}".` }],
           isError: true
@@ -261,7 +268,7 @@ export function registerMessagingTools (
         const dir = m.is_from_me
           ? 'You'
           : m.sender_name || m.sender_jid?.split('@')[0] || 'Unknown';
-        const time = new Date(m.timestamp * 1000).toLocaleString();
+        const time = formatTimestamp(m.timestamp);
         const body = m.body
           ? m.body.substring(0, 200)
           : m.has_media
@@ -389,7 +396,7 @@ export function registerMessagingTools (
             const sender = m.is_from_me
               ? 'You'
               : m.sender_name || m.sender_jid?.split('@')[0] || '?';
-            const time = new Date(m.timestamp * 1000).toLocaleString();
+            const time = formatTimestamp(m.timestamp);
             lines.push(`→ [${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150)}`);
             for (const a of ctx.after) {
               const s = a.is_from_me ? 'You' : a.sender_name || a.sender_jid?.split('@')[0] || '?';
@@ -403,7 +410,7 @@ export function registerMessagingTools (
           const chatInfo = store.getChatByJid(m.chat_jid);
           const chatName = (chatInfo as ChatInfo | null)?.name || m.chat_jid;
           const sender = m.is_from_me ? 'You' : m.sender_name || m.sender_jid?.split('@')[0] || '?';
-          const time = new Date(m.timestamp * 1000).toLocaleString();
+          const time = formatTimestamp(m.timestamp);
           return `[${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150)}`;
         });
       }

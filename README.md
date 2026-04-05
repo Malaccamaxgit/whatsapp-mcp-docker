@@ -154,6 +154,11 @@ docker run --rm node:22-alpine node -e "console.log(require('crypto').randomByte
 > **Windows PowerShell users:** The pipe (`|`) and redirect (`<`) operators do not work with `docker mcp secret set` on PowerShell. Use this two-step approach instead:
 >
 > ```powershell
+> # Option A: Using Python (recommended — avoids require() escaping issues)
+> $key = docker run --rm python:3-alpine python3 -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"
+> docker mcp secret set "whatsapp-mcp-docker.data_encryption_key=$key"
+>
+> # Option B: Using Node.js — requires careful quoting; base64 chars + / = may cause issues
 > $key = docker run --rm node:22-alpine node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 > docker mcp secret set "whatsapp-mcp-docker.data_encryption_key=$key"
 > ```

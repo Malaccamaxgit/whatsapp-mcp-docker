@@ -12,6 +12,48 @@ All notable changes to WhatsApp MCP Docker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-04-04
+
+### JID Unification - Duplicate Chat Contacts Fixed
+
+Implemented a contact mapping system to unify duplicate chat entries caused by WhatsApp's different JID formats (`@lid` vs `@s.whatsapp.net`).
+
+#### Added
+- **Contact mappings table** — SQLite `contact_mappings` table to store JID relationships
+- **JID utilities** — `src/utils/jid-utils.ts` with helper functions for JID detection and normalization
+- **Automatic mapping** — Mappings created automatically when sending/receiving messages
+- **Unified chat listing** — `getAllChatsUnified()` method merges duplicate entries
+- **Migration tool** — `migrate_duplicate_chats` admin tool for backfilling existing duplicates
+- **Integration tests** — 20+ test cases for JID unification
+
+#### Changed
+- **`list_chats` tool** — Now uses unified chat listing, shows both JID formats for reference
+- **`src/whatsapp/client.ts`** — Stores contact mappings on message send/receive
+- **`src/whatsapp/store.ts`** — Added mapping CRUD operations and migration method
+
+#### Fixed
+- **Duplicate contacts** — Same contact no longer appears twice in chat list
+- **Fragmented conversations** — Messages from both JID formats now appear in single chat
+- **Unread count accuracy** — Combined from duplicate entries
+
+#### Technical Details
+- Prefers `@lid` format for display (more stable, privacy-focused)
+- Backward compatible — existing tools continue to work
+- Automatic mapping — works transparently during normal message exchange
+- Migration available — run `/migrate_duplicate_chats` to fix historical duplicates
+
+#### Files Modified
+- `src/whatsapp/store.ts` - Schema + mapping methods
+- `src/utils/jid-utils.ts` - NEW - JID utilities
+- `src/whatsapp/client.ts` - Automatic mapping
+- `src/tools/chats.ts` - Unified listing + migration tool
+- `test/integration/jid-unification.test.ts` - NEW - Tests
+
+#### Test Results
+✅ All 125 tests passed (including 20+ new JID unification tests)
+
+---
+
 ## [0.3.0] - 2026-04-03
 
 ### TypeScript Migration Complete

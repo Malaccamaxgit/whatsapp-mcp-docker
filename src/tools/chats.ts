@@ -12,6 +12,7 @@ import type { MessageStore } from '../whatsapp/store.js';
 import { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { PermissionManager } from '../security/permissions.js';
+import { formatTimestamp, formatTimeOnly } from '../utils/timezone.js';
 
 export function registerChatTools (
   server: McpServer,
@@ -46,7 +47,9 @@ export function registerChatTools (
       }
       const safeLimit = Math.min(limit || 20, 100);
       const offset = (page || 0) * safeLimit;
-      const chats = store.listChats({
+      
+      // Use unified chat listing to merge duplicate JID entries
+      const chats = store.getAllChatsUnified({
         filter,
         groupsOnly: groups_only,
         limit: safeLimit,
@@ -69,12 +72,25 @@ export function registerChatTools (
         const type = c.is_group ? '[Group]' : '[Chat]';
         const unread = c.unread_count > 0 ? ` (${c.unread_count} unread)` : '';
         const time = c.last_message_at
-          ? new Date(c.last_message_at * 1000).toLocaleString()
+          ? formatTimestamp(c.last_message_at)
           : 'never';
         const preview = c.last_message_preview
           ? `: ${c.last_message_preview.substring(0, 60)}${c.last_message_preview.length > 60 ? '...' : ''}`
           : '';
-        return `${type} ${c.name || c.jid}${unread}\n     Last: ${time}${preview}\n     JID: ${c.jid}`;
+        
+        // Show JID mapping info for non-group chats
+        const jidInfo = c.is_group ? c.jid : (() => {
+          const mapping = store.getJidMapping(c.jid);
+          if (mapping && (mapping.phoneJid || mapping.phoneNumber)) {
+            const parts = [c.jid];
+            if (mapping.phoneJid && mapping.phoneJid !== c.jid) {parts.push(mapping.phoneJid);}
+            if (mapping.phoneNumber) {parts.push(`(${mapping.phoneNumber})`);}
+            return parts.join(' ↔ ');
+          }
+          return c.jid;
+        })();
+        
+        return `${type} ${c.name || c.jid}${unread}\n     Last: ${time}${preview}\n     JID: ${jidInfo}`;
       });
 
       const pageInfo = page > 0 ? ` (page ${page})` : '';
@@ -147,7 +163,7 @@ export function registerChatTools (
         const qLines = data.questions.slice(0, 10).map((m) => {
           const sender = m.sender_name || m.sender_jid?.split('@')[0] || '?';
           const chatName = m.chat_name || m.chat_jid;
-          const time = new Date(m.timestamp * 1000).toLocaleTimeString();
+          const time = formatTimeOnly(m.timestamp);
           return `  - [${chatName}] ${sender} (${time}): ${m.body?.substring(0, 120) || ''}`;
         });
         sections.push(
@@ -257,9 +273,9 @@ export function registerChatTools (
         if (contactChats.length > 0) {
           const chatLines = contactChats.map((c) => {
             const type = c.is_group ? '[Group]' : '[Chat]';
-            const time = c.last_message_at
-              ? new Date(c.last_message_at * 1000).toLocaleString()
-              : 'never';
+        const time = c.last_message_at
+          ? formatTimestamp(c.last_message_at)
+          : 'never';
             return `  - ${type} ${c.name || c.jid} (last: ${time})`;
           });
           output += `\n\nChats involving ${matches[0].name || matches[0].jid}:\n${chatLines.join('\n')}`;
@@ -413,6 +429,152 @@ export function registerChatTools (
         audit.log('export_chat_data', 'failed', { jid, format, error: (error as Error).message }, false);
         return {
           content: [{ type: 'text', text: `Export failed: ${(error as Error).message}` }],
+          isError: true
+        };
+      }
+    }
+  );
+
+  // ── migrate_duplicate_chats (temporary admin tool) ─────────────────────────
+  // TODO: REMOVE THIS TOOL AFTER MIGRATION - Temporary tool for one-time migration only.
+  //       Once users have run the migration (or automatic mapping handles it), this tool
+  //       should be removed from the codebase. Do NOT include in production releases.
+  //       Related: docs/TODO-CODEBASE-TRACKER.md - CLEANUP-001
+
+  server.registerTool(
+    'migrate_duplicate_chats',
+    {
+      description: 'Migrate existing duplicate chat entries by creating contact mappings. This backfills the contact_mappings table for chats that have both @lid and @s.whatsapp.net JID formats. Run this once to unify existing duplicate contacts.',
+      inputSchema: {
+        dry_run: z.boolean().default(false).describe('If true, only report what would be migrated without making changes').optional()
+      },
+      annotations: { readOnlyHint: false }
+    },
+
+    async ({ dry_run = false }: { dry_run?: boolean }) => {
+      const toolCheck = permissions.isToolEnabled('migrate_duplicate_chats');
+      if (!toolCheck.allowed) {
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+      }
+
+      try {
+        // Get all non-group chats
+        const allChats = store.db!.prepare(`
+          SELECT jid, name
+          FROM chats
+          WHERE is_group = 0
+        `).all() as Array<{ jid: string; name: string | null }>;
+
+        const lidChats = allChats.filter((c) => c.jid.endsWith('@lid'));
+        const phoneChats = allChats.filter((c) => c.jid.endsWith('@s.whatsapp.net'));
+
+        const mappingsToCreate: Array<{
+          lidJid: string;
+          phoneJid: string;
+          phoneNumber: string;
+          contactName: string;
+        }> = [];
+
+        // Match by extracting phone number from LID and finding corresponding phone JID
+        for (const lid of lidChats) {
+          const lidPhone = lid.jid.match(/^([0-9]+)@/)?.[1];
+          if (!lidPhone || !lid.name) {continue;}
+
+          // Look for phone chat with matching number (either as JID or as name)
+          const phoneMatch = phoneChats.find((p) => {
+            const phoneNum = p.jid.match(/^([0-9]+)@/)?.[1];
+            // Match if: phone JID number matches start of LID number AND (name matches OR name IS the number)
+            return phoneNum && (
+              lidPhone.startsWith(phoneNum) || 
+              p.name === phoneNum ||
+              p.name === lid.name
+            );
+          });
+
+          if (phoneMatch) {
+            const phoneNumber = phoneMatch.jid.split('@')[0];
+            mappingsToCreate.push({
+              lidJid: lid.jid,
+              phoneJid: phoneMatch.jid,
+              phoneNumber: phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`,
+              contactName: lid.name
+            });
+          }
+        }
+
+        if (dry_run) {
+          if (mappingsToCreate.length === 0) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `DRY RUN: No duplicate contacts found.\n\n` +
+                    `This could mean:\n` +
+                    `1. Contacts are already unified\n` +
+                    `2. Duplicates don't have matching phone numbers\n` +
+                    `3. Names don't match between duplicates\n\n` +
+                    `Note: Mappings will be created automatically when you send/receive messages.`
+                }
+              ]
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `DRY RUN: Found ${mappingsToCreate.length} duplicate contact(s) to migrate:\n\n` +
+                  mappingsToCreate.map((m) => 
+                    `**${m.contactName}**\n` +
+                    `  LID: ${m.lidJid}\n` +
+                    `  Phone JID: ${m.phoneJid}\n` +
+                    `  Phone: ${m.phoneNumber}\n`
+                  ).join('\n') +
+                  `\n\nCall migrate_duplicate_chats again (without dry_run) to create these mappings.`
+              }
+            ]
+          };
+        }
+
+        // Perform actual migration
+        let migrated = 0;
+        for (const mapping of mappingsToCreate) {
+          try {
+            store.upsertContactMapping(
+              mapping.lidJid,
+              mapping.phoneJid,
+              mapping.phoneNumber,
+              mapping.contactName
+            );
+            migrated++;
+          } catch (err) {
+            console.error(`Failed to create mapping for ${mapping.contactName}:`, (err as Error).message);
+          }
+        }
+
+        // Also run the standard migration for name-based matches
+        const standardResult = store.migrateDuplicateChats();
+        migrated += standardResult.migrated;
+
+        audit.log('migrate_duplicate_chats', 'migrated', { migrated });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Migration complete!\n\n` +
+                `✅ Migrated: ${migrated} contact mapping(s) created\n\n` +
+                `Next steps:\n` +
+                `1. Run \`list_chats\` to verify contacts are now unified\n` +
+                `2. Each contact should appear only once\n` +
+                `3. Future messages will automatically create mappings`
+            }
+          ]
+        };
+      } catch (error) {
+        audit.log('migrate_duplicate_chats', 'failed', { error: (error as Error).message }, false);
+        return {
+          content: [{ type: 'text', text: `Migration failed: ${(error as Error).message}` }],
           isError: true
         };
       }

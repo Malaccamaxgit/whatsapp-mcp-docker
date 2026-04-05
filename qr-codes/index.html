@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WhatsApp QR Code</title>
+  <meta http-equiv="refresh" content="5">
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+    .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    img { max-width: 100%; height: auto; }
+    h1 { color: #075e54; }
+    .instructions { color: #666; margin: 20px 0; }
+    .warning { color: #d32f2f; font-weight: bold; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WhatsApp Authentication</h1>
+    <p class="instructions">Scan this QR code with WhatsApp → Linked Devices → Link a Device</p>
+    <div id="qr-container">
+      <img id="qr-image" src="qr.png" alt="QR Code" />
+    </div>
+    <p class="warning">QR codes expire in ~20 seconds. Page auto-refreshes every 5 seconds.</p>
+    <p id="no-qr" class="hidden">No QR code yet. Run <code>whatsapp authenticate +YOUR_NUMBER</code> first.</p>
+  </div>
+  <script>
+    // Check if QR code exists, show appropriate message
+    const img = document.getElementById('qr-image');
+    const noQr = document.getElementById('no-qr');
+    const container = document.getElementById('qr-container');
+
+    img.onerror = function() {
+      container.classList.add('hidden');
+      noQr.classList.remove('hidden');
+    };
+    img.onload = function() {
+      container.classList.remove('hidden');
+      noQr.classList.add('hidden');
+    };
+  </script>
+</body>
+</html>

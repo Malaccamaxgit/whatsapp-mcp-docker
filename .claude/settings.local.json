@@ -3,7 +3,16 @@
     "allow": [
       "Skill(claude-api)",
       "Skill(schedule)",
-      "Skill(simplify)"
+      "Skill(simplify)",
+      "Bash(docker compose:*)",
+      "PowerShell(docker volume rm:*)",
+      "Bash(Select-String -Pattern \"whatsapp|mcp\")",
+      "Bash(docker volume ls:*)",
+      "Bash(docker rmi:*)",
+      "Bash(docker volume:*)",
+      "Bash(docker mcp:*)",
+      "Bash(curl:*)"
     ]
-  }
+  },
+  "outputStyle": "Explanatory"
 }

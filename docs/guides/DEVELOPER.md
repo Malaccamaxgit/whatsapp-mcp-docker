@@ -256,6 +256,33 @@ FTS5 search continues to work because plaintext is inserted into the `messages_f
 
 #### Auto-Purge (`MESSAGE_RETENTION_DAYS`)
 
+The `TZ` environment variable controls timestamp formatting in all tool outputs. Set to an IANA timezone name (e.g., `America/Toronto`, `Europe/Paris`).
+
+**Default:** `America/Toronto` (Montreal, EST/EDT)
+
+**Format:** All timestamps use **24-hour format** (HH:mm:ss), NOT 12-hour AM/PM.
+
+**Example outputs:**
+- ✅ Correct: `2026-04-04, 17:46:02` (24-hour, Montreal time)
+- ❌ Wrong: `4/4/2026, 5:46:02 PM` (12-hour with AM/PM)
+
+**To change timezone:**
+```bash
+docker mcp profile config <profile> \
+  --set whatsapp-mcp-docker.timezone=Europe/Paris
+```
+
+**Common timezones:**
+- `America/Toronto` — Montreal, Ottawa (EST/EDT)
+- `America/New_York` — New York (EST/EDT)
+- `America/Los_Angeles` — Los Angeles (PST/PDT)
+- `Europe/Paris` — Paris, Brussels (CET/CEST)
+- `Europe/London` — London (GMT/BST)
+- `Asia/Tokyo` — Tokyo (JST)
+- `UTC` — Coordinated Universal Time
+
+**Testing:** Automated tests verify 24-hour format and timezone handling in `test/unit/timezone.test.ts`.
+
 When set to a positive number, the server runs `purgeOldData()` on startup and then hourly. It deletes:
 - Messages older than the retention period
 - Media files on disk for deleted messages
@@ -292,7 +319,14 @@ Pure function and module tests. No network, no WhatsApp.
 docker compose --profile test run --rm tester-container node --test test/unit/*.test.ts
 ```
 
-Tests: `phone.ts`, `fuzzy-match.ts`, `crypto.ts`, `file-guard.ts`, `permissions.ts`, `audit.ts`, `store.ts`.
+Tests: `phone.ts`, `fuzzy-match.ts`, `crypto.ts`, `file-guard.ts`, `permissions.ts`, `audit.ts`, `store.ts`, **`timezone.ts`**.
+
+**Timezone tests** (`test/unit/timezone.test.ts`) verify:
+- 24-hour format (no AM/PM)
+- Correct timezone conversion (America/Toronto default)
+- DST handling
+- Edge cases (epoch, future dates, leap years)
+- ISO 8601 export format
 
 ### Layer 2: Integration Tests
 

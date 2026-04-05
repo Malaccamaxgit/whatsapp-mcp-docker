@@ -19,6 +19,7 @@ import { copyFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import QRCode from 'qrcode';
 import { isGroupJid } from '../utils/phone.js';
+import { isLidJid, isPhoneJid, extractPhoneNumber } from '../utils/jid-utils.js';
 import { assertPathWithin, sanitizeFilename, checkExtension } from '../security/file-guard.js';
 import { decrypt } from '../security/crypto.js';
 import { debug } from '../utils/debug.js';
@@ -876,6 +877,11 @@ export class WhatsAppClient {
           msg.body?.substring(0, 100)
         );
 
+        // Store contact mapping for JID unification (non-blocking, best-effort)
+        if (!isGroup && msg.senderJid && msg.senderName) {
+          this._storeContactMapping(msg.chatJid, msg.senderJid, msg.senderName);
+        }
+
         if (!chatName && !isHistorySync) {
           const existing = this.messageStore.getChatByJid(msg.chatJid);
           // For groups: always re-resolve from WhatsApp (async, non-blocking) because
@@ -908,6 +914,77 @@ export class WhatsAppClient {
       }
     } catch (error) {
       this.logger.error(`[WA] Name resolution failed for ${jid}:`, (error as Error).message);
+    }
+  }
+
+  /**
+   * Store contact mapping between LID and phone JID formats.
+   * This enables JID unification for duplicate contact detection.
+   * Non-blocking, best-effort operation.
+   */
+  _storeContactMapping (chatJid: string, senderJid: string, senderName: string): void {
+    try {
+      // Determine which JID is LID and which is phone-based
+      let lidJid: string | null = null;
+      let phoneJid: string | null = null;
+      let phoneNumber: string | null = null;
+
+      if (isLidJid(chatJid)) {
+        lidJid = chatJid;
+      } else if (isPhoneJid(chatJid)) {
+        phoneJid = chatJid;
+        phoneNumber = extractPhoneNumber(chatJid);
+      }
+
+      if (isLidJid(senderJid)) {
+        lidJid = senderJid;
+      } else if (isPhoneJid(senderJid)) {
+        phoneJid = senderJid;
+        phoneNumber = extractPhoneNumber(senderJid);
+      }
+
+      // Store mapping if we have at least one JID format
+      if (lidJid || phoneJid) {
+        this.messageStore.upsertContactMapping(
+          lidJid || phoneJid!,
+          phoneJid,
+          phoneNumber,
+          senderName
+        );
+      }
+
+      // If we have a phone JID but no LID yet, try to resolve the LID from WhatsApp
+      if (phoneJid && !lidJid && this.isConnected()) {
+        this._resolveLidFromPhoneJid(phoneJid, senderName).catch((err) => {
+          this.logger.error(`[WA] LID resolution failed for ${phoneJid}:`, (err as Error).message);
+        });
+      }
+    } catch (error) {
+      this.logger.error('[WA] Contact mapping storage failed:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Resolve LID from a phone-based JID using WhatsApp's getUserInfo.
+   * @param phoneJid - The @s.whatsapp.net format JID
+   * @param contactName - The contact name to store
+   */
+  async _resolveLidFromPhoneJid (phoneJid: string, contactName: string): Promise<void> {
+    try {
+      const userInfo = await this.client!.getUserInfo([phoneJid]);
+      if (userInfo && typeof userInfo === 'object') {
+        const info = userInfo as Record<string, any>;
+        const lidJid = info[phoneJid]?.lid_jid || info[phoneJid]?.lid;
+        
+        if (lidJid && isLidJid(lidJid)) {
+          const phoneNumber = extractPhoneNumber(phoneJid);
+          this.messageStore.upsertContactMapping(lidJid, phoneJid, phoneNumber, contactName);
+          console.error(`[WA] Resolved LID mapping: ${lidJid} ↔ ${phoneJid}`);
+        }
+      }
+    } catch (error) {
+      // Best-effort, don't throw
+      this.logger.error(`[WA] getUserInfo failed for LID resolution:`, (error as Error).message);
     }
   }
 
@@ -1164,6 +1241,17 @@ export class WhatsAppClient {
           timestamp,
           text?.substring(0, 100)
         );
+
+        // Store contact mapping if sending to a phone JID (best-effort, non-blocking)
+        if (!isGroupJid(jid) && isPhoneJid(jid)) {
+          const phoneNumber = extractPhoneNumber(jid);
+          if (phoneNumber) {
+            // Try to resolve LID asynchronously
+            this._resolveLidFromPhoneJid(jid, '').catch((err) => {
+              this.logger.error(`[WA] LID resolution failed on send:`, (err as Error).message);
+            });
+          }
+        }
       }
 
       return { id, timestamp };

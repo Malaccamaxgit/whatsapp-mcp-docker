@@ -275,6 +275,11 @@ function createAuthenticateHandler (
       };
     }
 
+    // TODO: Add country-code-specific length validation to catch unusual formats
+    // (e.g., +1 numbers should be 10 digits, +33 should be 9 digits, etc.)
+    // Current validation allows 7-15 digits which may accept invalid numbers.
+    // See: https://en.wikipedia.org/wiki/E.164#Country_codes_and_maximum_lengths
+
     const authRate = permissions.checkAuthRateLimit();
     if (!authRate.allowed) {
       audit.log('authenticate', 'rate_limited', { retryAfterSec: authRate.retryAfterSec }, false);

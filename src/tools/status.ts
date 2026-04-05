@@ -6,6 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { PermissionManager } from '../security/permissions.js';
 import type { MessageStore } from '../whatsapp/store.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
+import { formatTimestamp } from '../utils/timezone.js';
 
 export function registerStatusTools (
   server: McpServer,
@@ -66,7 +67,7 @@ export function registerStatusTools (
     text += `  Pending Approvals: ${stats.pendingApprovals}\n`;
 
     if (stats.lastSync) {
-      text += `  Last Message: ${new Date(stats.lastSync * 1000).toLocaleString()}`;
+      text += `  Last Message: ${formatTimestamp(stats.lastSync)}`;
     }
 
     return { content: [{ type: 'text', text }] };
