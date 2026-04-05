@@ -98,11 +98,36 @@ interface WaMessageEvent {
   message?: {
     conversation?: string;
     extendedTextMessage?: { text?: string };
-    imageMessage?: { mimetype?: string };
-    videoMessage?: { mimetype?: string };
+    imageMessage?: { mimetype?: string; caption?: string };
+    videoMessage?: { mimetype?: string; caption?: string };
     audioMessage?: { mimetype?: string };
-    documentMessage?: { mimetype?: string; fileName?: string; title?: string };
+    documentMessage?: { mimetype?: string; fileName?: string; title?: string; caption?: string };
     stickerMessage?: { mimetype?: string };
+    ephemeralMessage?: { message?: { conversation?: string; extendedTextMessage?: { text?: string } } };
+    viewOnceMessage?: { message?: { conversation?: string; extendedTextMessage?: { text?: string } } };
+    viewOnceMessageV2?: { message?: { conversation?: string; extendedTextMessage?: { text?: string } } };
+    viewOnceMessageV2Extension?: { message?: { conversation?: string } };
+    listResponseMessage?: { title?: string; singleSelectReply?: { selectedRowId?: string } };
+    buttonsResponseMessage?: { selectedButtonId?: string };
+    templateButtonReplyMessage?: { selectedId?: string };
+    pollCreationMessage?: { name?: string };
+    contactMessage?: Record<string, unknown>;
+    locationMessage?: Record<string, unknown>;
+    pollCreationMessageV2?: Record<string, unknown>;
+    pollCreationMessageV3?: Record<string, unknown>;
+    reactionMessage?: Record<string, unknown>;
+    listMessage?: Record<string, unknown>;
+    protocolMessage?: {
+      type?: number;
+      pollUpdateMessage?: {
+        pollCreationMessageKey?: { id?: string };
+        vote?: { selectedOption?: string; selectedOptions?: string[] };
+      };
+    };
+    pollUpdateMessage?: {
+      pollCreationMessageKey?: { id?: string };
+      vote?: { selectedOption?: string; selectedOptions?: string[] };
+    };
   };
   timestamp?: number;
   isFromMe?: boolean;
@@ -133,11 +158,15 @@ export interface StoredMessage {
   isFromMe: boolean;
   hasMedia: boolean;
   mediaType: string | null;
+  pollMetadata?: {
+    pollCreationMessageKey?: string;
+    voteOptions?: string[];
+  };
 }
 
 interface MediaInfo {
   type: string;
-  mimetype: string | undefined;
+  mimetype: string | undefined | null;
   filename: string | null;
 }
 
@@ -240,6 +269,8 @@ export class WhatsAppClient {
   _logoutReason: string | null;
   _reconnecting: boolean;
   _connectedAt: number | null;
+  _probeVerified: boolean;
+  _probeLastError: string | null;
 
   // Health monitoring
   _healthInterval: ReturnType<typeof setInterval> | null;
@@ -291,6 +322,8 @@ export class WhatsAppClient {
     this._logoutReason = null;
     this._reconnecting = false;
     this._connectedAt = null;
+    this._probeVerified = false;
+    this._probeLastError = null;
 
     // Health monitoring
     this._healthInterval = null;
@@ -477,6 +510,13 @@ export class WhatsAppClient {
       this._authInProgress = false;
       console.error('[WA] Connected as', jid);
 
+      // Run a lightweight probe to verify the Go WebSocket is actually usable
+      this._probeWebSocket().catch((err) => {
+        this._probeVerified = false;
+        this._probeLastError = (err as Error).message;
+        console.error('[WA] WebSocket probe failed:', (err as Error).message);
+      });
+
       // Notify any waiters for ready/authenticated state
       const readyWaiters = this._readyWaiters.splice(0);
       for (const resolve of readyWaiters) {resolve({ connected: true, jid });}
@@ -497,6 +537,8 @@ export class WhatsAppClient {
       this._connected = false;
       this.jid = null;
       this._logoutReason = reason || 'unknown';
+      this._probeVerified = false;
+      this._probeLastError = null;
       this._stopHealthCheck();
 
       const permanent = this._isPermanentLogout(reason);
@@ -680,6 +722,11 @@ export class WhatsAppClient {
     };
   }
 
+  /** Return the current WebSocket probe verification status for diagnostics. */
+  getProbeStatus (): { verified: boolean; lastError: string | null } {
+    return { verified: this._probeVerified, lastError: this._probeLastError };
+  }
+
   // ── Presence & Receipts ─────────────────────────────────────
 
   async _setupPresence (): Promise<void> {
@@ -826,34 +873,87 @@ export class WhatsAppClient {
       const rawMessage = evt.message || null;
       const mediaInfo = rawMessage ? this._extractMediaInfo(rawMessage) : null;
 
+      // Fix chatJid extraction: for group participant messages, remoteJID is the group JID.
+      // Without this, evt.from (sender JID) would be used as the chat JID, causing
+      // group messages to be misrouted to individual contact chats.
+      let chatJid: string | null = null;
+      if (evt.key?.participant && evt.key?.remoteJID) {
+        chatJid = evt.key.remoteJID;
+      } else {
+        chatJid = info?.chat || evt.chatJID || evt.key?.remoteJID || evt.from || null;
+      }
+
+      // Expand body extraction to cover all Go bridge field paths
+      const body: string =
+        evt.text ||
+        evt.body ||
+        rawMessage?.conversation ||
+        rawMessage?.extendedTextMessage?.text ||
+        rawMessage?.ephemeralMessage?.message?.conversation ||
+        rawMessage?.ephemeralMessage?.message?.extendedTextMessage?.text ||
+        rawMessage?.viewOnceMessage?.message?.conversation ||
+        rawMessage?.viewOnceMessage?.message?.extendedTextMessage?.text ||
+        rawMessage?.imageMessage?.caption ||
+        rawMessage?.videoMessage?.caption ||
+        rawMessage?.documentMessage?.caption ||
+        rawMessage?.listResponseMessage?.title ||
+        rawMessage?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+        rawMessage?.buttonsResponseMessage?.selectedButtonId ||
+        rawMessage?.templateButtonReplyMessage?.selectedId ||
+        rawMessage?.pollCreationMessage?.name ||
+        rawMessage?.pollUpdateMessage?.vote?.selectedOption ||
+        rawMessage?.pollUpdateMessage?.vote?.selectedOptions?.join(', ') ||
+        rawMessage?.protocolMessage?.pollUpdateMessage?.vote?.selectedOption ||
+        rawMessage?.protocolMessage?.pollUpdateMessage?.vote?.selectedOptions?.join(', ') ||
+        '';
+
       const msg: StoredMessage = {
         id:
           info?.id ||
           evt.id ||
           evt.key?.id ||
           `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        chatJid: info?.chat || evt.chatJID || evt.key?.remoteJID || evt.from || null,
+        chatJid,
         senderJid: info?.sender || evt.senderJID || evt.key?.participant || evt.from || null,
         senderName: info?.pushName || evt.pushName || evt.senderName || null,
-        body:
-          evt.text ||
-          evt.body ||
-          rawMessage?.conversation ||
-          rawMessage?.extendedTextMessage?.text ||
-          '',
-        // NOTE: if body is still empty after the above, enable DEBUG=client to log
-        // the raw event structure and identify the correct field for this message type.
+        body,
         timestamp: info?.timestamp || evt.timestamp || Math.floor(Date.now() / 1000),
         isFromMe: info?.isFromMe ?? evt.isFromMe ?? evt.key?.fromMe ?? false,
         hasMedia: Boolean(evt.mediaType || evt.hasMedia || mediaInfo),
-        mediaType: evt.mediaType || mediaInfo?.type || null
+        mediaType: evt.mediaType || mediaInfo?.type || null,
+        pollMetadata: undefined
       };
+
+      // Extract poll metadata for poll creation messages (after msg is defined)
+      if (rawMessage?.pollCreationMessage) {
+        const pollCreation = rawMessage.pollCreationMessage as Record<string, unknown>;
+        const options = (pollCreation.options as Array<{ optionName?: string }> | undefined) || [];
+        msg.pollMetadata = {
+          pollCreationMessageKey: msg.id,
+          voteOptions: options.map((opt) => opt.optionName || '').filter(Boolean)
+        };
+      }
 
       if (!msg.body && !msg.hasMedia) {
         log('Empty body event (isFromMe=%s, isHistorySync=%s): %s', String(msg.isFromMe), String(isHistorySync), JSON.stringify(evt));
       }
 
       this.messageStore.addMessage(msg);
+
+      // Store poll vote if this is a poll update message
+      if (rawMessage?.pollUpdateMessage || rawMessage?.protocolMessage?.pollUpdateMessage) {
+        const pollUpdate = rawMessage.pollUpdateMessage || rawMessage.protocolMessage?.pollUpdateMessage;
+        if (pollUpdate?.pollCreationMessageKey?.id) {
+          this.messageStore.addPollVote({
+            pollMessageId: pollUpdate.pollCreationMessageKey.id,
+            voterJid: msg.senderJid || '',
+            voterName: msg.senderName || null,
+            voteOptions: pollUpdate.vote?.selectedOptions || (pollUpdate.vote?.selectedOption ? [pollUpdate.vote.selectedOption] : []),
+            timestamp: msg.timestamp,
+            chatJid: msg.chatJid || ''
+          });
+        }
+      }
 
       if (mediaInfo && msg.id) {
         this.messageStore.updateMediaInfo(msg.id, {
@@ -1065,7 +1165,29 @@ export class WhatsAppClient {
   // ── Public API ───────────────────────────────────────────────
 
   isConnected (): boolean {
-    return this._connected && Boolean(this.jid);
+    return this._connected && Boolean(this.jid) && this._probeVerified;
+  }
+
+  /**
+   * Perform a lightweight RPC call to verify the Go WebSocket bridge is
+   * actually responsive. This prevents false-positive connected states where
+   * the 'connected' event fired but the Go subprocess isn't ready.
+   */
+  async _probeWebSocket (): Promise<void> {
+    try {
+      const result = await this._withTimeout(
+        Promise.resolve(this.client!.getContact(this.jid!)),
+        8000,
+        'ws-probe'
+      );
+      this._probeVerified = result !== null && result !== undefined;
+      this._probeLastError = null;
+      console.error('[WA] WebSocket probe:', this._probeVerified ? 'PASSED' : 'FAILED (null response)');
+    } catch (err) {
+      this._probeVerified = false;
+      this._probeLastError = (err as Error).message;
+      throw err;
+    }
   }
 
   /** True if a session was loaded from disk at startup or is currently authenticated. */
@@ -1116,7 +1238,21 @@ export class WhatsAppClient {
     return buf.toString('base64');
   }
 
-  async requestPairingCode (phoneNumber: string): Promise<PairingCodeResult> {
+  async requestPairingCode (phoneNumber: string, force = false): Promise<PairingCodeResult> {
+    // When not forcing, treat a missing probe verification as "not truly connected"
+    // so that a broken session can be recovered without requiring a container restart.
+    if (this.isConnected() && !force) {
+      return { alreadyConnected: true, jid: this.jid! };
+    }
+
+    // Force mode: if probe hasn't been verified, reset the connection state
+    // to allow re-pairing even when isConnected() superficially returns true.
+    if (force && this._connected && !this._probeVerified) {
+      console.error('[WA] Force re-pairing: resetting broken connection state');
+      this._connected = false;
+      this._pendingPairResolve = null;
+    }
+
     if (this.isConnected()) {
       return { alreadyConnected: true, jid: this.jid! };
     }
@@ -1291,24 +1427,59 @@ export class WhatsAppClient {
 
   _extractMediaInfo (message: NonNullable<WaMessageEvent['message']>): MediaInfo | null {
     if (!message) {return null;}
-    if (message.imageMessage) {
-      return { type: 'image', mimetype: message.imageMessage.mimetype, filename: null };
+
+    // Check nested message wrappers (ephemeralMessage, viewOnceMessage)
+    const nestedMessage = message.ephemeralMessage?.message
+      || message.viewOnceMessage?.message
+      || message.viewOnceMessageV2?.message
+      || message.viewOnceMessageV2Extension?.message
+      || null;
+
+    // Type assertion: nestedMessage has the same structure as message.message
+    const msg = (nestedMessage || message) as typeof message;
+
+    if (msg.imageMessage) {
+      return { type: 'image', mimetype: msg.imageMessage.mimetype, filename: null };
     }
-    if (message.videoMessage) {
-      return { type: 'video', mimetype: message.videoMessage.mimetype, filename: null };
+    if (msg.videoMessage) {
+      return { type: 'video', mimetype: msg.videoMessage.mimetype, filename: null };
     }
-    if (message.audioMessage) {
-      return { type: 'audio', mimetype: message.audioMessage.mimetype, filename: null };
+    if (msg.audioMessage) {
+      return { type: 'audio', mimetype: msg.audioMessage.mimetype, filename: null };
     }
-    if (message.documentMessage) {
+    if (msg.documentMessage) {
       return {
         type: 'document',
-        mimetype: message.documentMessage.mimetype,
-        filename: message.documentMessage.fileName || message.documentMessage.title || null
+        mimetype: msg.documentMessage.mimetype,
+        filename: msg.documentMessage.fileName || msg.documentMessage.title || null
       };
     }
-    if (message.stickerMessage) {
-      return { type: 'sticker', mimetype: message.stickerMessage.mimetype, filename: null };
+    if (msg.stickerMessage) {
+      return { type: 'sticker', mimetype: msg.stickerMessage.mimetype, filename: null };
+    }
+    if (msg.contactMessage) {
+      return { type: 'contact', mimetype: undefined, filename: null };
+    }
+    if (msg.locationMessage) {
+      return { type: 'location', mimetype: undefined, filename: null };
+    }
+    if (msg.pollCreationMessage) {
+      return { type: 'poll', mimetype: undefined, filename: null };
+    }
+    if (msg.pollCreationMessageV2) {
+      return { type: 'poll', mimetype: undefined, filename: null };
+    }
+    if (msg.pollCreationMessageV3) {
+      return { type: 'poll', mimetype: undefined, filename: null };
+    }
+    if (msg.reactionMessage) {
+      return { type: 'reaction', mimetype: undefined, filename: null };
+    }
+    if (msg.listMessage) {
+      return { type: 'list', mimetype: undefined, filename: null };
+    }
+    if (msg.listResponseMessage) {
+      return { type: 'list_response', mimetype: undefined, filename: null };
     }
     return null;
   }
@@ -1562,6 +1733,8 @@ export class WhatsAppClient {
     this._connected = false;
     this._authInProgress = false;
     this._connectCalled = false;
+    this._probeVerified = false;
+    this._probeLastError = null;
     // Delete session file — _cleanupSession also clears jid and _sessionExists
     await this._cleanupSession();
   }

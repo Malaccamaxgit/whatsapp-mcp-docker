@@ -77,6 +77,8 @@ export class MessageStore {
   private _getContactMappingByPhone!: Database.Statement;
   private _getContactMappingByPhoneJid!: Database.Statement;
   private _getAllContactMappings!: Database.Statement;
+  private _insertPollVote!: Database.Statement;
+  private _getPollVotes!: Database.Statement;
 
   constructor (dbPath?: string) {
     this.dbPath = dbPath || process.env.STORE_DB_PATH || '/data/store/messages.db';
@@ -142,6 +144,31 @@ export class MessageStore {
       CREATE INDEX IF NOT EXISTS idx_approvals_status
       ON approvals(status, created_at DESC);
     `);
+
+    // Add poll_votes table for tracking poll votes
+    try {
+      this.db!.exec(`
+        CREATE TABLE IF NOT EXISTS poll_votes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          poll_message_id TEXT NOT NULL,
+          voter_jid TEXT NOT NULL,
+          voter_name TEXT,
+          vote_option TEXT NOT NULL,
+          timestamp INTEGER NOT NULL,
+          chat_jid TEXT NOT NULL,
+          created_at INTEGER DEFAULT (unixepoch())
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_poll_votes_poll_id
+        ON poll_votes(poll_message_id);
+
+        CREATE INDEX IF NOT EXISTS idx_poll_votes_voter
+        ON poll_votes(voter_jid, chat_jid);
+      `);
+      console.error('[STORE] poll_votes table created');
+    } catch (error: unknown) {
+      console.error('[STORE] poll_votes migration note:', (error as Error).message);
+    }
 
     // Drop FTS triggers — we manage FTS from application code so that
     // plaintext goes into the search index even when bodies are encrypted.
@@ -229,6 +256,19 @@ export class MessageStore {
     this._updateApproval = this.db!.prepare(`
       UPDATE approvals SET status = ?, response_text = ?, responded_at = ?
       WHERE id = ? AND status = 'pending'
+    `);
+
+    // Poll vote prepared statements
+    this._insertPollVote = this.db!.prepare(`
+      INSERT INTO poll_votes (poll_message_id, voter_jid, voter_name, vote_option, timestamp, chat_jid)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    this._getPollVotes = this.db!.prepare(`
+      SELECT voter_jid, voter_name, vote_option, timestamp
+      FROM poll_votes
+      WHERE poll_message_id = ? AND chat_jid = ?
+      ORDER BY timestamp ASC
     `);
 
     // Contact mapping prepared statements
@@ -523,6 +563,10 @@ export class MessageStore {
     isFromMe: boolean;
     hasMedia: boolean;
     mediaType: string | null;
+    pollMetadata?: {
+      pollCreationMessageKey?: string;
+      voteOptions?: string[];
+    };
   }): void {
     const plaintextBody = msg.body || '';
     const preview = msg.body ? msg.body.substring(0, 100) : msg.hasMedia ? '[media]' : '';
@@ -731,6 +775,61 @@ export class MessageStore {
     `
       )
       .run(Date.now());
+  }
+
+  // ── Poll Vote Operations ──────────────────────────────────────
+
+  /**
+   * Add a poll vote to the database.
+   * @param pollMessageId - The ID of the original poll creation message
+   * @param voterJid - The JID of the voter
+   * @param voterName - The display name of the voter (optional)
+   * @param voteOptions - Array of selected option(s)
+   * @param timestamp - Unix timestamp of the vote
+   * @param chatJid - The JID of the chat where the poll was sent
+   */
+  public addPollVote ({
+    pollMessageId,
+    voterJid,
+    voterName,
+    voteOptions,
+    timestamp,
+    chatJid
+  }: {
+    pollMessageId: string;
+    voterJid: string;
+    voterName: string | null;
+    voteOptions: string[];
+    timestamp: number;
+    chatJid: string;
+  }): void {
+    // Store each vote option as a separate row for easier aggregation
+    for (const option of voteOptions) {
+      if (!option.trim()) {continue;}
+      this._insertPollVote.run(pollMessageId, voterJid, voterName, option, timestamp, chatJid);
+    }
+  }
+
+  /**
+   * Get all votes for a specific poll message.
+   * @param pollMessageId - The ID of the poll creation message
+   * @param chatJid - The JID of the chat where the poll was sent
+   * @returns Array of poll votes with voter information
+   */
+  public getPollVotes (pollMessageId: string, chatJid: string): Array<{
+    voter_jid: string;
+    voter_name: string | null;
+    vote_option: string;
+    timestamp: number;
+  }> {
+    return this._decryptRows(
+      this._getPollVotes.all(pollMessageId, chatJid)
+    ) as Array<{
+      voter_jid: string;
+      voter_name: string | null;
+      vote_option: string;
+      timestamp: number;
+    }>;
   }
 
   // ── Contact / Chat Lookup ────────────────────────────────────
@@ -1116,6 +1215,47 @@ export class MessageStore {
 
     console.error(`[STORE] Migration complete: ${migrated} mappings created, ${skipped} skipped`);
     return { migrated, skipped };
+  }
+
+  /**
+   * Repair misrouted chats where @lid JIDs have is_group=0 but should be is_group=1.
+   * This can happen when group participant messages were incorrectly routed using
+   * the sender JID instead of the group JID.
+   * @returns Object with repair statistics
+   */
+  public repairMisroutedChats (): { repaired: number; scanned: number } {
+    console.error('[STORE] Starting chat repair migration...');
+    
+    // Find @lid JIDs that have is_group=0 but whose messages suggest they belong to a group
+    // A @lid JID is typically a group participant, not a DM contact
+    const lidChatsAsNonGroup = this.db!.prepare(`
+      SELECT jid, name FROM chats
+      WHERE is_group = 0 AND jid LIKE '%@lid'
+    `).all() as Array<{ jid: string; name: string | null }>;
+
+    let repaired = 0;
+    const scanned = lidChatsAsNonGroup.length;
+
+    for (const chat of lidChatsAsNonGroup) {
+      // Check if this chat has messages from multiple different senders
+      // (a strong indicator it's actually a group chat)
+      const distinctSenders = this.db!.prepare(`
+        SELECT COUNT(DISTINCT sender_jid) as cnt FROM messages
+        WHERE chat_jid = ? AND sender_jid IS NOT NULL
+      `).get(chat.jid) as { cnt: number };
+
+      // If there are 3+ distinct senders, this is almost certainly a group
+      if (distinctSenders.cnt >= 3) {
+        this.db!.prepare(
+          'UPDATE chats SET is_group = 1 WHERE jid = ? AND is_group = 0'
+        ).run(chat.jid);
+        repaired++;
+        console.error(`[STORE] Repaired: ${chat.jid} -> is_group=1 (${distinctSenders.cnt} senders)`);
+      }
+    }
+
+    console.error(`[STORE] Chat repair complete: ${repaired} chats repaired out of ${scanned} scanned`);
+    return { repaired, scanned };
   }
 
   public close (): void {
