@@ -67,6 +67,12 @@ jobs:
         echo "Building tester-container..."
         docker compose --profile test build tester-container
 
+    - name: Pre-create .test-data directory
+      run: |
+        echo "Creating .test-data directory with write permissions..."
+        mkdir -p .test-data
+        chmod 777 .test-data
+
     - name: Run tests in container
       run: |
         echo "Running unit and integration tests inside tester-container..."
