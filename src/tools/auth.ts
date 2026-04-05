@@ -330,6 +330,7 @@ function createAuthenticateHandler (
       if ('qrCode' in result && result.qrCode) {
         permissions.recordAuthAttempt(true);
         audit.log('authenticate', 'qr_fallback', { number: validation.number });
+        const containerName = process.env.HOSTNAME || 'whatsapp-mcp-docker';
 
         const content: McpContent[] = [];
         if (result.qrImageBase64) {
@@ -352,20 +353,14 @@ function createAuthenticateHandler (
         content.push({
           type: 'text',
           text:
-            'Scan this QR code with WhatsApp > Linked Devices > Link a Device.\n' +
+            'QR code returned as an image above. Scan it with WhatsApp > Linked Devices > Link a Device.\n' +
             'QR codes expire in about 20 seconds. Call authenticate again for a fresh one.\n' +
             'Once linked, the session persists across container restarts.\n\n' +
-            'Use get_connection_status to check if the scan succeeded.\n\n' +
-            '--- TERMINAL USERS ---\n' +
-            'Copy the FULL data URL below and paste it into your browser address bar:\n\n' +
-            `data:image/png;base64,${result.qrImageBase64}\n\n` +
+            'Use get_connection_status to check if the scan succeeded.' +
             (qrFilePath
-              ? 'If the URL above is truncated in your terminal, open the container QR file instead:\n' +
-                `  ${qrFilePath}\n` +
-                'Example copy command from host:\n' +
-                '  docker cp whatsapp-mcp-docker:/data/sessions/qr-code.png ./qr-code.png'
-              : 'If the URL above is truncated in your terminal, fetch the file directly from the container:\n' +
-                '  docker cp whatsapp-mcp-docker:/data/sessions/qr-code.png ./qr-code.png')
+              ? '\n\nFallback (if your client cannot display images): run on the host:\n' +
+                `  docker cp ${containerName}:${qrFilePath} ./qr-code.png`
+              : '')
         });
 
         return { content };
