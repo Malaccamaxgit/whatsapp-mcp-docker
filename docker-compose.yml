@@ -41,6 +41,8 @@ services:
       - AUTH_WAIT_FOR_LINK=true
       - AUTH_LINK_TIMEOUT_SEC=120
       - AUTH_POLL_INTERVAL_SEC=5
+      # Delay before attempting pairing code to allow Go bridge stabilization (default 8000ms)
+      - AUTH_READY_DELAY_MS=8000
 
       # ── Timezone ─────────────────────────────────────────
       # Set your local timezone so container logs and timestamps match your clock.

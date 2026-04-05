@@ -345,29 +345,11 @@ function createAuthenticateHandler (
           text:
             'Scan this QR code with WhatsApp > Linked Devices > Link a Device.\n\n' +
             'QR codes expire in ~20 seconds. If the code has expired, call authenticate again for a fresh one.\n' +
-            'Once linked, the session persists across container restarts.' +
-            (shouldWait
-              ? `\n\nWaiting up to ${waitOpts.timeoutSec}s, checking every ${waitOpts.pollIntervalMs / 1000}s — ` +
-                'this response will update when linked or when the wait ends.'
-              : '')
+            'Once linked, the session persists across container restarts.\n\n' +
+            'Note: QR mode returns immediately — use get_connection_status to check if the scan succeeded.\n\n' +
+            'Terminal Mode: Open this URL in your browser to view the QR code:\n' +
+            `data:image/png;base64,${result.qrImageBase64}`
         });
-
-        if (shouldWait) {
-          const wait = await waitForDeviceLink(waClient, waitOpts);
-          audit.log(
-            'authenticate',
-            wait.ok ? 'link_detected' : 'link_wait_timeout',
-            {
-              mode: 'qr',
-              elapsedSec: wait.elapsedSec
-            },
-            wait.ok
-          );
-          const textBlock = content.find((c) => c.type === 'text');
-          if (textBlock && textBlock.text) {
-            textBlock.text = appendWaitResult(textBlock.text, wait);
-          }
-        }
 
         return { content };
       }

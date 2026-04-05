@@ -1274,10 +1274,15 @@ export class WhatsAppClient {
       await this._connectWithRetry();
       this._connectCalled = true;
       console.error('[WA] WebSocket connect() completed');
-      // Allow the connection to stabilize before calling pairCode — the Go bridge
-      // needs a moment after connect() before it can accept pairing requests.
-      await new Promise((r) => setTimeout(r, 5000));
     }
+
+    // Wait for the connection to stabilize and for AUTH_READY_DELAY_MS to ensure
+    // the Go bridge is ready to accept pairing requests. This improves pairing
+    // code success rate by giving the WebSocket time to fully initialize.
+    const authReadyDelayMs = parseInt(process.env.AUTH_READY_DELAY_MS || '8000', 10);
+    const stabilizedDelay = Math.max(5000, authReadyDelayMs);
+    console.error(`[WA] Waiting ${stabilizedDelay}ms for authentication readiness (Go bridge stabilization)...`);
+    await new Promise((r) => setTimeout(r, stabilizedDelay));
 
     // If a session exists on disk, the connected event may fire shortly after connect().
     // Wait briefly to catch session restores before attempting a new pairing.
@@ -1292,56 +1297,75 @@ export class WhatsAppClient {
     const digits = phoneNumber.replace(/[^0-9]/g, '');
     console.error(`[WA] Requesting pairing code for ${digits}`);
 
-    try {
-      const code = await this.client!.pairCode(digits);
+    // Retry logic for pairing code: max 2 attempts with 3s delays between retries
+    const maxPairingAttempts = 2;
+    const pairingRetryDelayMs = 3000;
+    let lastPairingError: Error | undefined;
 
-      let pairingTimeoutId: ReturnType<typeof setTimeout>;
-      const waitForConnection = new Promise<WaitReadyResult>((resolve) => {
-        let settled = false;
-        const onConnected = () => finish({ connected: true });
-        const finish = (result: WaitReadyResult) => {
-          if (settled) {return;}
-          settled = true;
-          clearTimeout(pairingTimeoutId);
-          if (this._pendingPairResolve === onConnected) {
-            this._pendingPairResolve = null;
-          }
-          resolve(result);
-        };
-        this._pendingPairResolve = onConnected;
-        pairingTimeoutId = setTimeout(() => {
-          if (this._pendingPairResolve === onConnected) {
-            this._pendingPairResolve = null;
-          }
-          finish({ connected: false, jid: undefined });
-        }, 120_000);
-      });
-
-      return { alreadyConnected: false, code, waitForConnection };
-    } catch (pairErr) {
-      console.error(`[WA] Pairing code failed (${(pairErr as Error).message}), switching to QR code mode`);
-
-      // Switch to QR mode: close current unauthenticated connection, set up QR channel,
-      // then reconnect. getQRChannel() must be called before connect() for QR events to flow.
+    for (let attempt = 1; attempt <= maxPairingAttempts; attempt++) {
       try {
-        await this.client!.disconnect();
-        await this.client!.getQRChannel();
-        await this._connectWithRetry();
-        console.error('[WA] Switched to QR code mode — waiting for QR code...');
-      } catch (switchErr) {
-        console.error('[WA] Failed to switch to QR mode:', (switchErr as Error).message);
-      }
+        const code = await this.client!.pairCode(digits);
 
-      // Wait for a fresh QR code from the Go bridge (up to 30 seconds)
-      const qrCode = await this.waitForFreshQR(30000);
-      if (qrCode) {
-        const qrImageBase64 = await this.generateQrImage(qrCode);
-        return { alreadyConnected: false, qrCode, qrImageBase64 };
-      }
+        let pairingTimeoutId: ReturnType<typeof setTimeout>;
+        const waitForConnection = new Promise<WaitReadyResult>((resolve) => {
+          let settled = false;
+          const onConnected = () => finish({ connected: true });
+          const finish = (result: WaitReadyResult) => {
+            if (settled) {return;}
+            settled = true;
+            clearTimeout(pairingTimeoutId);
+            if (this._pendingPairResolve === onConnected) {
+              this._pendingPairResolve = null;
+            }
+            resolve(result);
+          };
+          this._pendingPairResolve = onConnected;
+          pairingTimeoutId = setTimeout(() => {
+            if (this._pendingPairResolve === onConnected) {
+              this._pendingPairResolve = null;
+            }
+            finish({ connected: false, jid: undefined });
+          }, 120_000);
+        });
 
-      this._authInProgress = false;
-      throw pairErr;
+        return { alreadyConnected: false, code, waitForConnection };
+      } catch (pairErr) {
+        lastPairingError = pairErr as Error;
+        console.error(`[WA] Pairing code attempt ${attempt}/${maxPairingAttempts} failed: ${(pairErr as Error).message}`);
+        
+        if (attempt < maxPairingAttempts) {
+          console.error(`[WA] Retrying pairing code in ${pairingRetryDelayMs}ms...`);
+          await new Promise((r) => setTimeout(r, pairingRetryDelayMs));
+        } else {
+          console.error(`[WA] All pairing attempts failed, switching to QR code mode`);
+        }
+      }
     }
+
+    // All retry attempts exhausted, fall through to QR mode
+    const pairErr = lastPairingError!;
+    console.error(`[WA] Pairing code failed (${(pairErr as Error).message}), switching to QR code mode`);
+
+    // Switch to QR mode: close current unauthenticated connection, set up QR channel,
+    // then reconnect. getQRChannel() must be called before connect() for QR events to flow.
+    try {
+      await this.client!.disconnect();
+      await this.client!.getQRChannel();
+      await this._connectWithRetry();
+      console.error('[WA] Switched to QR code mode — waiting for QR code...');
+    } catch (switchErr) {
+      console.error('[WA] Failed to switch to QR mode:', (switchErr as Error).message);
+    }
+
+    // Wait for a fresh QR code from the Go bridge (up to 30 seconds)
+    const qrCode = await this.waitForFreshQR(30000);
+    if (qrCode) {
+      const qrImageBase64 = await this.generateQrImage(qrCode);
+      return { alreadyConnected: false, qrCode, qrImageBase64 };
+    }
+
+    this._authInProgress = false;
+    throw pairErr;
   }
 
   async sendMessage (jid: string, text: string): Promise<{ id: string | undefined; timestamp: number }> {
