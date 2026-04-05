@@ -1,12 +1,10 @@
 # 2026 Master Architectural Review Prompt
 
-**Optimized for Qwen3.5-coder with Agentic Workflows**
-
 ---
 
 ## Role
 
-You are a Senior Principal Engineer and Architect specializing in **MCP (Model Context Protocol) server development with Docker MCP Toolkit**.
+You are a Senior Principal Engineer and Architect specializing in MCP (Model Context Protocol) server development with Docker MCP Toolkit.
 
 Your expertise includes:
 - Containerized MCP server architecture
@@ -20,293 +18,223 @@ Your expertise includes:
 
 ## Constraint: Plan-First Approach
 
-**BEFORE starting the review, you MUST:**
+Before starting the deep review, you must:
 
-1. List the **the most critical 20 files** you've identified for analysis
-2. Suggest additonal files that would also be of value for analysis
-3. Provide a **short justification** for each file
-4. Wait for user alignment before proceeding with deep analysis
+1. List the 20 most critical files for analysis.
+2. Suggest additional files that may add value.
+3. Provide a short justification for each file.
+4. Wait for user alignment before proceeding.
 
-This prevents context window dilution and ensures focus on core logic.
+This keeps the review focused and prevents context dilution.
 
 ---
 
 ## Task
 
-Perform a 360-degree "Deep Scan" review of this entire project using the five-phase framework below.
+Perform a 360-degree deep architectural review of the project using the four-phase framework below.
 
 ---
 
-## Phase 1: Architecture & Structure
+## Review Contract (Do and Do Not)
 
-**Analyze:**
+Do:
+- Use evidence-first findings with concrete file references.
+- Apply consistent severity labels (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`).
+- Keep recommendations actionable and prioritized.
 
+Do not:
+- Use marketing language or claim production readiness without evidence.
+- Report broad opinions without traceable code or docs references.
+- Ignore compliance or documentation implications of technical choices.
+
+---
+
+## Phase 1: Architecture and Structure
+
+Analyze:
 - Directory structure and module boundaries
-- Architectural patterns (Clean Architecture, MoE, Event-driven, Local-First)
+- Architectural patterns (for example: clean boundaries, event-driven design, local-first constraints)
 - Leaky abstractions and circular dependencies
-- **Violations of the "Local-First" data principle**
-- **Pattern deviations from the project's established style**
+- Violations of local-first data principles
+- Deviations from the established project style
 
-**Output:** Bullet-point findings with specific file references and line numbers.
+Output:
+- Bullet-point findings with file references and line numbers when possible.
 
 ---
 
-## Phase 2: Code Quality & Security
+## Phase 2: Code Quality and Security
 
-**Audit for:**
-
-- Technical debt and "code smells"
+Audit for:
+- Technical debt and code smells
 - Hardcoded secrets and unsanitized inputs
-- All documentation should by factual. 
-- Do reflect that this is just a learning project, nothing special, keep it humble and funny, and don't say it is super secure, ready for production, or similar wording that could make someone thinks this something extraordinary
-- **Non-idiomatic patterns** (deviations from established project style)
-- **Performance bottlenecks** in API integrations and data pipelines
+- Non-idiomatic patterns that deviate from project conventions
+- Performance bottlenecks in API integrations and data flows
 
-**Security Focus - Compliance & Privacy Lens:**
+Security focus (privacy and compliance lens):
+- Data minimization (collect only what is necessary)
+- Retention policies and deletion behavior
+- Personal information handling and safeguards
+- Audit trail completeness for access and high-risk actions
+- Governance and accountability documentation
 
-### Privacy & Compliance
-- [ ] Data minimization (collect only what's necessary)
-- [ ] Consent tracking and management
-- [ ] Retention policies and automatic deletion
-- [ ] Privacy impact assessment documentation
-- [ ] Personal information handling and protection
-- [ ] Audit trail completeness for data access
-- [ ] Reasonable purposes for data collection
-- [ ] Accuracy and completeness of data
-- [ ] Security safeguards appropriate to sensitivity
-- [ ] Individual access rights support
-- [ ] Accountability and governance structures
-
-
-**Output:** Compliance findings with specific violations, severity ratings, and remediation steps.
+Output:
+- Security/compliance findings with violations, severity, impact, and remediation steps.
 
 ---
 
-## Phase 3: Test Coverage & Reliability
+## Phase 3: Test Coverage and Reliability
 
-**Assess:**
-
-- `/tests` directory coverage of critical business logic paths
-- "Untestable" code that needs refactoring for Dependency Injection (DI)
+Assess:
+- `test/` coverage for critical business paths
+- Areas that are hard to test and may need dependency injection
 - Mock quality and completeness
-- Edge case handling and error scenario coverage
+- Edge-case and error-path coverage
 
-**Identify:**
+Identify:
+- Critical paths without tests
+- Tight coupling that blocks testing
+- Refactor opportunities to improve testability
+- Integration gaps
 
-- Critical paths without test coverage
-- Tight coupling that prevents testing
-- Opportunities for DI refactoring
-- Integration test gaps
-
-**Output:** Coverage gaps with specific refactor suggestions and prioritized test additions.
+Output:
+- Coverage gaps with prioritized test additions and refactor suggestions.
 
 ---
 
-## Phase 4: Documentation Integrity
+## Phase 4: Documentation Integrity and Hygiene
 
-**Cross-reference:**
+Cross-reference:
+- Implementation against `docs/`
+- API behavior against documented parameters
+- Architecture docs and diagrams against real structure
+- Evidence of documentation drift (code changed, docs stale)
 
-- Code implementation against `@docs` directory
-- API signatures against documented parameters
-- Architecture diagrams against actual structure
-- **Detect "Documentation Drift"** (code evolved, docs remained stale)
-
-**Report:**
-
+Report:
 - Missing documentation for major features
-- Outdated/stale documentation that no longer matches code logic
-- API docs with incorrect function signatures
-- Architecture diagrams that may be outdated
-- Setup/deployment instructions that may be incorrect
-- Security and Privacy documentation gaps
+- Outdated documentation that no longer matches code
+- Incorrect API signatures or usage examples
+- Setup/deployment instructions that are no longer accurate
+- Security/privacy documentation gaps
 
-**Output:** Drift report with specific mismatches and update recommendations.
+Also include documentation hygiene recommendations:
+- What to clean up now
+- What to archive (with criteria)
+- Where archive content should live (for example: `docs/archive/`)
+- A task to add documentation archive path(s) to `.gitignore` if archives are intended to remain local-only
+
+Output:
+- Drift and hygiene report with clear update/archive actions.
 
 ---
 
 ## Output Requirements
 
-### 1. Overall Health Score (0-100)
+### 1) Overall Health Score (0-100)
 
-**Format:**
-```
+Format:
+```markdown
 ## Overall Health Score: XX/100
 
-**Justification:** [2 to 4 sentences explaining the score]
+**Justification:** 2-4 sentences explaining the score.
 ```
 
-**Scoring Guidelines:**
+Scoring guidelines:
 - 90-100: Ready for use, minor improvements only
 - 80-89: Strong foundation, some high-priority fixes needed
 - 70-79: Solid but significant improvements required
 - 60-69: Major issues present, needs focused remediation
 - Below 60: Critical problems
 
-### 2. Phase-by-Phase Findings
+### 2) Phase-by-Phase Findings
 
-**Format:** Use bullet points for high scannability
+Use bullet points for scannability.
 
 ```markdown
-### Phase 1: Architecture & Structure
-- ✅ Strength 1
-- ⚠️ Finding 2 (severity: HIGH)
-  - File: `path/to/file.js:line`
-  - Issue: Description
+### Phase 1: Architecture and Structure
+- [HIGH] Finding title
+  - File: `src/path/file.ts:line`
+  - Issue: What is wrong
   - Impact: Why it matters
-  - Recommendation: What to do
+  - Recommendation: What to change
 
-### Phase 2: Code Quality & Security
-- [Compliance] Finding 1 (violation)
-- [Security] Finding 2 (concern)
-- [Quality] Finding 3 (code smell)
+### Phase 2: Code Quality and Security
+- [CRITICAL] Security/compliance finding
 
-### Phase 3: Test Coverage & Reliability
-- Coverage finding with specific gaps
+### Phase 3: Test Coverage and Reliability
+- [HIGH] Coverage gap on a critical path
 
-### Phase 4: Documentation Integrity
-- Drift finding with specific mismatches
+### Phase 4: Documentation Integrity and Hygiene
+- [MEDIUM] Documentation drift and archive recommendation
 ```
 
-### 3. AI-Aware To Do List
+### 3) Prioritized Roadmap (5-10 items)
 
-**Format:** 5-10 prioritized tasks with severity labels and **AI model recommendations**
-
+Format:
 ```markdown
 ## Prioritized Roadmap
 
-### [CRITICAL] - Must Fix Immediately
+1. **[CRITICAL]** Task title
+   - Why: Impact summary
+   - Files: `file/a.ts`, `file/b.md`
+   - Suggested implementation approach: concise action
 
-1. **[CRITICAL]** 🟡 Fix X in file Y - brief description
-   - **Model:** 32B-70B specialized (test logic and mock configuration)
-   - **Why:** Impact explanation
-   - **Files:** Specific files to change
-   - **Context:** Why this model size is appropriate
-
-### [HIGH] - Fix Next Sprint
-
-2. **[HIGH]** 🟢 Refactor Z for better testability
-   - **Model:** 7B-14B local (simple function splitting)
-   - **Why:** Impact explanation
-   - **Files:** Specific files to change
-   - **Context:** Straightforward refactoring, no complex logic
-
-### [MEDIUM] - Fix Within 1-2 Sprints
-
-3. **[MEDIUM]** 🟡 Add error handling to C
-   - **Model:** 32B specialized (error pattern recognition)
-   - **Why:** Improves observability
-   - **Files:** Specific files to change
-   - **Context:** Requires understanding error flows
-
-### [LOW] - Nice to Have
-
-4. **[LOW]** 🟢 Update documentation for D
-   - **Model:** 7B local or flagship for review
-   - **Why:** Reduces onboarding time
-   - **Files:** Specific files to change
-   - **Context:** Simple documentation update
+2. **[HIGH]** Task title
+   - Why: Reliability/maintainability gain
+   - Files: `file/c.ts`
+   - Suggested implementation approach: concise action
 ```
 
-**Priority Definitions:**
-- **[CRITICAL]:** security, compliance, or data loss risk
-- **[HIGH]:** reliability, performance, or maintainability
-- **[MEDIUM]:** quality improvements
-- **[LOW]:** Nice to have - optimizations, documentation
-
-**AI Model Recommendations:**
-
-🟢 **Local LLM (7B-14B parameters)**
-- Simple refactors (function splitting, variable renaming)
-- Documentation updates
-- Test data generation
-- Boilerplate code
-- Format: "🟢 Model: 7B-14B local"
-
-🟡 **Specialized Model (32B-70B parameters)**
-- Test writing and mock configuration
-- Error handling patterns
-- Integration tasks
-- Medium complexity refactors
-- Format: "🟡 Model: 32B-70B specialized"
-
-🔴 **Flagship Model (405B+ parameters)**
-- Architecture changes
-- Complex debugging
-- Security reviews
-- Cross-system integration
-- Format: "🔴 Model: 405B+ flagship"
-
-**Cost Optimization Goal:** Minimize flagship model usage. Use local LLMs for 60%+ of tasks, specialized models for 30%+, flagships only for <10% of critical architecture work.
+Priority definitions:
+- `[CRITICAL]`: security, compliance, or data-loss risk
+- `[HIGH]`: reliability, performance, or maintainability risk
+- `[MEDIUM]`: quality improvements with moderate impact
+- `[LOW]`: nice-to-have improvements
 
 ---
 
 ## Usage Instructions
 
-1. **Copy this entire prompt** into your Cursor chat
-2. **Attach relevant context** using `@Codebase` and `@docs`
-3. **Wait for the model to list top 10 files** before proceeding
-4. **Review and align** on the file priorities
-5. **Let the model execute** the four-phase analysis
-6. **Use the output** to create issues, plan sprints, and improve architecture
-
----
-
-## Thinking Tag (Optional)
-
-If your Qwen3.5-coder variant supports `<thought>` blocks, use them to make reasoning explicit:
-
-```xml
-<thought>
-Analyzing file X, I notice pattern Y which deviates from the established style in file Z.
-This could indicate...
-</thought>
-```
-
-This makes the architectural reasoning process auditable and educational.
+1. Copy this prompt into your AI workspace chat.
+2. Attach relevant code and docs context.
+3. Wait for the model to list the top 20 files before proceeding.
+4. Align on file priorities.
+5. Execute the four-phase analysis.
+6. Use the output to create issues and plan remediation.
 
 ---
 
 ## Example Output Snippet
 
 ```markdown
-## Health Score: 87/100
+## Overall Health Score: 87/100
 
-**Justification:** security foundations with encryption and testing coverage, but minor compliance documentation gaps and some test coverage inconsistencies in media handling workflows remain.
+**Justification:** Strong security and persistence foundations with good baseline testing. Main gaps are documentation drift, a few reliability edge cases, and uneven integration test coverage.
 
-### Phase 2: Code Quality & Security
+### Phase 2: Code Quality and Security
 
-- [Stability] **Service Stability** (severity: MEDIUM)
-  - File: `src/whatsapp/Client.js:132`
-  - Issue: If MCP Server is Restarter the session is left orphaned
-  - Impact: Service will fail no authentication on restart
-  - Recommendation: consider application-layer reset to nominal
+- [MEDIUM] Service stability on restart
+  - File: `src/whatsapp/client.ts:132`
+  - Issue: Session recovery after restart may leave stale state.
+  - Impact: Re-authentication flow can become unreliable.
+  - Recommendation: Add deterministic startup reconciliation and regression tests.
 
-- [Compliance] **Data Minimization** (severity: MEDIUM)
-  - File: `src/whatsapp/store.js:132`
-  - Issue: FTS index stores plaintext message bodies even when encryption enabled
-  - Impact: more data retained than necessary
-  - Recommendation: Document limitation in PRIVACY.md, consider application-layer search alternative
+- [HIGH] Audit trail fallback gap
+  - File: `src/security/audit.ts:46-50`
+  - Issue: Audit write failures are not surfaced clearly.
+  - Impact: Incomplete audit coverage during failures.
+  - Recommendation: Add explicit failure signal and durable fallback logging.
 
-- [Security] **Audit Trail Gap** (severity: HIGH)
-  - File: `src/security/audit.js:46-50`
-  - Issue: Audit logger fails silently when database unavailable
-  - Impact: Incomplete audit trail
-  - Recommendation: Add alerting when audit logging fails, implement fallback storage
+### Phase 4: Documentation Integrity and Hygiene
 
-## Next To Dos
-
-1. **[CRITICAL]** Document FTS encryption limitation
-   - Why: view plaintext FTS as non-compliant
-   - Files: `PRIVACY.md`, `docs/architecture/OVERVIEW.md`
-   - LLM of Choice: Qwen Coder Next
-
-2. **[CRITICAL]** test coverage for approval workflows
-   - Why: decision workflows require 100% coverage for audit
-   - Files: `test/integration/tools-approvals.test.js`
-   - LLM of Choise: Qwen3.5
+- [MEDIUM] Archive stale documentation set
+  - Files: `docs/legacy/*`, `docs/archive/*`
+  - Issue: Legacy guides overlap current architecture and create confusion.
+  - Recommendation: Move stale documents to `docs/archive/`, keep active docs concise, and add archive path rule in `.gitignore` when archives are local-only.
 ```
 
 ---
 
-**Version:** 2026.1
-**Best Practices:** Plan-first constraint, security and stability lens, pattern detection
+**Version:** 2026.2
+**Director:** Benjamin Alloul
+**Authors:** Diverse set of Local and Cloud Based LLM used when suited for specific tasks.

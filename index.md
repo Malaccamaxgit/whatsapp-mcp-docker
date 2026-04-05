@@ -9,7 +9,7 @@ permalink: /
 # WhatsApp MCP Server
 {: .fs-9 }
 
-Docker-based WhatsApp integration for AI agents — 32 tools for messaging, groups, media, approvals, and intelligent activity summaries.
+Docker-based WhatsApp integration for AI agents — 34 tools for messaging, groups, media, approvals, and intelligent activity summaries.
 {: .fs-6 .fw-300 }
 
 [Get Started](#quick-start){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
@@ -27,12 +27,12 @@ Docker-based WhatsApp integration for AI agents — 32 tools for messaging, grou
 
 ## What It Does
 
-**WhatsApp MCP Server** lets AI agents (Cursor, Claude Code, VS Code, and any MCP client) control WhatsApp through 32 structured tools — all running in a secure, isolated Docker container managed by [Docker MCP Toolkit](https://docs.docker.com/ai/mcp-catalog-and-toolkit/).
+**WhatsApp MCP Server** lets AI agents (Cursor, Claude Code, VS Code, and any MCP client) control WhatsApp through 34 structured tools — all running in a secure, isolated Docker container managed by [Docker MCP Toolkit](https://docs.docker.com/ai/mcp-catalog-and-toolkit/).
 
 | Category | Tools |
 |----------|-------|
-| **Messaging** | `send_message`, `list_messages`, `search_messages` |
-| **Chats** | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` |
+| **Messaging** | `send_message`, `list_messages`, `search_messages`, `get_poll_results` |
+| **Chats** | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data`, `migrate_duplicate_chats` |
 | **Groups** | `create_group`, `get_group_info`, `get_joined_groups`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic`, `get_group_invite_link` |
 | **Message Actions** | `send_reaction`, `edit_message`, `delete_message`, `create_poll` |
 | **Media** | `send_file`, `download_media` |
@@ -116,7 +116,7 @@ search_messages({ query: "project deadline" })
 
 | Document | Description |
 |----------|-------------|
-| [API Reference]({{ site.baseurl }}/docs/API) | Complete docs for all 32 MCP tools |
+| [API Reference]({{ site.baseurl }}/docs/API) | Complete docs for all 34 MCP tools |
 | [Architecture]({{ site.baseurl }}/docs/architecture/OVERVIEW) | System design, data flow, storage schema |
 | [Guides]({{ site.baseurl }}/docs/guides/) | Error reference, developer handbook, troubleshooting, testing |
 | [Contributing]({{ site.baseurl }}/CONTRIBUTING) | Coding standards, contribution guidelines |

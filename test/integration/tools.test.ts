@@ -1,5 +1,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { createTestServer } from './helpers/test-server.js';
 import { createMockWaClient } from './helpers/mock-wa-client.js';
 import { MessageStore } from '../../src/whatsapp/store.js';
@@ -220,6 +221,17 @@ describe('MCP Tools (integration)', () => {
     });
   });
 
+  describe('export_chat_data', () => {
+    it('exports chat data in json format', async () => {
+      const result = await ctx.client.callTool({
+        name: 'export_chat_data',
+        arguments: { jid: '15145551234@s.whatsapp.net', format: 'json' }
+      });
+      assert.equal(result.isError, undefined);
+      assert.match(result.content[0].text, /exported to JSON format/i);
+    });
+  });
+
   describe('mark_messages_read', () => {
     it('marks messages as read by chat name', async () => {
       const result = await ctx.client.callTool({
@@ -284,6 +296,34 @@ describe('MCP Tools (integration)', () => {
   });
 
   describe('send_file', () => {
+    it('sends a valid image file', async () => {
+      const dir = '/tmp';
+      const filePath = `${dir}/integration-send-file.jpg`;
+      // Minimal JPEG-like bytes (SOI + APP0 marker + padding)
+      const jpegBytes = Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
+        0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01
+      ]);
+      await mkdir(dir, { recursive: true });
+      await writeFile(filePath, jpegBytes);
+
+      try {
+        const result = await ctx.client.callTool({
+          name: 'send_file',
+          arguments: {
+            to: 'John Smith',
+            file_path: filePath,
+            media_type: 'image',
+            caption: 'integration image'
+          }
+        });
+        assert.equal(result.isError, undefined);
+        assert.match(result.content[0].text, /sent to/i);
+      } finally {
+        await rm(filePath, { force: true });
+      }
+    });
+
     it('rejects when not connected', async () => {
       ctx.waClient._connected = false;
       ctx.waClient._probeVerified = false;
@@ -314,6 +354,17 @@ describe('MCP Tools (integration)', () => {
         }
       });
       assert.ok(result.isError);
+    });
+  });
+
+  describe('migrate_duplicate_chats', () => {
+    it('runs migration tool successfully', async () => {
+      const result = await ctx.client.callTool({
+        name: 'migrate_duplicate_chats',
+        arguments: { dry_run: true }
+      });
+      assert.equal(result.isError, undefined);
+      assert.match(result.content[0].text, /DRY RUN|duplicate contact/i);
     });
   });
 
@@ -489,6 +540,22 @@ describe('MCP Tools (integration)', () => {
       assert.ok(text.includes('15145551234@s.whatsapp.net'), text);
 
       ctx.waClient.requestPairingCode = origPair;
+      ctx.waClient._connected = true;
+      ctx.waClient._probeVerified = true;
+      ctx.waClient.jid = '15145559999@s.whatsapp.net';
+    });
+  });
+
+  describe('disconnect', () => {
+    it('disconnects and reports success', async () => {
+      const result = await ctx.client.callTool({
+        name: 'disconnect',
+        arguments: {}
+      });
+      assert.equal(result.isError, undefined);
+      assert.match(result.content[0].text, /disconnect|logged out|session/i);
+
+      // Restore connection state for any future assertions.
       ctx.waClient._connected = true;
       ctx.waClient._probeVerified = true;
       ctx.waClient.jid = '15145559999@s.whatsapp.net';

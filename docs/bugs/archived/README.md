@@ -1,10 +1,31 @@
 # Archived Bug Reports
 
-This folder contains bug reports that have been **resolved** and are kept for historical reference.
+This index tracks bug reports that are archived and kept for historical reference.
 
 ---
 
 ## Archived Bugs
+
+The following bug reports are treated as archived:
+
+- `BUG-auth-wait-for-link-default.md`
+- `BUG-check_approvals-missing-details.md`
+- `BUG-export_chat_data-missing-output.md`
+- `BUG-get_joined_groups-missing-participants.md`
+- `BUG-group-chatjid-name-mismatch.md`
+- `BUG-list_messages-missing-fields.md`
+- `BUG-messages-appear-empty.md`
+- `BUG-multi-device-tests-sqlite-error.md`
+- `BUG-poll-votes-not-received.md`
+- `BUG-qr-code-delayed-by-wait-for-link.md`
+- `BUG-qr-code-not-shown-in-cursor.md`
+- `BUG-search_contacts-missing-fields.md`
+- `BUG-search_messages-missing-fields.md`
+- `BUG-self-account-messages-not-received.md`
+- `BUG-send_file-missing-timestamp.md`
+- `BUG-websocket-not-connected.md`
+- `archived/BUG-duplicate-chat-contacts.md`
+- `archived/BUG-timezone-formatting.md`
 
 ### ✅ BUG-timezone-formatting.md (Archived: 2026-04-04)
 
@@ -27,12 +48,7 @@ This folder contains bug reports that have been **resolved** and are kept for hi
 
 ## Active Bugs
 
-Active (non-archived) bug reports remain in the parent `docs/bugs/` folder:
-
-- `BUG-self-account-messages-not-received.md` — Message extraction issues
-- `BUG-poll-votes-not-received.md` — Poll vote tracking
-- `BUG-duplicate-chat-contacts.md` — @lid JID duplicates
-- `BUG-websocket-not-connected.md` — WebSocket connection errors
+There are currently no active bug reports.
 
 ---
 

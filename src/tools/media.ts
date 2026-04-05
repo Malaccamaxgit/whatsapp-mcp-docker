@@ -45,7 +45,7 @@ export function registerMediaTools (
       annotations: { readOnlyHint: false, openWorldHint: true }
     },
 
-    async ({ message_id, chat: _chat }: any) => {
+    async ({ message_id, chat }: any) => {
       const toolCheck = permissions.isToolEnabled('download_media');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -78,7 +78,42 @@ export function registerMediaTools (
       }
 
       try {
+        let expectedChatJid: string | null = null;
+        if (typeof chat === 'string' && chat.trim().length > 0) {
+          const chats = store.getAllChatsForMatching();
+          const { resolved, candidates, error } = resolveRecipient(chat, chats);
+          if (!resolved && candidates.length > 0) {
+            const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
+            return {
+              content: [{ type: 'text', text: `${error ?? 'Ambiguous chat'}\n\n${list}` }],
+              isError: true
+            };
+          }
+          if (!resolved) {
+            return { content: [{ type: 'text', text: error ?? `Could not resolve chat "${chat}".` }], isError: true };
+          }
+          expectedChatJid = resolved;
+          const readCheck = permissions.canReadFrom(expectedChatJid);
+          if (!readCheck.allowed) {
+            return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+          }
+        }
+
         const result = await (waClient as { downloadMedia: (messageId: string) => Promise<{ mediaType: string; path: string; chatJid: string }> }).downloadMedia(message_id);
+        const readCheck = permissions.canReadFrom(result.chatJid);
+        if (!readCheck.allowed) {
+          return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+        }
+        if (expectedChatJid && result.chatJid !== expectedChatJid) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Message ${message_id} does not belong to chat ${expectedChatJid}.`
+            }],
+            isError: true
+          };
+        }
+
         audit.log('download_media', 'downloaded', {
           messageId: message_id,
           mediaType: result.mediaType,

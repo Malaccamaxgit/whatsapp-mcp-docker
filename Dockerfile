@@ -32,10 +32,10 @@ RUN npx tsc
 
 # ── Test Stage ───────────────────────────────────────────────────
 # Same compiled node_modules as builder (prod + dev), plus test files.
-# Build:  docker compose build tester-container
-# Run:    docker compose run --rm tester-container npm run test:all
-# Run:    docker compose run --rm tester-container npm run lint
-# Run:    docker compose run --rm tester-container npm run format:check
+# Build:  docker compose --profile test build tester-container
+# Run:    docker compose --profile test run --rm tester-container
+# Run:    docker compose --profile test run --rm tester-container npm run lint
+# Run:    docker compose --profile test run --rm tester-container npm run format:check
 FROM node:22-alpine AS test
 
 # Patch zlib CVE-2026-22184 / CVE-2026-27171 (same fix as runtime stage).

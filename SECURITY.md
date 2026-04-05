@@ -77,6 +77,8 @@ Running via Docker MCP Toolkit provides a security boundary not available when r
 | **Not encrypted** (needed for queries) | JIDs, timestamps, read/unread flags, media type |
 | **Plaintext coexistence** | Values prefixed with `enc:` are encrypted; unprefixed values pass through unchanged. |
 
+**Production posture:** `DATA_ENCRYPTION_KEY` is strongly recommended for production. Running without it is an insecure mode and should only be done as an explicit operator override with documented risk acceptance.
+
 **⚠️ CRITICAL LIMITATION - FTS5 Plaintext Index:** The SQLite FTS5 full-text search index stores message bodies in plaintext even when field-level encryption is enabled. This is a technical requirement of SQLite FTS5 but violates data minimization principles under Quebec Law 25 and PIPEDA.
 
 **Deployment Requirement:** Host-level volume encryption (BitLocker, FileVault, or dm-crypt/LUKS) is **recommended** for deployments handling sensitive personal information to compensate for FTS5 plaintext storage.
@@ -99,8 +101,8 @@ Running via Docker MCP Toolkit provides a security boundary not available when r
 
 | Control | Configuration | Default |
 |---------|---------------|---------|
-| **Outbound message rate** | `RATE_LIMIT_PER_MIN` | 10 per minute |
-| **Media download rate** | Hardcoded | 20 per minute |
+| **Outbound message rate** | `RATE_LIMIT_PER_MIN` | 60 per minute |
+| **Media download rate** | `DOWNLOAD_RATE_LIMIT_PER_MIN` | 30 per minute |
 | **Auth attempt limit** | Hardcoded | 5 per 30 minutes |
 | **Auth backoff** | Exponential: 60s → 120s → 240s → 480s → 900s | Resets on success |
 | **Contact whitelist** | `ALLOWED_CONTACTS` | Empty (allow all) |

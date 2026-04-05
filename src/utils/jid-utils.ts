@@ -8,7 +8,7 @@
  * These utilities help unify duplicate contacts that appear with different JID formats.
  */
 
-import type { ContactMapping } from '../whatsapp/store.js';
+import type { ContactMapping, MessageStore } from '../whatsapp/store.js';
 
 /**
  * Extract phone number from a JID.
@@ -154,4 +154,166 @@ export function buildMappingLookup (mappings: ContactMapping[]): Map<string, Con
   }
 
   return lookup;
+}
+
+// ── Multi-Device JID Utilities (Phase 4) ───────────────────────────────────
+
+/**
+ * Check if two JIDs belong to the same contact using the multi-device schema.
+ * @param jid1 - First JID to compare
+ * @param jid2 - Second JID to compare
+ * @param store - MessageStore instance for contact lookup
+ * @returns true if both JIDs belong to the same contact
+ */
+export async function areJidsFromSameContact (
+  jid1: string,
+  jid2: string,
+  store: MessageStore
+): Promise<boolean> {
+  if (!store || !jid1 || !jid2) {return false;}
+  
+  // Same JID = same contact
+  if (jid1 === jid2) {return true;}
+
+  // Get contacts for both JIDs
+  const contact1 = store.getContactByJid(jid1);
+  const contact2 = store.getContactByJid(jid2);
+
+  // If both contacts exist, compare IDs
+  if (contact1 && contact2) {
+    return contact1.id === contact2.id;
+  }
+
+  // Fallback to legacy contact_mappings
+  const mappings = store.getAllContactMappings();
+  const normalized1 = normalizeJid(jid1, mappings);
+  const normalized2 = normalizeJid(jid2, mappings);
+
+  return normalized1 === normalized2;
+}
+
+/**
+ * Get all JIDs associated with a contact (all devices + phone JIDs).
+ * @param jid - Any JID format to look up
+ * @param store - MessageStore instance for contact lookup
+ * @returns Array of all related JIDs, or empty array if contact not found
+ */
+export async function getAllRelatedJids (
+  jid: string,
+  store: MessageStore
+): Promise<string[]> {
+  if (!store || !jid) {return [];}
+
+  // Try to find contact by JID
+  const contact = store.getContactByJid(jid);
+  
+  if (contact) {
+    const jids: string[] = [];
+    
+    // Add all device LIDs
+    for (const device of contact.devices) {
+      jids.push(device.lidJid);
+    }
+    
+    // Add all phone JIDs
+    for (const phoneJid of contact.phoneJids) {
+      jids.push(phoneJid);
+    }
+    
+    return jids;
+  }
+
+  // Fallback: return just the input JID
+  return [jid];
+}
+
+/**
+ * Find the best JID for sending a message to a contact.
+ * Prefers: primary device > most recently active device > phone JID
+ * @param phoneNumber - Phone number in E.164 format
+ * @param store - MessageStore instance for contact lookup
+ * @returns The best JID for sending, or null if contact not found
+ */
+export async function getBestJidForSending (
+  phoneNumber: string,
+  store: MessageStore
+): Promise<string | null> {
+  if (!store || !phoneNumber) {return null;}
+
+  const contact = store.getOrCreateContactByPhone(phoneNumber);
+  
+  if (!contact || !contact.devices || contact.devices.length === 0) {
+    // No devices found, try to get phone JID
+    const phoneJids = contact?.phoneJids || [];
+    return phoneJids.length > 0 ? phoneJids[0] : null;
+  }
+
+  // Find primary device
+  const primaryDevice = contact.devices.find((d) => d.isPrimary);
+  if (primaryDevice) {
+    return primaryDevice.lidJid;
+  }
+
+  // Fall back to most recently active device
+  const sortedDevices = [...contact.devices].sort(
+    (a, b) => (b.lastSeen || 0) - (a.lastSeen || 0)
+  );
+
+  return sortedDevices[0]?.lidJid || null;
+}
+
+/**
+ * Detect device type from LID JID patterns and message metadata.
+ * Currently returns 'unknown' - can be enhanced with ML/pattern matching.
+ * @param lidJid - The LID JID to analyze
+ * @param metadata - Optional message metadata for heuristics
+ * @returns Detected device type
+ */
+export function detectDeviceType (
+  lidJid: string,
+  metadata?: { messageFrequency?: number; lastActiveHour?: number }
+): 'phone' | 'desktop' | 'web' | 'unknown' {
+  // Currently returns 'unknown' - future enhancement can add:
+  // - Pattern matching on LID numeric sequences
+  // - Activity pattern analysis (phone vs desktop hours)
+  // - Message frequency analysis
+  // - Presence notification parsing
+  
+  return 'unknown';
+}
+
+/**
+ * Get the canonical (primary) JID for a contact.
+ * Returns primary device LID, or first LID, or phone JID.
+ * @param jid - Any JID format to look up
+ * @param store - MessageStore instance for contact lookup
+ * @returns The canonical JID for the contact, or the original JID if not found
+ */
+export async function getCanonicalJid (
+  jid: string,
+  store: MessageStore
+): Promise<string> {
+  if (!store || !jid) {return jid;}
+
+  const contact = store.getContactByJid(jid);
+  
+  if (!contact) {return jid;}
+
+  // Prefer primary device
+  const primaryDevice = contact.devices.find((d) => d.isPrimary);
+  if (primaryDevice) {
+    return primaryDevice.lidJid;
+  }
+
+  // Fall back to first device
+  if (contact.devices.length > 0) {
+    return contact.devices[0].lidJid;
+  }
+
+  // Fall back to first phone JID
+  if (contact.phoneJids.length > 0) {
+    return contact.phoneJids[0];
+  }
+
+  return jid;
 }

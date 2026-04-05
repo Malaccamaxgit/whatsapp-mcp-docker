@@ -92,7 +92,7 @@ docker compose up -d
 docker compose logs -f whatsapp-mcp-docker
 
 # Run tests (inside Docker, no local build tools needed)
-docker compose build tester-container
+docker compose --profile test build tester-container
 npm run docker:test
 ```
 
@@ -102,7 +102,7 @@ npm run docker:test
 2. Register the tool with `server.registerTool(name, { description, inputSchema }, handler)`
 3. Include MCP annotations (`readOnlyHint`, `destructiveHint`, etc.)
 4. Wire the tool in `src/server.ts` (the `createServer()` factory)
-5. Add the tool to `catalog.yaml` and `whatsapp-mcp-docker-server.yaml`
+5. Add the tool to `whatsapp-mcp-docker-server.yaml`
 6. Add integration tests in `test/integration/tools.test.ts`
 7. Update `README.md` tool table
 

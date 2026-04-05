@@ -55,20 +55,21 @@ export function registerChatTools (
         limit: safeLimit,
         offset
       });
+      const readableChats = chats.filter((c) => permissions.canReadFrom(c.jid).allowed);
 
-      if (chats.length === 0) {
+      if (readableChats.length === 0) {
         const qualifier = filter ? ` matching "${filter}"` : '';
         return {
           content: [
             {
               type: 'text',
-              text: `No chats found${qualifier}. ${waClient.isConnected() ? 'Messages will appear as they arrive.' : 'Connect first using the authenticate tool.'}`
+              text: `No accessible chats found${qualifier}. ${waClient.isConnected() ? 'Messages will appear as they arrive.' : 'Connect first using the authenticate tool.'}`
             }
           ]
         };
       }
 
-      const lines = chats.map((c) => {
+      const lines = readableChats.map((c) => {
         const type = c.is_group ? '[Group]' : '[Chat]';
         const unread = c.unread_count > 0 ? ` (${c.unread_count} unread)` : '';
         const time = c.last_message_at
@@ -78,8 +79,33 @@ export function registerChatTools (
           ? `: ${c.last_message_preview.substring(0, 60)}${c.last_message_preview.length > 60 ? '...' : ''}`
           : '';
         
-        // Show JID mapping info for non-group chats
+        // Phase 4: Show multi-device info for non-group chats
         const jidInfo = c.is_group ? c.jid : (() => {
+          // Try new multi-device schema first
+          const contact = store.getContactByJid(c.jid);
+          if (contact) {
+            const parts = [c.jid];
+            
+            // Add device count info
+            if (contact.devices.length > 1) {
+              parts.push(`[${contact.devices.length} devices]`);
+            }
+            
+            // Add phone number if available
+            if (contact.phoneNumber) {
+              parts.push(`(${contact.phoneNumber})`);
+            }
+            
+            // Show primary device if set
+            const primaryDevice = contact.devices.find((d) => d.isPrimary);
+            if (primaryDevice) {
+              parts.push(`primary: ${primaryDevice.lidJid}`);
+            }
+            
+            return parts.join(' ');
+          }
+          
+          // Fallback to legacy mapping
           const mapping = store.getJidMapping(c.jid);
           if (mapping && (mapping.phoneJid || mapping.phoneNumber)) {
             const parts = [c.jid];
@@ -95,7 +121,7 @@ export function registerChatTools (
 
       const pageInfo = page > 0 ? ` (page ${page})` : '';
       const hasMore =
-        chats.length === safeLimit
+        readableChats.length === safeLimit
           ? `\n\nMore chats may be available — use page=${(page || 0) + 1}.`
           : '';
 
@@ -103,7 +129,7 @@ export function registerChatTools (
         content: [
           {
             type: 'text',
-            text: `Conversations (${chats.length})${pageInfo}:\n\n${lines.join('\n\n')}${hasMore}`
+            text: `Conversations (${readableChats.length})${pageInfo}:\n\n${lines.join('\n\n')}${hasMore}`
           }
         ]
       };
@@ -143,11 +169,23 @@ export function registerChatTools (
       const sinceTs = sinceMap[since] || sinceMap['today'];
 
       const data = store.getCatchUpData(sinceTs);
+      const readableJids = new Set(
+        store
+          .getAllChatsForMatching()
+          .filter((c) => permissions.canReadFrom(c.jid).allowed)
+          .map((c) => c.jid)
+      );
+      const filteredData = {
+        activeChats: data.activeChats.filter((c) => readableJids.has(c.jid)),
+        questions: data.questions.filter((m) => readableJids.has(m.chat_jid)),
+        recentUnread: data.recentUnread.filter((m) => readableJids.has(m.chat_jid)),
+        pendingApprovals: data.pendingApprovals.filter((a) => readableJids.has(a.to_jid))
+      };
       const sections: string[] = [];
 
       // Active chats
-      if (data.activeChats.length > 0) {
-        const chatLines = data.activeChats.map((c) => {
+      if (filteredData.activeChats.length > 0) {
+        const chatLines = filteredData.activeChats.map((c) => {
           const name = c.name || c.jid;
           const type = c.is_group ? '(group)' : '';
           const unread = c.unread_count > 0 ? ` — ${c.unread_count} unread` : '';
@@ -159,25 +197,25 @@ export function registerChatTools (
       }
 
       // Questions
-      if (data.questions.length > 0) {
-        const qLines = data.questions.slice(0, 10).map((m) => {
+      if (filteredData.questions.length > 0) {
+        const qLines = filteredData.questions.slice(0, 10).map((m) => {
           const sender = m.sender_name || m.sender_jid?.split('@')[0] || '?';
           const chatName = m.chat_name || m.chat_jid;
           const time = formatTimeOnly(m.timestamp);
           return `  - [${chatName}] ${sender} (${time}): ${m.body?.substring(0, 120) || ''}`;
         });
         sections.push(
-          `Questions Awaiting Response (${data.questions.length}):\n${qLines.join('\n')}`
+          `Questions Awaiting Response (${filteredData.questions.length}):\n${qLines.join('\n')}`
         );
       }
 
       // Unread summary
-      if (data.recentUnread.length > 0) {
+      if (filteredData.recentUnread.length > 0) {
         sections.push(
-          `Unread Messages: ${data.recentUnread.length} total from ${new Set(data.recentUnread.map((m) => m.chat_jid)).size} chats.`
+          `Unread Messages: ${filteredData.recentUnread.length} total from ${new Set(filteredData.recentUnread.map((m) => m.chat_jid)).size} chats.`
         );
 
-        const highlights = data.recentUnread.slice(0, 5).map((m) => {
+        const highlights = filteredData.recentUnread.slice(0, 5).map((m) => {
           const sender = m.sender_name || m.sender_jid?.split('@')[0] || '?';
           const chatName = m.chat_name || m.chat_jid;
           return `  - [${chatName}] ${sender}: ${m.body?.substring(0, 100) || '[media]'}`;
@@ -188,21 +226,21 @@ export function registerChatTools (
       }
 
       // Pending approvals
-      if (data.pendingApprovals.length > 0) {
-        const aLines = data.pendingApprovals.map((a) => {
+      if (filteredData.pendingApprovals.length > 0) {
+        const aLines = filteredData.pendingApprovals.map((a) => {
           const remaining = Math.max(
             0,
             Math.round((a.created_at + a.timeout_ms - Date.now()) / 1000)
           );
           return `  - [${a.id}] "${a.action}" — ${remaining}s remaining`;
         });
-        sections.push(`Pending Approvals (${data.pendingApprovals.length}):\n${aLines.join('\n')}`);
+        sections.push(`Pending Approvals (${filteredData.pendingApprovals.length}):\n${aLines.join('\n')}`);
       }
 
       audit.log('catch_up', 'summary', {
         since,
-        chats: data.activeChats.length,
-        unread: data.recentUnread.length
+        chats: filteredData.activeChats.length,
+        unread: filteredData.recentUnread.length
       });
 
       return {
@@ -250,7 +288,8 @@ export function registerChatTools (
         .filter((c) => {
           const nameMatch = c.name?.toLowerCase().includes(lowerQuery);
           const jidMatch = c.jid.includes(query.replace(/[^0-9]/g, ''));
-          return nameMatch || jidMatch;
+          const readable = permissions.canReadFrom(c.jid).allowed;
+          return readable && (nameMatch || jidMatch);
         })
         .slice(0, Math.min(limit || 20, 50));
 
@@ -340,6 +379,10 @@ export function registerChatTools (
         const result = resolveRecipient(chat, chats);
         if (result.resolved) {
           chatJid = result.resolved;
+          const readCheck = permissions.canReadFrom(chatJid);
+          if (!readCheck.allowed) {
+            return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+          }
         } else if (result.candidates.length > 0) {
           const list = result.candidates.map((c) => `  - "${c.name}" → ${c.jid}`).join('\n');
           return {
@@ -352,6 +395,14 @@ export function registerChatTools (
             isError: true
           };
         }
+      } else if (permissions.hasContactRestrictions && message_ids?.length) {
+        return {
+          content: [{
+            type: 'text',
+            text: 'When ALLOWED_CONTACTS is set, provide "chat" for mark_messages_read so access policy can be enforced.'
+          }],
+          isError: true
+        };
       }
 
       const count = await waClient.markMessagesRead({ chatJid: chatJid ?? undefined, messageIds: message_ids ?? [], senderJid: undefined });
@@ -392,6 +443,10 @@ export function registerChatTools (
       const toolCheck = permissions.isToolEnabled('export_chat_data');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+      }
+      const readCheck = permissions.canReadFrom(jid);
+      if (!readCheck.allowed) {
+        return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
       }
 
       try {

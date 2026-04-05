@@ -19,6 +19,7 @@ import { AuditLogger } from './security/audit.js';
 import { PermissionManager } from './security/permissions.js';
 import { initEncryption, isEncryptionEnabled } from './security/crypto.js';
 import { createServer } from './server.js';
+import { performShutdown } from './lifecycle.js';
 
 interface PackageJson {
   version: string;
@@ -117,21 +118,11 @@ waClient.onMessage = (msg) => {
 };
 
 process.on('SIGINT', async () => {
-  console.error('[SHUTDOWN] Closing...');
-  audit.log('server', 'shutdown');
-  await waClient.disconnect();
-  store.close();
-  audit.close();
-  process.exit(0);
+  await performShutdown('sigint', { waClient, store, audit });
 });
 
 process.on('SIGTERM', async () => {
-  console.error('[SHUTDOWN] SIGTERM received');
-  audit.log('server', 'shutdown');
-  await waClient.disconnect();
-  store.close();
-  audit.close();
-  process.exit(0);
+  await performShutdown('sigterm', { waClient, store, audit });
 });
 
 async function main () {
@@ -162,11 +153,7 @@ async function main () {
     // This lets the gateway start a fresh container with clean stdio pipes rather than
     // leaving orphaned containers that fight the new one for the WhatsApp session.
     process.stdin.once('end', async () => {
-      console.error('[SHUTDOWN] stdin closed — gateway disconnected, self-terminating');
-      try { await waClient.disconnect(); } catch { /* best-effort */ }
-      store.close();
-      audit.close();
-      process.exit(0);
+      await performShutdown('stdin_closed', { waClient, store, audit });
     });
 
     console.error('[STARTUP] MCP server running on stdio');

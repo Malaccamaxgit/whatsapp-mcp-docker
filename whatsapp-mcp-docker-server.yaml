@@ -8,10 +8,10 @@ description: |
   Send messages, search chats, approval workflows, and intelligent
   activity summaries — all with fuzzy contact name matching.
 
-  32 tools: disconnect, authenticate, get_connection_status,
+  34 tools: disconnect, authenticate, get_connection_status,
   send_message, send_file, download_media, list_chats, list_messages,
-  search_messages, search_contacts, catch_up, mark_messages_read,
-  export_chat_data, request_approval, check_approvals,
+  search_messages, get_poll_results, search_contacts, catch_up, mark_messages_read,
+  export_chat_data, migrate_duplicate_chats, request_approval, check_approvals,
   create_group, get_group_info, get_joined_groups, get_group_invite_link,
   join_group, leave_group, update_group_participants, set_group_name,
   set_group_topic, send_reaction, edit_message, delete_message,
@@ -249,6 +249,16 @@ tools:
         type: boolean
         desc: Include surrounding messages for context (default false)
 
+  - name: get_poll_results
+    description: Get poll results including vote counts and voter breakdown
+    arguments:
+      - name: poll_message_id
+        type: string
+        desc: Message ID of the poll creation message
+      - name: chat
+        type: string
+        desc: Chat name, phone number, or JID where the poll was sent
+
   - name: search_contacts
     description: Search contacts and groups by name or phone number
     arguments:
@@ -288,6 +298,13 @@ tools:
       - name: format
         type: string
         desc: "Export format: json or csv (default: json)"
+
+  - name: migrate_duplicate_chats
+    description: Migrate duplicate @lid/@s.whatsapp.net contact entries into unified mappings
+    arguments:
+      - name: dry_run
+        type: boolean
+        desc: If true, report candidates without writing changes
 
   - name: request_approval
     description: Send approval request via WhatsApp

@@ -28,6 +28,11 @@ interface CanSendToResult {
   error: string | null;
 }
 
+interface CanReadFromResult {
+  allowed: boolean;
+  error: string | null;
+}
+
 interface CheckRateLimitResult {
   allowed: boolean;
   error: string | null;
@@ -97,6 +102,18 @@ export class PermissionManager {
    * Returns { allowed, error }.
    */
   canSendTo (numberOrJid: string): CanSendToResult {
+    return this.checkAllowedContact(numberOrJid, 'send');
+  }
+
+  /**
+   * Check if a phone number / JID is allowed for read/export/download operations.
+   * Uses the same whitelist as outbound messaging.
+   */
+  canReadFrom (numberOrJid: string): CanReadFromResult {
+    return this.checkAllowedContact(numberOrJid, 'read');
+  }
+
+  private checkAllowedContact (numberOrJid: string, operation: 'send' | 'read'): CanSendToResult | CanReadFromResult {
     if (this.allowedContacts.length === 0) {
       return { allowed: true, error: null };
     }
@@ -107,10 +124,11 @@ export class PermissionManager {
     );
 
     if (!match) {
+      const opLabel = operation === 'send' ? 'send messages to' : 'access data for';
       return {
         allowed: false,
         error:
-          `Number ${numberOrJid} is not in the allowed contacts list. ` +
+          `Cannot ${opLabel} ${numberOrJid}: not in the allowed contacts list. ` +
           `Allowed: ${this.allowedContacts.map((n) => '+' + n).join(', ')}`
       };
     }
@@ -237,5 +255,9 @@ export class PermissionManager {
    */
   get authBackoffSec (): number {
     return this._authBackoffSec;
+  }
+
+  get hasContactRestrictions (): boolean {
+    return this.allowedContacts.length > 0;
   }
 }

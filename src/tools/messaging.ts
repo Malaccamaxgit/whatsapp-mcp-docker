@@ -243,6 +243,10 @@ export function registerMessagingTools (
       if (!resolved) {
         return { content: [{ type: 'text', text: error ?? 'Could not resolve chat' }], isError: true };
       }
+      const readCheck = permissions.canReadFrom(resolved);
+      if (!readCheck.allowed) {
+        return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+      }
 
       const safeLimit = Math.min(limit || 50, 200);
       const offset = (page || 0) * safeLimit;
@@ -366,7 +370,21 @@ export function registerMessagingTools (
       if (chat) {
         const chats = store.getAllChatsForMatching();
         const result = resolveRecipient(chat, chats);
-        if (result.resolved) {chatJid = result.resolved;}
+        if (result.resolved) {
+          chatJid = result.resolved;
+          const readCheck = permissions.canReadFrom(chatJid);
+          if (!readCheck.allowed) {
+            return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+          }
+        }
+      } else if (permissions.hasContactRestrictions) {
+        return {
+          content: [{
+            type: 'text',
+            text: 'When ALLOWED_CONTACTS is set, provide "chat" for search_messages so access policy can be enforced.'
+          }],
+          isError: true
+        };
       }
 
       const safeLimit = Math.min(limit || 20, 100);
@@ -482,6 +500,10 @@ export function registerMessagingTools (
       }
       if (!resolved) {
         return { content: [{ type: 'text', text: error ?? 'Could not resolve chat' }], isError: true };
+      }
+      const readCheck = permissions.canReadFrom(resolved);
+      if (!readCheck.allowed) {
+        return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
       }
 
       // Get the poll creation message

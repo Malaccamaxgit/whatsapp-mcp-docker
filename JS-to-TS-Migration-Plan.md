@@ -1,5 +1,7 @@
 # TypeScript Migration Plan for whatsapp-mcp-docker
 
+> **Historical document:** Migration completed. This file is retained as implementation history and is superseded by the current TypeScript codebase and active developer docs.
+
 ## Context
 
 The project is a pure JavaScript ESM codebase (25 source files in `src/`, ~18 test files in `test/`) running as a Docker MCP server. It uses `node:test` for testing, runs exclusively inside Docker containers, and has a multi-stage Dockerfile (builder -> test -> runtime). The goal is a low-risk, incremental migration to TypeScript that keeps the app functional at every step, with all verification happening inside the existing Docker test infrastructure.

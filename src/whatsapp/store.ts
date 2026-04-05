@@ -61,6 +61,24 @@ export type ContactMapping = {
   updated_at: number;
 };
 
+export interface Contact {
+  id: number;
+  phoneNumber: string;
+  canonicalName: string | null;
+  isSelf: boolean;
+  devices: ContactDevice[];
+  phoneJids: string[];
+}
+
+export interface ContactDevice {
+  id: number;
+  lidJid: string;
+  deviceType: 'phone' | 'desktop' | 'web' | 'unknown';
+  deviceName: string | null;
+  isPrimary: boolean;
+  lastSeen: number | null;
+}
+
 export class MessageStore {
   db: Database.Database | null;
   private dbPath: string;
@@ -79,13 +97,29 @@ export class MessageStore {
   private _getAllContactMappings!: Database.Statement;
   private _insertPollVote!: Database.Statement;
   private _getPollVotes!: Database.Statement;
+  
+  // Multi-device prepared statements
+  private _getContactByPhone!: Database.Statement;
+  private _createContact!: Database.Statement;
+  private _updateContactName!: Database.Statement;
+  private _getDeviceByLid!: Database.Statement;
+  private _addDevice!: Database.Statement;
+  private _getDevicesForContact!: Database.Statement;
+  private _addPhoneJid!: Database.Statement;
+  private _getPhoneJidsForContact!: Database.Statement;
+  private _getContactByLid!: Database.Statement;
+  private _getContactByPhoneJid!: Database.Statement;
+  private _setPrimaryDevice!: Database.Statement;
+  private _setPrimaryDevice2!: Database.Statement;
+  private _markContactAsSelf!: Database.Statement;
 
   constructor (dbPath?: string) {
     this.dbPath = dbPath || process.env.STORE_DB_PATH || '/data/store/messages.db';
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
-    this.db.pragma('foreign_keys = ON');
+    this.db.pragma('foreign_keys = OFF'); // Disable during migration
     this._migrate();
+    this.db.pragma('foreign_keys = ON'); // Enable after tables exist
     this._prepareStatements();
 
     this._purgeTimer = null;
@@ -222,6 +256,67 @@ export class MessageStore {
       console.error('[STORE] contact_mappings migration note:', (error as Error).message);
     }
 
+    // Add multi-device contact schema (Phase 4 enhancement)
+    try {
+      this.db!.exec(`
+        -- Primary identity: the phone number
+        CREATE TABLE IF NOT EXISTS contacts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          phone_number TEXT NOT NULL UNIQUE,
+          canonical_name TEXT,
+          is_self INTEGER DEFAULT 0,
+          created_at INTEGER DEFAULT (unixepoch()),
+          updated_at INTEGER DEFAULT (unixepoch())
+        );
+
+        -- Device LIDs linked to contacts (1:N relationship)
+        CREATE TABLE IF NOT EXISTS contact_devices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          contact_id INTEGER NOT NULL,
+          lid_jid TEXT NOT NULL UNIQUE,
+          device_type TEXT DEFAULT 'unknown',
+          device_name TEXT,
+          is_primary INTEGER DEFAULT 0,
+          last_seen INTEGER,
+          created_at INTEGER DEFAULT (unixepoch()),
+          updated_at INTEGER DEFAULT (unixepoch()),
+          FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_contact_devices_lid
+        ON contact_devices(lid_jid);
+
+        CREATE INDEX IF NOT EXISTS idx_contact_devices_contact
+        ON contact_devices(contact_id);
+
+        -- Legacy phone JID format (usually just one per contact)
+        CREATE TABLE IF NOT EXISTS contact_phone_jids (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          contact_id INTEGER NOT NULL,
+          phone_jid TEXT NOT NULL,
+          created_at INTEGER DEFAULT (unixepoch()),
+          FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_contact_phone_jids_jid
+        ON contact_phone_jids(phone_jid);
+
+        -- Preserve existing data during migration (only if contact_mappings exists)
+        CREATE TABLE IF NOT EXISTS contact_mappings_backup (
+          id INTEGER PRIMARY KEY,
+          lid_jid TEXT,
+          phone_jid TEXT,
+          phone_number TEXT,
+          contact_name TEXT,
+          created_at INTEGER,
+          updated_at INTEGER
+        );
+      `);
+      console.error('[STORE] Multi-device contact schema created (contacts, contact_devices, contact_phone_jids)');
+    } catch (error: unknown) {
+      console.error('[STORE] Multi-device schema migration note:', (error as Error).message);
+    }
+
     const enc = isEncryptionEnabled() ? 'ON' : 'OFF';
     console.error(`[STORE] Database migrated at ${this.dbPath} (encryption: ${enc})`);
   }
@@ -286,6 +381,59 @@ export class MessageStore {
     this._getContactMappingByPhone = this.db!.prepare('SELECT * FROM contact_mappings WHERE phone_number = ?');
     this._getContactMappingByPhoneJid = this.db!.prepare('SELECT * FROM contact_mappings WHERE phone_jid = ?');
     this._getAllContactMappings = this.db!.prepare('SELECT * FROM contact_mappings');
+
+    // Multi-device contact prepared statements
+    this._getContactByPhone = this.db!.prepare('SELECT * FROM contacts WHERE phone_number = ?');
+    this._createContact = this.db!.prepare(`
+      INSERT INTO contacts (phone_number, canonical_name, is_self, created_at, updated_at)
+      VALUES (?, ?, 0, unixepoch(), unixepoch())
+    `);
+    this._updateContactName = this.db!.prepare(`
+      UPDATE contacts SET canonical_name = ?, updated_at = unixepoch()
+      WHERE phone_number = ?
+    `);
+    this._getDeviceByLid = this.db!.prepare('SELECT * FROM contact_devices WHERE lid_jid = ?');
+    this._addDevice = this.db!.prepare(`
+      INSERT INTO contact_devices (contact_id, lid_jid, device_type, device_name, is_primary, last_seen, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, unixepoch())
+      ON CONFLICT(lid_jid) DO UPDATE SET
+        device_type = excluded.device_type,
+        device_name = excluded.device_name,
+        is_primary = CASE
+          WHEN excluded.is_primary = 1 THEN 1
+          ELSE contact_devices.is_primary
+        END,
+        last_seen = MAX(excluded.last_seen, contact_devices.last_seen),
+        updated_at = unixepoch()
+    `);
+    this._getDevicesForContact = this.db!.prepare(`
+      SELECT * FROM contact_devices WHERE contact_id = ? ORDER BY is_primary DESC, last_seen DESC
+    `);
+    this._addPhoneJid = this.db!.prepare(`
+      INSERT INTO contact_phone_jids (contact_id, phone_jid, created_at)
+      SELECT ?, ?, unixepoch()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM contact_phone_jids WHERE phone_jid = ?
+      )
+    `);
+    this._getPhoneJidsForContact = this.db!.prepare('SELECT phone_jid FROM contact_phone_jids WHERE contact_id = ?');
+    this._getContactByLid = this.db!.prepare(`
+      SELECT c.* FROM contacts c
+      JOIN contact_devices cd ON c.id = cd.contact_id
+      WHERE cd.lid_jid = ?
+    `);
+    this._getContactByPhoneJid = this.db!.prepare(`
+      SELECT c.* FROM contacts c
+      JOIN contact_phone_jids cpj ON c.id = cpj.contact_id
+      WHERE cpj.phone_jid = ?
+    `);
+    this._setPrimaryDevice = this.db!.prepare(`
+      UPDATE contact_devices SET is_primary = 0 WHERE contact_id = ?
+    `);
+    this._setPrimaryDevice2 = this.db!.prepare(`
+      UPDATE contact_devices SET is_primary = 1 WHERE lid_jid = ? AND contact_id = ?
+    `);
+    this._markContactAsSelf = this.db!.prepare('UPDATE contacts SET is_self = 1, updated_at = unixepoch() WHERE id = ?');
   }
 
   // ── Decrypt helpers ─────────────────────────────────────────
@@ -475,13 +623,70 @@ export class MessageStore {
    * @returns Array of unified chat rows with duplicates merged
    */
   public getAllChatsUnified ({ filter, groupsOnly, limit = 20, offset = 0 }: { filter?: string; groupsOnly?: boolean; limit?: number; offset?: number } = {}): ChatRow[] {
-    // Get all contact mappings
+    // Get all legacy contact mappings
     const mappings = this.getAllContactMappings();
     const mappingLookup = new Map<string, ContactMapping>();
     
     for (const mapping of mappings) {
       if (mapping.lid_jid) {mappingLookup.set(mapping.lid_jid, mapping);}
       if (mapping.phone_jid) {mappingLookup.set(mapping.phone_jid, mapping);}
+    }
+
+    // Build multi-device JID lookup (contacts/contact_devices/contact_phone_jids)
+    const multiDeviceLookup = new Map<string, string>();
+    const contactRows = this.db!.prepare(`
+      SELECT
+        c.id AS contact_id,
+        cd.lid_jid AS lid_jid,
+        cd.is_primary AS is_primary,
+        cd.last_seen AS last_seen,
+        cpj.phone_jid AS phone_jid
+      FROM contacts c
+      LEFT JOIN contact_devices cd ON c.id = cd.contact_id
+      LEFT JOIN contact_phone_jids cpj ON c.id = cpj.contact_id
+      ORDER BY c.id ASC, cd.is_primary DESC, cd.last_seen DESC, cd.id ASC, cpj.id ASC
+    `).all() as Array<{
+      contact_id: number;
+      lid_jid: string | null;
+      is_primary: number | null;
+      last_seen: number | null;
+      phone_jid: string | null;
+    }>;
+
+    const contactBuckets = new Map<number, {
+      lids: string[];
+      phoneJids: string[];
+      primaryLid: string | null;
+    }>();
+
+    for (const row of contactRows) {
+      let bucket = contactBuckets.get(row.contact_id);
+      if (!bucket) {
+        bucket = { lids: [], phoneJids: [], primaryLid: null };
+        contactBuckets.set(row.contact_id, bucket);
+      }
+
+      if (row.lid_jid && !bucket.lids.includes(row.lid_jid)) {
+        bucket.lids.push(row.lid_jid);
+      }
+      if (row.phone_jid && !bucket.phoneJids.includes(row.phone_jid)) {
+        bucket.phoneJids.push(row.phone_jid);
+      }
+      if (row.lid_jid && row.is_primary === 1 && !bucket.primaryLid) {
+        bucket.primaryLid = row.lid_jid;
+      }
+    }
+
+    for (const bucket of contactBuckets.values()) {
+      const unifiedJid = bucket.primaryLid || bucket.lids[0] || bucket.phoneJids[0];
+      if (!unifiedJid) {continue;}
+
+      for (const lid of bucket.lids) {
+        multiDeviceLookup.set(lid, unifiedJid);
+      }
+      for (const phoneJid of bucket.phoneJids) {
+        multiDeviceLookup.set(phoneJid, unifiedJid);
+      }
     }
 
     // Get all chats
@@ -509,19 +714,10 @@ export class MessageStore {
         continue;
       }
 
-      // Check if this chat has a mapping
+      // Prefer new multi-device lookup; fallback to legacy mapping
+      const unifiedFromMultiDevice = multiDeviceLookup.get(chat.jid);
       const mapping = mappingLookup.get(chat.jid);
-      
-      if (!mapping) {
-        // No mapping, keep as-is
-        if (!unifiedMap.has(chat.jid)) {
-          unifiedMap.set(chat.jid, chat);
-        }
-        continue;
-      }
-
-      // Determine the unified JID (prefer LID)
-      const unifiedJid = mapping.lid_jid || mapping.phone_jid || chat.jid;
+      const unifiedJid = unifiedFromMultiDevice || mapping?.lid_jid || mapping?.phone_jid || chat.jid;
 
       // Check if we already have this unified chat
       const existing = unifiedMap.get(unifiedJid);
@@ -549,6 +745,214 @@ export class MessageStore {
       .sort((a, b) => (b.last_message_at || 0) - (a.last_message_at || 0));
 
     return unifiedChats.slice(offset, offset + limit);
+  }
+
+  // ── Multi-Device Contact Operations (Phase 4) ─────────────────
+
+  /**
+   * Get or create a contact by phone number.
+   * Creates the contact if it doesn't exist.
+   */
+  public getOrCreateContactByPhone (phoneNumber: string, name?: string | null): Contact {
+    const existing = this._getContactByPhone.get(phoneNumber) as any;
+    if (existing) {
+      return this._buildContactFromRow(existing);
+    }
+
+    // Create new contact
+    const result = this._createContact.run(phoneNumber, name || null);
+    const contactId = result.lastInsertRowid as number;
+    
+    return {
+      id: contactId,
+      phoneNumber,
+      canonicalName: name || null,
+      isSelf: false,
+      devices: [],
+      phoneJids: []
+    };
+  }
+
+  /**
+   * Add a device LID to an existing contact.
+   * If contact doesn't exist, creates it.
+   */
+  public addDeviceLid (phoneNumber: string, lidJid: string, options?: {
+    deviceType?: 'phone' | 'desktop' | 'web' | 'unknown';
+    deviceName?: string | null;
+    isPrimary?: boolean;
+    lastSeen?: number | null;
+  }): ContactDevice {
+    const contact = this.getOrCreateContactByPhone(phoneNumber);
+    const deviceType = options?.deviceType || 'unknown';
+    const deviceName = options?.deviceName || null;
+    const isPrimary = options?.isPrimary ? 1 : 0;
+    const lastSeen = options?.lastSeen || Math.floor(Date.now() / 1000);
+
+    this._addDevice.run(contact.id, lidJid, deviceType, deviceName, isPrimary, lastSeen);
+
+    return {
+      id: 0, // Will be assigned by DB
+      lidJid,
+      deviceType,
+      deviceName,
+      isPrimary: Boolean(isPrimary),
+      lastSeen
+    };
+  }
+
+  /**
+   * Find contact by any associated JID (LID or phone JID).
+   * Returns all devices and phone JIDs for unified display.
+   */
+  public getContactByJid (jid: string): Contact | null {
+    if (!jid) {return null;}
+
+    let contactRow: any = null;
+
+    // Try LID first
+    if (jid.endsWith('@lid')) {
+      contactRow = this._getContactByLid.get(jid) as any;
+    } else if (jid.endsWith('@s.whatsapp.net')) {
+      contactRow = this._getContactByPhoneJid.get(jid) as any;
+    }
+
+    if (!contactRow) {return null;}
+
+    return this._buildContactFromRow(contactRow);
+  }
+
+  /**
+   * Get all devices for a contact.
+   */
+  public getContactDevices (contactId: number): ContactDevice[] {
+    const devices = this._getDevicesForContact.all(contactId) as any[];
+    return devices.map((d) => ({
+      id: d.id,
+      lidJid: d.lid_jid,
+      deviceType: d.device_type as 'phone' | 'desktop' | 'web' | 'unknown',
+      deviceName: d.device_name,
+      isPrimary: Boolean(d.is_primary),
+      lastSeen: d.last_seen
+    }));
+  }
+
+  /**
+   * Get all JIDs associated with a contact (for message retrieval).
+   */
+  public getAllJidsForContact (phoneNumber: string): string[] {
+    const contact = this.getOrCreateContactByPhone(phoneNumber);
+    const jids: string[] = [];
+
+    // Add all device LIDs
+    const devices = this.getContactDevices(contact.id);
+    for (const device of devices) {
+      jids.push(device.lidJid);
+    }
+
+    // Add all phone JIDs
+    const phoneJids = this._getPhoneJidsForContact.all(contact.id) as any[];
+    for (const pj of phoneJids) {
+      jids.push(pj.phone_jid);
+    }
+
+    return jids;
+  }
+
+  /**
+   * Set primary device for a contact.
+   */
+  public setPrimaryDevice (lidJid: string): void {
+    const device = this._getDeviceByLid.get(lidJid) as any;
+    if (!device) {return;}
+
+    this._setPrimaryDevice.run(device.contact_id);
+    this._setPrimaryDevice2.run(lidJid, device.contact_id);
+  }
+
+  /**
+   * Mark a contact as the MCP user's own account (self-account).
+   */
+  public markContactAsSelf (contactId: number): void {
+    this._markContactAsSelf.run(contactId);
+  }
+
+  /**
+   * Add a phone JID to a contact.
+   */
+  public addPhoneJidToContact (contactId: number, phoneJid: string): void {
+    this._addPhoneJid.run(contactId, phoneJid, phoneJid);
+  }
+
+  /**
+   * Helper to build a Contact object from a database row.
+   */
+  private _buildContactFromRow (row: any): Contact {
+    const contactId = row.id;
+    const devices = this.getContactDevices(contactId);
+    const phoneJidRows = this._getPhoneJidsForContact.all(contactId) as any[];
+    const phoneJids = phoneJidRows.map((pj) => pj.phone_jid);
+
+    return {
+      id: contactId,
+      phoneNumber: row.phone_number,
+      canonicalName: row.canonical_name,
+      isSelf: Boolean(row.is_self),
+      devices,
+      phoneJids
+    };
+  }
+
+  /**
+   * Migrate existing contact_mappings to the new multi-device schema.
+   * Creates contacts with devices from legacy single-device mappings.
+   */
+  public migrateToMultiDevice (): {
+    contactsCreated: number;
+    devicesMigrated: number;
+    errors: string[];
+  } {
+    const results: { contactsCreated: number; devicesMigrated: number; errors: string[] } = { contactsCreated: 0, devicesMigrated: 0, errors: [] };
+
+    // Get all existing mappings
+    const existingMappings = this.getAllContactMappings();
+
+    for (const mapping of existingMappings) {
+      try {
+        // Find or create contact by phone number
+        const contact = this.getOrCreateContactByPhone(
+          mapping.phone_number || '',
+          mapping.contact_name
+        );
+
+        if (!contact.id) {
+          results.errors.push(`Failed to create contact for ${mapping.phone_number || 'unknown'}`);
+          continue;
+        }
+
+        // Add LID device if present
+        if (mapping.lid_jid) {
+          this.addDeviceLid(
+            mapping.phone_number || '',
+            mapping.lid_jid,
+            { deviceType: 'unknown', lastSeen: Math.floor(mapping.updated_at / 1000) }
+          );
+          results.devicesMigrated++;
+        }
+
+        // Add phone JID if present
+        if (mapping.phone_jid) {
+          this.addPhoneJidToContact(contact.id, mapping.phone_jid);
+        }
+
+        results.contactsCreated++;
+      } catch (err) {
+        results.errors.push(`Failed to migrate ${mapping.lid_jid || 'unknown'}: ${(err as Error).message}`);
+      }
+    }
+
+    console.error(`[STORE] Multi-device migration complete: ${results.contactsCreated} contacts, ${results.devicesMigrated} devices`);
+    return results;
   }
 
   // ── Message Operations ───────────────────────────────────────

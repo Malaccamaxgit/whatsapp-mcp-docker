@@ -25,6 +25,14 @@ export function registerWaitTools (
   audit: AuditLogger
 ): void {
   const wait_for_message_handler = async ({ timeout, chat, from_phone }: { timeout: number; chat?: string; from_phone?: string }) => {
+    const toolCheck = permissions.isToolEnabled('wait_for_message');
+    if (!toolCheck.allowed) {
+      return {
+        content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }],
+        isError: true
+      };
+    }
+
     if (!waClient.isConnected()) {
       return {
         content: [{ type: 'text', text: 'WhatsApp not connected. Use the authenticate tool first.' }],
@@ -47,6 +55,15 @@ export function registerWaitTools (
         chats.find((c) => c.name?.toLowerCase().includes(lowerChat));
 
       chatJidFilter = matched?.jid || chat;
+      if (chatJidFilter && chatJidFilter.includes('@')) {
+        const readCheck = permissions.canReadFrom(chatJidFilter);
+        if (!readCheck.allowed) {
+          return {
+            content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }],
+            isError: true
+          };
+        }
+      }
     }
 
     let senderFilter: string | null = null;

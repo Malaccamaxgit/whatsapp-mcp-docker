@@ -1,6 +1,9 @@
 /**
  * Property-Based Tests
  *
+ * ARCHIVED: Legacy JavaScript test kept only for migration history.
+ * This file is intentionally excluded from active TypeScript test suites.
+ *
  * Property-based testing for encryption and fuzzy-match functions.
  * Tests invariants and properties that should hold for all inputs.
  *

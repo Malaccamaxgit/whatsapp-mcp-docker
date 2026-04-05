@@ -51,6 +51,10 @@ export function registerReactionTools (
     message_id: string;
     emoji: string;
   }): Promise<ApprovalResult> => {
+    const toolCheck = permissions.isToolEnabled('send_reaction');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
     if (!waClient.isConnected()) {return notConnected();}
 
     const rateCheck = permissions.checkRateLimit();
@@ -106,6 +110,10 @@ export function registerReactionTools (
     message_id: string;
     new_text: string;
   }): Promise<ApprovalResult> => {
+    const toolCheck = permissions.isToolEnabled('edit_message');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
     if (!waClient.isConnected()) {return notConnected();}
 
     const rateCheck = permissions.checkRateLimit();
@@ -156,6 +164,10 @@ export function registerReactionTools (
     chat: string;
     message_id: string;
   }): Promise<ApprovalResult> => {
+    const toolCheck = permissions.isToolEnabled('delete_message');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
     if (!waClient.isConnected()) {return notConnected();}
 
     const rateCheck = permissions.checkRateLimit();
@@ -206,6 +218,10 @@ export function registerReactionTools (
     options: string[];
     allow_multiple?: boolean;
   }): Promise<ApprovalResult> => {
+    const toolCheck = permissions.isToolEnabled('create_poll');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
     if (!waClient.isConnected()) {return notConnected();}
 
     const rateCheck = permissions.checkRateLimit();

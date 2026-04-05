@@ -72,6 +72,14 @@ export function registerGroupTools (
   permissions: PermissionManager,
   audit: AuditLogger
 ): void {
+  const disabledResult = (toolName: string): McpResult | null => {
+    const toolCheck = permissions.isToolEnabled(toolName);
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
+    return null;
+  };
+
   // ── create_group ──────────────────────────────────────────────
 
   server.registerTool(
@@ -85,6 +93,8 @@ export function registerGroupTools (
     },
 
     (async ({ name, participants }: { name: string; participants: string[] }) => {
+      const disabled = disabledResult('create_group');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
@@ -131,6 +141,8 @@ export function registerGroupTools (
     },
 
     (async ({ group }: { group: string }) => {
+      const disabled = disabledResult('get_group_info');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       try {
@@ -184,6 +196,8 @@ export function registerGroupTools (
     },
 
     (async () => {
+      const disabled = disabledResult('get_joined_groups');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       try {
@@ -228,6 +242,8 @@ export function registerGroupTools (
     },
 
     (async ({ group }: { group: string }) => {
+      const disabled = disabledResult('get_group_invite_link');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       try {
@@ -266,6 +282,8 @@ export function registerGroupTools (
     },
 
     (async ({ link }: { link: string }) => {
+      const disabled = disabledResult('join_group');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
@@ -313,6 +331,8 @@ export function registerGroupTools (
     },
 
     (async ({ group }: { group: string }) => {
+      const disabled = disabledResult('leave_group');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       try {
@@ -348,6 +368,8 @@ export function registerGroupTools (
     },
 
     (async ({ group, action, participants }: { group: string; action: string; participants: string[] }) => {
+      const disabled = disabledResult('update_group_participants');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
@@ -395,6 +417,8 @@ export function registerGroupTools (
     },
 
     (async ({ group, name }: { group: string; name: string }) => {
+      const disabled = disabledResult('set_group_name');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       try {
@@ -426,6 +450,8 @@ export function registerGroupTools (
     },
 
     (async ({ group, topic }: { group: string; topic: string }) => {
+      const disabled = disabledResult('set_group_topic');
+      if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       try {

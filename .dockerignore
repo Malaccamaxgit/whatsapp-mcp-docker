@@ -11,3 +11,12 @@ Thumbs.db
 # Build outputs
 dist/
 dist-test/
+
+# Archive folders
+docs/archive/
+docs/archives/
+docs/bugs/archived/
+docs/enhancements/archived/
+**/archive/
+**/archives/
+**/archived/

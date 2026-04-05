@@ -21,15 +21,27 @@
  */
 
 import { statSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
-const STORE_PATH = process.env.STORE_PATH || '/data/sessions';
-const MIN_SESSION_BYTES = 4096; // A valid SQLite session.db is always larger than this
+const DEFAULT_STORE_PATH = process.env.STORE_PATH || '/data/sessions';
+export const MIN_SESSION_BYTES = 4096; // A valid SQLite session.db is always larger than this
 
-function checkHealth (): boolean {
-  const sessionPath = `${STORE_PATH}/session.db`;
+type StatLike = {
+  size: number;
+  mtimeMs: number;
+};
+
+type StatSyncLike = (path: string) => StatLike;
+
+export function checkHealth (
+  storePath = DEFAULT_STORE_PATH,
+  stat: StatSyncLike = statSync,
+  now: () => number = Date.now
+): boolean {
+  const sessionPath = `${storePath}/session.db`;
 
   try {
-    const stats = statSync(sessionPath);
+    const stats = stat(sessionPath);
 
     if (stats.size < MIN_SESSION_BYTES) {
       console.error(
@@ -38,7 +50,7 @@ function checkHealth (): boolean {
       return false;
     }
 
-    const ageSec = Math.round((Date.now() - stats.mtimeMs) / 1000);
+    const ageSec = Math.round((now() - stats.mtimeMs) / 1000);
     console.error(
       `[HEALTH] OK: session.db found (${Math.round(stats.size / 1024)}KB, last modified ${ageSec}s ago)`
     );
@@ -53,5 +65,17 @@ function checkHealth (): boolean {
   }
 }
 
-const healthy = checkHealth();
-process.exit(healthy ? 0 : 1);
+function isMainModule (): boolean {
+  const entry = process.argv[1];
+  if (!entry) {return false;}
+  try {
+    return import.meta.url === pathToFileURL(entry).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
+  const healthy = checkHealth();
+  process.exit(healthy ? 0 : 1);
+}

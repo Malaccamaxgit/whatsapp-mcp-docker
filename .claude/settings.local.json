@@ -11,7 +11,9 @@
       "Bash(docker rmi:*)",
       "Bash(docker volume:*)",
       "Bash(docker mcp:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(Test-Path:*)",
+      "PowerShell($PROFILE)"
     ]
   },
   "outputStyle": "Explanatory"

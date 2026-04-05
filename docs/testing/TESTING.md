@@ -35,7 +35,7 @@ test/
 │   ├── fuzzy-match.test.ts
 │   ├── permissions.test.ts
 │   ├── phone.test.ts
-│   └── property-based.test.ts.SKIPPED
+│   └── (legacy JS migration-era property test archived)
 │
 ├── integration/             # MCP protocol tests (mock WhatsApp)
 │   ├── tools.test.ts
@@ -295,8 +295,8 @@ jobs:
       - uses: actions/setup-node@v6
       - run: npm audit
       - run: tsc --noEmit  # TypeScript type check
-      - run: docker build --target test -t whatsapp-mcp-docker:test-stage .
-      - run: docker run --rm whatsapp-mcp-docker:test-stage  # runs default CMD (node --test)
+      - run: docker compose --profile test build tester-container
+      - run: docker compose --profile test run --rm tester-container
 ```
 
 ### Local Pre-commit
@@ -416,7 +416,7 @@ Workflow: Start → mock auth or use test account → run automated tests → de
 
 **Fix:**
 ```bash
-docker compose build tester-container
+docker compose --profile test build tester-container
 ```
 
 ### E2E Tests Fail with "Not Authenticated"

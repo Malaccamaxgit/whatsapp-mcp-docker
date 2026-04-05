@@ -55,7 +55,7 @@ docker compose --profile test run --rm tester-container npx prettier --check src
 | MCP SDK | @modelcontextprotocol/sdk |
 | Database | SQLite (better-sqlite3) with FTS5 |
 | Container | Docker 4-stage (~80 MB runtime) |
-| Tools | 32 MCP tools |
+| Tools | 34 MCP tools |
 
 ---
 
@@ -156,17 +156,17 @@ docker mcp client connect cursor --profile <your-profile>
 
 ## Build Process
 
-### Local Development
+### Optional Host Development (Linux only)
 
 ```bash
-# Install dependencies
+# Optional: install dependencies on Linux host only
 npm install
 
 # Run with auto-reload on file changes
 npm run dev
 ```
 
-The server uses stdio transport (stdin/stdout for MCP, stderr for logging). For local testing, you can pipe MCP JSON-RPC messages to stdin.
+Host development is optional and not recommended for this project. The canonical workflow is Docker-first.
 
 ### Docker Build
 
@@ -545,9 +545,9 @@ registerExampleTools(mcpServer, waClient, store, permissions, audit);
         desc: "What this parameter is for"
 ```
 
-### Step 4: Add to catalog.yaml and whatsapp-mcp-docker-server.yaml
+### Step 4: Update README.md tool table
 
-### Step 5: Update README.md tool table
+### Step 5: Add integration tests
 
 ---
 

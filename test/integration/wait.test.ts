@@ -24,6 +24,21 @@ type MockMessage = {
   mediaType: string | null;
 };
 
+async function waitForMessageWaiter (
+  waClient: WhatsAppClient,
+  timeoutMs = 1000
+): Promise<void> {
+  const start = Date.now();
+  const clientWithWaiters = waClient as unknown as { _messageWaiters?: unknown[] };
+  while ((Date.now() - start) < timeoutMs) {
+    if ((clientWithWaiters._messageWaiters?.length ?? 0) > 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error('wait_for_message did not register a waiter in time');
+}
+
 function makeMsg (overrides: Partial<MockMessage> = {}): MockMessage {
   return {
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
@@ -59,8 +74,7 @@ describe('wait_for_message (integration)', () => {
       arguments: { timeout: 10 }
     });
 
-    // Simulate incoming message after a short delay
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForMessageWaiter(ctx.waClient);
     (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg());
 
     const result = await waitPromise;
@@ -77,13 +91,12 @@ describe('wait_for_message (integration)', () => {
       arguments: { timeout: 10, chat: CHAT_JID }
     });
 
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForMessageWaiter(ctx.waClient);
 
     // Wrong chat — should not resolve
     (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg({ chatJid: OTHER_JID, senderJid: OTHER_JID }));
 
     // Correct chat — should resolve
-    await new Promise((r) => setTimeout(r, 30));
     (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg({ body: 'Correct chat message' }));
 
     const result = await waitPromise;
@@ -97,7 +110,7 @@ describe('wait_for_message (integration)', () => {
       arguments: { timeout: 10, chat: 'Alice' }
     });
 
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForMessageWaiter(ctx.waClient);
     (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg({ body: 'Named chat message' }));
 
     const result = await waitPromise;
@@ -111,7 +124,7 @@ describe('wait_for_message (integration)', () => {
       arguments: { timeout: 10, from_phone: '15145551234' }
     });
 
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForMessageWaiter(ctx.waClient);
     (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(makeMsg({ body: 'Sender filtered message' }));
 
     const result = await waitPromise;
@@ -151,7 +164,7 @@ describe('wait_for_message (integration)', () => {
       arguments: { timeout: 10 }
     });
 
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForMessageWaiter(ctx.waClient);
     (ctx.waClient as unknown as { simulateIncomingMessage: (msg: MockMessage) => void }).simulateIncomingMessage(
       makeMsg({ body: '', hasMedia: true, mediaType: 'image' })
     );

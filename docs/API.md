@@ -2,12 +2,12 @@
 layout: default
 title: API Reference
 nav_order: 2
-description: "Complete API documentation for all 32 MCP tools — parameters, return types, and examples."
+description: "Complete API documentation for all 34 MCP tools — parameters, return types, and examples."
 ---
 
 # WhatsApp MCP Server API Reference
 
-> **API documentation for all 32 MCP tools**
+> **API documentation for all 34 MCP tools**
 
 ## Table of Contents
 
@@ -227,6 +227,36 @@ Full-text search across all messages using SQLite FTS5.
 - Exact phrase: `"project deadline"`
 - Boolean: `deadline AND urgent`
 - Exclusion: `meeting NOT zoom`
+
+---
+
+### `get_poll_results`
+
+Get poll results including vote counts for each option and voter breakdown.
+
+**Parameters:**
+```typescript
+{
+  poll_message_id: string;  // Message ID of the poll creation message
+  chat: string;             // Chat name, phone number, or JID where the poll was sent
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{
+    type: 'text';
+    text: string;  // Poll question, totals, percentages, and voter list
+  }];
+  isError?: boolean;
+}
+```
+
+**Example:**
+```javascript
+get_poll_results({ poll_message_id: "msg-poll-123", chat: "Engineering Team" })
+```
 
 ---
 
@@ -477,6 +507,35 @@ export_chat_data({ jid: "1234567890@s.whatsapp.net", format: "csv" })
 - PIPEDA individual access requests (Canada)
 - Quebec Law 25 data portability
 - Personal data export for users
+
+---
+
+### `migrate_duplicate_chats`
+
+Backfill contact mappings for duplicate chats using `@lid` and `@s.whatsapp.net` identifiers.
+
+**Parameters:**
+```typescript
+{
+  dry_run?: boolean;  // If true, report candidates without applying changes
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{
+    type: 'text';
+    text: string;  // Migration summary
+  }];
+  isError?: boolean;
+}
+```
+
+**Example:**
+```javascript
+migrate_duplicate_chats({ dry_run: true })
+```
 
 ---
 

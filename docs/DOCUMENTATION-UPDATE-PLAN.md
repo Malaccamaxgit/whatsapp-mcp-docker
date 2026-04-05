@@ -1,5 +1,7 @@
 # Documentation Update Plan - Post TypeScript Migration
 
+> **Historical document:** This plan tracked immediate post-migration doc cleanup and is now superseded by the current docs in `README.md`, `docs/README.md`, and the guides under `docs/guides/`.
+
 **Date:** 2026-04-03  
 **Status:** TypeScript migration complete (Steps 0-11)  
 **Source files:** 26 `.ts` files in `src/` (100% TypeScript)

@@ -4,13 +4,23 @@
 
 ---
 
+## Documentation Hygiene
+
+- Keep active, current documentation in `docs/` and linked from this index.
+- Move outdated or superseded material to `docs/archive/` (or `docs/archives/`) instead of deleting historical context.
+- Archive when content is no longer accurate for current architecture, setup, or workflows.
+- Keep archive files read-only reference material; avoid linking archived content from primary onboarding paths.
+- Use [archive/README.md](archive/README.md) as the canonical index for archived/historical docs.
+
+---
+
 ## For Users
 
 | Document | Description |
 |----------|-------------|
 | [../README.md](../README.md) | Features, installation, quick start |
 | [../CHANGELOG.md](../CHANGELOG.md) | Release history |
-| [API.md](API.md) | Full MCP tool API reference (all 32 tools) |
+| [API.md](API.md) | Full MCP tool API reference (all 34 tools) |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Symptom → cause → fix guide |
 | [../PRIVACY.md](../PRIVACY.md) | Privacy policy and data handling |
 | [interactive-phone-tests.html](interactive-phone-tests.html) | Interactive manual test checklist |
@@ -37,6 +47,7 @@
 |----------|-------------|
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Contribution guidelines, coding standards |
 | [../SECURITY.md](../SECURITY.md) | Security policy, vulnerability reporting |
+| [archive/README.md](archive/README.md) | Historical archive index (migration-era documents) |
 
 ---
 
@@ -54,11 +65,15 @@ Tests run inside Docker via `tester-container` — unit, integration, and e2e la
 
 ## Bug Reports & Known Issues
 
-| Document | Description |
-|----------|-------------|
-| [bugs/BUG-qr-code-not-shown-in-cursor.md](bugs/BUG-qr-code-not-shown-in-cursor.md) | authenticate blocking in Cursor — FIXED |
-| [bugs/BUG-self-account-messages-not-received.md](bugs/BUG-self-account-messages-not-received.md) | wait_for_message / approvals failing — FIXED |
-| [bugs/BUG-websocket-not-connected.md](bugs/BUG-websocket-not-connected.md) | WebSocket connection errors |
+All bug reports are currently archived for historical reference.
+
+- [bugs/archived/README.md](bugs/archived/README.md)
+
+## Enhancements
+
+All enhancement proposals are currently archived for historical reference.
+
+- [enhancements/archived/README.md](enhancements/archived/README.md)
 
 ---
 

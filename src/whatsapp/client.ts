@@ -1020,6 +1020,7 @@ export class WhatsAppClient {
   /**
    * Store contact mapping between LID and phone JID formats.
    * This enables JID unification for duplicate contact detection.
+   * Updated for Phase 4 multi-device support: stores devices in the new schema.
    * Non-blocking, best-effort operation.
    */
   _storeContactMapping (chatJid: string, senderJid: string, senderName: string): void {
@@ -1043,7 +1044,28 @@ export class WhatsAppClient {
         phoneNumber = extractPhoneNumber(senderJid);
       }
 
-      // Store mapping if we have at least one JID format
+      // Phase 4: Use new multi-device schema
+      if (phoneNumber) {
+        // Get or create contact by phone number
+        const contact = this.messageStore.getOrCreateContactByPhone(phoneNumber, senderName);
+        
+        // Add LID device if present
+        if (lidJid) {
+          this.messageStore.addDeviceLid(phoneNumber, lidJid, {
+            deviceType: 'unknown',
+            deviceName: null,
+            isPrimary: false,
+            lastSeen: Math.floor(Date.now() / 1000)
+          });
+        }
+        
+        // Add phone JID if present
+        if (phoneJid && contact.id) {
+          this.messageStore.addPhoneJidToContact(contact.id, phoneJid);
+        }
+      }
+
+      // Legacy fallback: also store in contact_mappings for backward compatibility
       if (lidJid || phoneJid) {
         this.messageStore.upsertContactMapping(
           lidJid || phoneJid!,
@@ -1066,6 +1088,7 @@ export class WhatsAppClient {
 
   /**
    * Resolve LID from a phone-based JID using WhatsApp's getUserInfo.
+   * Updated for Phase 4 multi-device support.
    * @param phoneJid - The @s.whatsapp.net format JID
    * @param contactName - The contact name to store
    */
@@ -1078,8 +1101,27 @@ export class WhatsAppClient {
         
         if (lidJid && isLidJid(lidJid)) {
           const phoneNumber = extractPhoneNumber(phoneJid);
-          this.messageStore.upsertContactMapping(lidJid, phoneJid, phoneNumber, contactName);
-          console.error(`[WA] Resolved LID mapping: ${lidJid} ↔ ${phoneJid}`);
+          
+          // Phase 4: Use new multi-device schema
+          if (phoneNumber) {
+            const contact = this.messageStore.getOrCreateContactByPhone(phoneNumber, contactName || undefined);
+            this.messageStore.addDeviceLid(phoneNumber, lidJid, {
+              deviceType: 'unknown',
+              deviceName: null,
+              isPrimary: false,
+              lastSeen: Math.floor(Date.now() / 1000)
+            });
+            
+            // Also add phone JID if not already present
+            if (contact.id) {
+              this.messageStore.addPhoneJidToContact(contact.id, phoneJid);
+            }
+            
+            // Legacy fallback for backward compatibility
+            this.messageStore.upsertContactMapping(lidJid, phoneJid, phoneNumber, contactName);
+            
+            console.error(`[WA] Resolved LID mapping: ${lidJid} ↔ ${phoneJid}`);
+          }
         }
       }
     } catch (error) {

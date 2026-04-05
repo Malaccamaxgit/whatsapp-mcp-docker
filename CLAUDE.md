@@ -11,9 +11,9 @@
 | Task | Command |
 |------|---------|
 | Build | `docker compose build` |
-| Test | `docker compose run --rm tester-container npm run test:all` |
-| Type check | `docker compose run --rm tester-container npx tsc --noEmit` |
-| Lint | `docker compose run --rm tester-container npm run lint` |
+| Test | `docker compose --profile test run --rm tester-container` |
+| Type check | `docker compose --profile test run --rm tester-container npx tsc --noEmit` |
+| Lint | `docker compose --profile test run --rm tester-container npm run lint` |
 | Dev mode | `docker compose run --rm -e NODE_ENV=development whatsapp-mcp-docker npx tsx --watch src/index.ts` |
 
 ---
@@ -156,7 +156,7 @@ server.registerTool(
 2. Export registration function: `export function registerXTools(server, waClient, store, permissions, audit)`
 3. Use `server.registerTool()` pattern above
 4. Wire in `src/server.ts`: `registerXTools(mcpServer, waClient, store, permissions, audit)`
-5. Add to `catalog.yaml` and `whatsapp-mcp-docker-server.yaml`
+5. Add to `whatsapp-mcp-docker-server.yaml`
 6. Add tests in `test/integration/tools.test.ts`
 7. Update README.md tool table
 
@@ -196,33 +196,34 @@ CMD ["node", "dist/index.js"]
 
 ```bash
 # Type check
-docker compose run --rm tester-container npx tsc --noEmit
+docker compose --profile test run --rm tester-container npx tsc --noEmit
 
 # Full test suite
-docker compose run --rm tester-container npm run test:all
+docker compose --profile test run --rm tester-container
 
 # Lint
-docker compose run --rm tester-container npm run lint
+docker compose --profile test run --rm tester-container npm run lint
 ```
 
 ---
 
 ## Historical Documents
 
-- `JS-to-TS-Migration-Plan.md` — Migration plan (completed 2026-04-03)
-- `docs/DOCUMENTATION-UPDATE-PLAN.md` — Documentation update plan (this file)
+- `docs/archive/README.md` — Archived migration-era document index
+- `JS-to-TS-Migration-Plan.md` — Migration plan (historical record)
+- `docs/DOCUMENTATION-UPDATE-PLAN.md` — Post-migration docs cleanup plan (historical record)
 
 ---
 
 ## MCP Client Usage
 
-All 32 tools available via MCP. Key categories:
+All 34 tools available via MCP. Key categories:
 
 | Category | Tools |
 |----------|-------|
 | Authentication | `authenticate`, `disconnect`, `get_connection_status` |
-| Messaging | `send_message`, `list_messages`, `search_messages` |
-| Chats | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` |
+| Messaging | `send_message`, `list_messages`, `search_messages`, `get_poll_results` |
+| Chats | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data`, `migrate_duplicate_chats` |
 | Media | `download_media`, `send_file` |
 | Groups | `create_group`, `get_group_info`, `get_joined_groups`, `get_group_invite_link`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic` |
 | Actions | `send_reaction`, `edit_message`, `delete_message`, `create_poll` |

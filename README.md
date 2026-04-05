@@ -33,7 +33,7 @@ This server runs inside a Docker container managed by [Docker MCP Toolkit](https
 
 ## Features
 
-- **32 MCP Tools** — Full WhatsApp control: messaging, media, search, contacts, groups, message actions, approvals, status, live interaction, and session management
+- **34 MCP Tools** — Full WhatsApp control: messaging, media, search, contacts, groups, message actions, approvals, status, live interaction, and session management
 - **Fuzzy Name Matching** — Say "John" or "book club" and the server finds the right chat via Levenshtein distance
 - **Media Support** — Download received media and send images, videos, audio, and documents
 - **Full-Text Search** — SQLite FTS5 indexes all messages with keyword, phrase, and boolean operators
@@ -177,6 +177,8 @@ docker mcp secret ls | findstr whatsapp
 You should see a line containing `whatsapp-mcp-docker.data_enc…`.
 
 > **Tip:** Keep the generated key safe! If you lose it, encrypted messages cannot be recovered. Back it up to a password manager.
+>
+> **Security posture:** Running without `DATA_ENCRYPTION_KEY` is an insecure mode. Only do this with an explicit operator override and documented risk acceptance.
 
 ### 3. Create a Custom Catalog
 
@@ -196,7 +198,7 @@ docker mcp catalog create my-custom-mcp-servers \
   --server file://./whatsapp-mcp-docker-server.yaml
 ```
 
-In Docker Desktop, go to **MCP Toolkit → Catalog** — the **WhatsApp MCP** server now appears under your custom catalog with all 32 tools, configuration options, and secrets.
+In Docker Desktop, go to **MCP Toolkit → Catalog** — the **WhatsApp MCP** server now appears under your custom catalog with all 34 tools, configuration options, and secrets.
 
 > **Tip:** To update the catalog after code changes, re-run the same command — it replaces the existing entry. To add more servers later, use multiple `--server` flags.
 
@@ -223,7 +225,7 @@ docker mcp profile server add <your-profile> \
 2. Select an existing profile (or create a new one).
 3. In the **Servers** section, click **+** and add the server.
 
-All options register the server with `longLived: true` (persistent container), `secrets` (encryption key from OS Keychain), and all 32 tools.
+All options register the server with `longLived: true` (persistent container), `secrets` (encryption key from OS Keychain), and all 34 tools.
 
 **After adding, apply the recommended configuration:**
 
@@ -281,7 +283,7 @@ This automatically writes the MCP Gateway entry to your client's config file. **
 | **VS Code** | Reload the window or restart the MCP extension |
 | **Goose / Gemini CLI** | Restart the session |
 
-> **Why doesn't `docker mcp tools ls` show my 32 tools?** That command shows only the 8 MCP Toolkit meta-tools (e.g. `mcp-add`, `mcp-find`). The 32 WhatsApp tools appear inside your MCP client after the gateway starts the `whatsapp-mcp-docker` container on the first tool call. They are not visible from the terminal.
+> **Why doesn't `docker mcp tools ls` show my 34 tools?** That command shows only the 8 MCP Toolkit meta-tools (e.g. `mcp-add`, `mcp-find`). The 34 WhatsApp tools appear inside your MCP client after the gateway starts the `whatsapp-mcp-docker` container on the first tool call. They are not visible from the terminal.
 
 To connect **manually** instead, add the MCP Gateway entry directly to your client's config file. Ready-made snippets for every supported client are in [`examples/client-configs.md`](./examples/client-configs.md). Each client stores its config in a different location — consult your client's documentation for the exact path. The entry format is:
 
@@ -335,7 +337,7 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 
 ---
 
-## Available Tools (32)
+## Available Tools (34)
 
 ### Authentication & Status
 
@@ -353,6 +355,7 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 | `send_file` | Send image, video, audio, or document with optional caption |
 | `list_messages` | Get messages from a chat with date range filtering and pagination |
 | `search_messages` | Full-text search across all messages (SQLite FTS5) |
+| `get_poll_results` | Get poll vote counts and voter breakdown for a poll message |
 
 ### Contacts & Chats
 
@@ -361,6 +364,7 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 | `list_chats` | List conversations sorted by recent activity |
 | `search_contacts` | Find contacts/groups by name or phone number |
 | `export_chat_data` | Export complete chat history for a contact or group (JSON or CSV) |
+| `migrate_duplicate_chats` | Backfill contact mappings to unify duplicate `@lid`/`@s.whatsapp.net` chats |
 
 ### Media
 
@@ -486,7 +490,7 @@ whatsapp-mcp-docker/
 │       └── phone.ts          # E.164 validation + JID conversion
 ├── docs/
 │   ├── README.md             # Documentation index
-│   ├── API.md                # Full MCP tool API reference (all 32 tools)
+│   ├── API.md                # Full MCP tool API reference (all 34 tools)
 │   ├── TROUBLESHOOTING.md    # Symptom → cause → fix guide
 │   ├── architecture/
 │   │   └── OVERVIEW.md       # Architecture overview
@@ -602,7 +606,7 @@ Or configure via Docker Desktop: **MCP Toolkit → WhatsApp MCP → Configuratio
 
 ### Variable Details
 
-**`DATA_ENCRYPTION_KEY`** — Encrypts sensitive fields (message bodies, sender names, media metadata, approval details) using AES-256-GCM. Store it via `docker mcp secret set whatsapp-mcp-docker.data_encryption_key` (OS Keychain) or in `.env` for docker-compose. Generate a strong key: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. If you lose the key, encrypted data becomes unrecoverable.
+**`DATA_ENCRYPTION_KEY`** — Encrypts sensitive fields (message bodies, sender names, media metadata, approval details) using AES-256-GCM. Store it via `docker mcp secret set whatsapp-mcp-docker.data_encryption_key` (OS Keychain) or in `.env` for docker-compose. Generate a strong key: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. If you lose the key, encrypted data becomes unrecoverable. Running without this key is an insecure mode and should only be done through an explicit operator override with documented risk acceptance.
 
 **`MESSAGE_RETENTION_DAYS`** — Runs on startup and then hourly. Deletes messages, associated media files, and expired approvals older than the configured number of days. Set to `0` to disable.
 
@@ -768,7 +772,7 @@ docker volume ls | findstr whatsapp
 
 ## Documentation
 
-- [docs/API.md](./docs/API.md) — Full MCP tool API reference (all 32 tools)
+- [docs/API.md](./docs/API.md) — Full MCP tool API reference (all 34 tools)
 - [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) — Symptom → cause → fix guide
 - [docs/guides/DEVELOPER.md](./docs/guides/DEVELOPER.md) — Build, test, and deploy procedures
 - [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md) — Architecture overview

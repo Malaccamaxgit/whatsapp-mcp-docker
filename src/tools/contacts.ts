@@ -41,12 +41,23 @@ export function registerContactTools (
   // ── get_user_info ─────────────────────────────────────────────
 
   const get_user_info_handler = async ({ phones }: { phones: string[] }) => {
+    const toolCheck = permissions.isToolEnabled('get_user_info');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
+
     if (!waClient.isConnected()) {
       return notConnected();
     }
 
     try {
       const jids = phones.map((p) => (p.includes('@') ? p : toJid(p)!));
+      for (const jid of jids) {
+        const readCheck = permissions.canReadFrom(jid);
+        if (!readCheck.allowed) {
+          return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+        }
+      }
       const results = await waClient.getUserInfo(jids);
       audit.log('get_user_info', 'read', { count: jids.length });
 
@@ -86,11 +97,26 @@ export function registerContactTools (
   // ── is_on_whatsapp ────────────────────────────────────────────
 
   const is_on_whatsapp_handler = async ({ phones }: { phones: string[] }) => {
+    const toolCheck = permissions.isToolEnabled('is_on_whatsapp');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
+
     if (!waClient.isConnected()) {
       return notConnected();
     }
 
     try {
+      for (const phone of phones) {
+        const jid = phone.includes('@') ? phone : toJid(phone);
+        if (!jid) {
+          return { content: [{ type: 'text', text: `Invalid phone number: "${phone}"` }], isError: true };
+        }
+        const readCheck = permissions.canReadFrom(jid);
+        if (!readCheck.allowed) {
+          return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+        }
+      }
       const results = await waClient.isOnWhatsApp(phones);
       audit.log('is_on_whatsapp', 'checked', { count: phones.length });
 
@@ -124,6 +150,11 @@ export function registerContactTools (
   // ── get_profile_picture ───────────────────────────────────────
 
   const get_profile_picture_handler = async ({ target }: { target: string }) => {
+    const toolCheck = permissions.isToolEnabled('get_profile_picture');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
+
     if (!waClient.isConnected()) {
       return notConnected();
     }
@@ -140,6 +171,11 @@ export function registerContactTools (
           (c) => c.name?.toLowerCase() === target.toLowerCase()
         );
         jid = match?.jid || toJid(target)!;
+      }
+
+      const readCheck = permissions.canReadFrom(jid);
+      if (!readCheck.allowed) {
+        return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
       }
 
       const result = await waClient.getProfilePicture(jid);

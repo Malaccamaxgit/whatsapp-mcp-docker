@@ -95,3 +95,12 @@ test-results*.txt
 # Local cleanup scripts (contain machine-specific profile/catalog names)
 scripts/cleanup.ps1
 scripts/cleanup.sh
+
+# Documentation archives (local-only historical snapshots)
+docs/archive/
+docs/archives/
+docs/bugs/archived/
+docs/enhancements/archived/
+**/archive/
+**/archives/
+**/archived/
