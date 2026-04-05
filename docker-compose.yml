@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      provenance: "mode=max"
     image: malaccamax/whatsapp-mcp-docker:latest
     container_name: ${CONTAINER_NAME:-whatsapp-mcp-docker}
     restart: no
@@ -112,7 +111,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: test
-      provenance: "mode=max"
     container_name: tester-container
     profiles:
       - test
