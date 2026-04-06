@@ -1,7 +1,7 @@
 /**
  * Integration tests for Contact & User Info Tools
  *
- * Covers: get_user_info, is_on_whatsapp, get_profile_picture
+ * Covers: get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name
  */
 
 import { describe, it, before, after } from 'node:test';
@@ -233,6 +233,52 @@ describe('Contact & User Info Tools (integration)', () => {
       assert.ok(result.isError);
       (ctx.waClient as unknown as { _connected: boolean })._connected = true;
       (ctx.waClient as unknown as { _probeVerified: boolean })._probeVerified = true;
+    });
+  });
+
+  // ── set_contact_name ────────────────────────────────────────────────────────
+
+  describe('set_contact_name', () => {
+    it('stores a custom name and list_chats displays it', async () => {
+      const lid = '138053771370743@lid';
+      ctx.store.upsertChat(lid, 'Push Name', false, 8000, 'hey');
+      const setResult = await ctx.client.callTool({
+        name: 'set_contact_name',
+        arguments: { jid: lid, name: 'Kapso AI' }
+      });
+      assert.equal(setResult.isError, undefined);
+      const listResult = await ctx.client.callTool({
+        name: 'list_chats',
+        arguments: { filter: 'Kapso', limit: 20, page: 0 }
+      });
+      assert.equal(listResult.isError, undefined);
+      assert.match(listResult.content[0].text, /Kapso AI/);
+    });
+
+    it('clears custom name when name is empty', async () => {
+      const lid = '138053771370744@lid';
+      ctx.store.upsertChat(lid, 'Restored Push', false, 9000, 'x');
+      await ctx.client.callTool({
+        name: 'set_contact_name',
+        arguments: { jid: lid, name: 'Temporary' }
+      });
+      assert.equal(ctx.store.getDisplayNameForJid(lid), 'Temporary');
+      const clearResult = await ctx.client.callTool({
+        name: 'set_contact_name',
+        arguments: { jid: lid, name: '' }
+      });
+      assert.equal(clearResult.isError, undefined);
+      assert.match(clearResult.content[0].text, /cleared/i);
+      assert.equal(ctx.store.getDisplayNameForJid(lid), 'Restored Push');
+    });
+
+    it('accepts E.164 phone and resolves to user JID', async () => {
+      const setResult = await ctx.client.callTool({
+        name: 'set_contact_name',
+        arguments: { jid: '+15145551234', name: 'Renamed Local' }
+      });
+      assert.equal(setResult.isError, undefined);
+      assert.equal(ctx.store.getCustomContactName(CHAT_JID), 'Renamed Local');
     });
   });
 });

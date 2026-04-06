@@ -200,7 +200,7 @@ docker mcp catalog create my-custom-mcp-servers \
   --server file://./whatsapp-mcp-docker-server.yaml
 ```
 
-In Docker Desktop, go to **MCP Toolkit → Catalog** — the **WhatsApp MCP** server now appears under your custom catalog with all 34 tools, configuration options, and secrets.
+In Docker Desktop, go to **MCP Toolkit → Catalog** — the **WhatsApp MCP** server now appears under your custom catalog with all 35 tools, configuration options, and secrets.
 
 > **Tip:** To update the catalog after code changes, re-run the same command — it replaces the existing entry. To add more servers later, use multiple `--server` flags.
 
@@ -227,7 +227,7 @@ docker mcp profile server add <your-profile> \
 2. Select an existing profile (or create a new one).
 3. In the **Servers** section, click **+** and add the server.
 
-All options register the server with `longLived: true` (persistent container), `secrets` (encryption key from OS Keychain), and all 34 tools.
+All options register the server with `longLived: true` (persistent container), `secrets` (encryption key from OS Keychain), and all 35 tools.
 
 **After adding, apply the recommended configuration:**
 
@@ -285,7 +285,7 @@ This automatically writes the MCP Gateway entry to your client's config file. **
 | **VS Code** | Reload the window or restart the MCP extension |
 | **Goose / Gemini CLI** | Restart the session |
 
-> **Why doesn't `docker mcp tools ls` show my 34 tools?** That command shows only the 8 MCP Toolkit meta-tools (e.g. `mcp-add`, `mcp-find`). The 34 WhatsApp tools appear inside your MCP client after the gateway starts the `whatsapp-mcp-docker` container on the first tool call. They are not visible from the terminal.
+> **Why doesn't `docker mcp tools ls` show my 35 tools?** That command shows only the 8 MCP Toolkit meta-tools (e.g. `mcp-add`, `mcp-find`). The 34 WhatsApp tools appear inside your MCP client after the gateway starts the `whatsapp-mcp-docker` container on the first tool call. They are not visible from the terminal.
 
 To connect **manually** instead, add the MCP Gateway entry directly to your client's config file. Ready-made snippets for every supported client are in [`examples/client-configs.md`](./examples/client-configs.md). Each client stores its config in a different location — consult your client's documentation for the exact path. The entry format is:
 
@@ -417,6 +417,7 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 | `get_user_info` | Get profile information for one or more phone numbers |
 | `is_on_whatsapp` | Check whether phone numbers have WhatsApp accounts |
 | `get_profile_picture` | Get the profile picture URL for a contact or group |
+| `set_contact_name` | Set a local custom display name for a JID or phone number (shown in lists and search) |
 
 **Interactive Workflows**
 
@@ -479,7 +480,7 @@ whatsapp-mcp-docker/
 │   │   ├── approvals.ts      # request_approval, check_approvals
 │   │   ├── groups.ts         # create_group, get_group_info, get_joined_groups, get_group_invite_link, join_group, leave_group, update_group_participants, set_group_name, set_group_topic
 │   │   ├── reactions.ts      # send_reaction, edit_message, delete_message, create_poll
-│   │   ├── contacts.ts       # get_user_info, is_on_whatsapp, get_profile_picture
+│   │   ├── contacts.ts       # get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name
 │   │   └── wait.ts           # wait_for_message
 │   ├── security/
 │   │   ├── audit.ts          # SQLite audit logging
@@ -491,7 +492,7 @@ whatsapp-mcp-docker/
 │       └── phone.ts          # E.164 validation + JID conversion
 ├── docs/
 │   ├── README.md             # Documentation index
-│   ├── API.md                # Full MCP tool API reference (all 34 tools)
+│   ├── API.md                # Full MCP tool API reference (all 35 tools)
 │   ├── TROUBLESHOOTING.md    # Symptom → cause → fix guide
 │   ├── architecture/
 │   │   └── OVERVIEW.md       # Architecture overview
@@ -773,7 +774,7 @@ docker volume ls | findstr whatsapp
 
 ## Documentation
 
-- [docs/API.md](./docs/API.md) — Full MCP tool API reference (all 34 tools)
+- [docs/API.md](./docs/API.md) — Full MCP tool API reference (all 35 tools)
 - [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) — Symptom → cause → fix guide
 - [docs/guides/DEVELOPER.md](./docs/guides/DEVELOPER.md) — Build, test, and deploy procedures
 - [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md) — Architecture overview

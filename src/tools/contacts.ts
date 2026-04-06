@@ -1,7 +1,7 @@
 /**
  * Contact & User Info Tools
  *
- * get_user_info, is_on_whatsapp, get_profile_picture
+ * get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name
  */
 
 import { z } from 'zod';
@@ -209,6 +209,70 @@ export function registerContactTools (
     },
 
     get_profile_picture_handler as any
+  );
+
+  // ── set_contact_name ─────────────────────────────────────────
+
+  const set_contact_name_handler = async ({ jid, name }: { jid: string; name: string }) => {
+    const toolCheck = permissions.isToolEnabled('set_contact_name');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
+
+    const raw = jid.trim();
+    if (!raw) {
+      return { content: [{ type: 'text', text: 'JID or phone number is required' }], isError: true };
+    }
+
+    let resolvedJid: string;
+    try {
+      resolvedJid = raw.includes('@') ? raw : toJid(raw)!;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err || '');
+      return { content: [{ type: 'text', text: `Invalid phone number or JID: ${msg}` }], isError: true };
+    }
+
+    if (!resolvedJid) {
+      return { content: [{ type: 'text', text: `Invalid phone number: "${jid}"` }], isError: true };
+    }
+
+    const readCheck = permissions.canReadFrom(resolvedJid);
+    if (!readCheck.allowed) {
+      return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+    }
+
+    store.setCustomContactName(resolvedJid, name);
+    const trimmed = name.trim();
+    audit.log('set_contact_name', 'updated', { jid: resolvedJid, name: trimmed || null });
+
+    if (!trimmed) {
+      return { content: [{ type: 'text', text: `Custom name cleared for ${resolvedJid}.` }] };
+    }
+
+    return {
+      content: [{ type: 'text', text: `Contact name set: ${resolvedJid} → "${trimmed}"` }]
+    };
+  };
+
+  server.registerTool(
+    'set_contact_name',
+    {
+      description:
+        'Set a custom display name for a contact or group JID (stored locally). Overrides push names in list_chats, search, and catch_up. Use an empty name to clear.',
+      inputSchema: {
+        jid: z
+          .string()
+          .max(200)
+          .describe('JID (e.g. 123@s.whatsapp.net, 456@lid, 789@g.us) or phone number in E.164 format'),
+        name: z
+          .string()
+          .max(100)
+          .describe('Display name to show, or empty string to remove the custom name')
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+    },
+
+    set_contact_name_handler as any
   );
 }
 

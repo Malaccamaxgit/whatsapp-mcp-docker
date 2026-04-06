@@ -8,14 +8,14 @@ description: |
   Send messages, search chats, approval workflows, and intelligent
   activity summaries — all with fuzzy contact name matching.
 
-  34 tools: disconnect, authenticate, get_connection_status,
+  35 tools: disconnect, authenticate, get_connection_status,
   send_message, send_file, download_media, list_chats, list_messages,
   search_messages, get_poll_results, list_polls, search_contacts, catch_up, mark_messages_read,
   export_chat_data, request_approval, check_approvals,
   create_group, get_group_info, get_joined_groups, get_group_invite_link,
   join_group, leave_group, update_group_participants, set_group_name,
   set_group_topic, send_reaction, edit_message, delete_message,
-  create_poll, get_user_info, is_on_whatsapp, get_profile_picture,
+  create_poll, get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name,
   wait_for_message.
 
   Uses whatsmeow-node for native WhatsApp protocol. Pairing-code
@@ -482,6 +482,16 @@ tools:
       - name: target
         type: string
         desc: Phone number, contact name, group name, or JID
+
+  - name: set_contact_name
+    description: Set a local custom display name for a JID or phone number (overrides push names in lists and search)
+    arguments:
+      - name: jid
+        type: string
+        desc: WhatsApp JID or E.164 phone number
+      - name: name
+        type: string
+        desc: Display name to store, or empty to clear
 
   - name: wait_for_message
     description: Block until an incoming WhatsApp message arrives, then return it. Use during interactive tests or workflows — tell the user to send a message, call this tool, and the AI receives the message automatically without the user typing in Cursor.

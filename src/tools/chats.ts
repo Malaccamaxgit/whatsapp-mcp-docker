@@ -1,7 +1,8 @@
 /**
  * Chat Tools
  *
- * list_chats, catch_up, mark_messages_read
+ * list_chats, catch_up, mark_messages_read, search_contacts, export_chat_data
+ * (display names use MessageStore.getDisplayNameForJid — custom names from set_contact_name)
  */
 
 import { z } from 'zod';
@@ -126,7 +127,8 @@ export function registerChatTools (
         // Add JID type label (User, LID, or Group)
         const jidType = getJidTypeInfo(c.jid);
 
-        return `${type} ${c.name || c.jid}${unread}\n     Last: ${time}${preview}\n     JID: ${jidInfo} ${jidType.shortLabel}`;
+        const displayName = store.getDisplayNameForJid(c.jid);
+        return `${type} ${displayName}${unread}\n     Last: ${time}${preview}\n     JID: ${jidInfo} ${jidType.shortLabel}`;
       });
 
       const pageInfo = page > 0 ? ` (page ${page})` : '';
@@ -197,7 +199,7 @@ export function registerChatTools (
       // Active chats
       if (filteredData.activeChats.length > 0) {
         const chatLines = filteredData.activeChats.map((c) => {
-          const name = c.name || c.jid;
+          const name = store.getDisplayNameForJid(c.jid);
           const type = c.is_group ? '(group)' : '';
           const unread = c.unread_count > 0 ? ` — ${c.unread_count} unread` : '';
           const last =
@@ -215,7 +217,7 @@ export function registerChatTools (
       if (filteredData.questions.length > 0) {
         const qLines = filteredData.questions.slice(0, 10).map((m) => {
           const sender = m.sender_name || m.sender_jid?.split('@')[0] || '?';
-          const chatName = m.chat_name || m.chat_jid;
+          const chatName = store.getDisplayNameForJid(m.chat_jid);
           const timeCtx = formatMessageLineTimeContext(m.timestamp, now);
           return `  - [${chatName}] ${sender} @ ${timeCtx} · status: awaiting your reply\n    ${m.body?.substring(0, 120) || ''}`;
         });
@@ -232,7 +234,7 @@ export function registerChatTools (
 
         const highlights = filteredData.recentUnread.slice(0, 5).map((m) => {
           const sender = m.sender_name || m.sender_jid?.split('@')[0] || '?';
-          const chatName = m.chat_name || m.chat_jid;
+          const chatName = store.getDisplayNameForJid(m.chat_jid);
           const timeCtx = formatMessageLineTimeContext(m.timestamp, now);
           return `  - [${chatName}] ${sender} @ ${timeCtx} · status: unread\n    ${m.body?.substring(0, 100) || '[media]'}`;
         });
@@ -310,7 +312,8 @@ export function registerChatTools (
 
       const matches = chats
         .filter((c) => {
-          const nameMatch = c.name?.toLowerCase().includes(lowerQuery);
+          const display = store.getDisplayNameForJid(c.jid);
+          const nameMatch = display.toLowerCase().includes(lowerQuery);
           const jidMatch = c.jid.includes(query.replace(/[^0-9]/g, ''));
           const readable = permissions.canReadFrom(c.jid).allowed;
           return readable && (nameMatch || jidMatch);
@@ -324,6 +327,7 @@ export function registerChatTools (
       }
 
       const lines = matches.map((c) => {
+        const display = store.getDisplayNameForJid(c.jid);
         const jidType = getJidTypeInfo(c.jid);
         const phone = jidType.type === 'group' ? '' : ` (${c.jid.split('@')[0]})`;
         const unread = c.unread_count && c.unread_count > 0 ? ` [${c.unread_count} unread]` : '';
@@ -333,22 +337,25 @@ export function registerChatTools (
         const preview = c.last_message_preview
           ? ` — ${c.last_message_preview.substring(0, 60)}${c.last_message_preview.length > 60 ? '...' : ''}`
           : '';
-        return `  - ${c.name || c.jid}${phone}${unread} → ${c.jid} ${jidType.shortLabel}\n     Last: ${lastMsgTime}${preview}`;
+        return `  - ${display}${phone}${unread} → ${c.jid} ${jidType.shortLabel}\n     Last: ${lastMsgTime}${preview}`;
       });
 
       let output = `Contacts matching "${query}" (${matches.length}):\n\n${lines.join('\n')}`;
 
       if (include_chats && matches.length === 1) {
-        const contactChats = store.getContactChats(matches[0].jid, 10);
+        const primaryJid = matches[0].jid;
+        const primaryDisplay = store.getDisplayNameForJid(primaryJid);
+        const contactChats = store.getContactChats(primaryJid, 10);
         if (contactChats.length > 0) {
           const chatLines = contactChats.map((c) => {
             const type = c.is_group ? '[Group]' : '[Chat]';
             const time = c.last_message_at
               ? formatTimestamp(c.last_message_at)
               : 'never';
-            return `  - ${type} ${c.name || c.jid} (last: ${time})`;
+            const lineDisplay = store.getDisplayNameForJid(c.jid);
+            return `  - ${type} ${lineDisplay} (last: ${time})`;
           });
-          output += `\n\nChats involving ${matches[0].name || matches[0].jid}:\n${chatLines.join('\n')}`;
+          output += `\n\nChats involving ${primaryDisplay}:\n${chatLines.join('\n')}`;
         }
       }
 
