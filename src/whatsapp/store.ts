@@ -97,6 +97,9 @@ export class MessageStore {
   private _getAllContactMappings!: Database.Statement;
   private _insertPollVote!: Database.Statement;
   private _getPollVotes!: Database.Statement;
+  private _upsertPollShortName!: Database.Statement;
+  private _getPollMessageIdByShortName!: Database.Statement;
+  private _listPollShortNamesForChat!: Database.Statement;
   
   // Multi-device prepared statements
   private _getContactByPhone!: Database.Statement;
@@ -202,6 +205,26 @@ export class MessageStore {
       console.error('[STORE] poll_votes table created');
     } catch (error: unknown) {
       console.error('[STORE] poll_votes migration note:', (error as Error).message);
+    }
+
+    // Short names for polls (per chat) — maps user label → poll message id
+    try {
+      this.db!.exec(`
+        CREATE TABLE IF NOT EXISTS polls (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chat_jid TEXT NOT NULL,
+          short_name TEXT NOT NULL,
+          poll_message_id TEXT NOT NULL,
+          created_at INTEGER DEFAULT (unixepoch()),
+          UNIQUE(chat_jid, short_name)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_polls_message
+        ON polls(poll_message_id);
+      `);
+      console.error('[STORE] polls (short names) table ready');
+    } catch (error: unknown) {
+      console.error('[STORE] polls migration note:', (error as Error).message);
     }
 
     // Drop FTS triggers — we manage FTS from application code so that
@@ -364,6 +387,25 @@ export class MessageStore {
       FROM poll_votes
       WHERE poll_message_id = ? AND chat_jid = ?
       ORDER BY timestamp ASC
+    `);
+
+    this._upsertPollShortName = this.db!.prepare(`
+      INSERT INTO polls (chat_jid, short_name, poll_message_id, created_at)
+      VALUES (?, ?, ?, unixepoch())
+      ON CONFLICT(chat_jid, short_name) DO UPDATE SET
+        poll_message_id = excluded.poll_message_id,
+        created_at = unixepoch()
+    `);
+
+    this._getPollMessageIdByShortName = this.db!.prepare(`
+      SELECT poll_message_id FROM polls WHERE chat_jid = ? AND short_name = ?
+    `);
+
+    this._listPollShortNamesForChat = this.db!.prepare(`
+      SELECT short_name, poll_message_id, created_at
+      FROM polls
+      WHERE chat_jid = ?
+      ORDER BY created_at DESC
     `);
 
     // Contact mapping prepared statements
@@ -1233,6 +1275,45 @@ export class MessageStore {
       voter_name: string | null;
       vote_option: string;
       timestamp: number;
+    }>;
+  }
+
+  /**
+   * Register a short name for a poll in a chat (unique per chat).
+   * Re-sending the same short name updates it to the new poll message id.
+   */
+  public upsertPollShortName ({
+    chatJid,
+    shortName,
+    pollMessageId
+  }: {
+    chatJid: string;
+    shortName: string;
+    pollMessageId: string;
+  }): void {
+    this._upsertPollShortName.run(chatJid, shortName, pollMessageId);
+  }
+
+  /**
+   * Resolve a poll message id from a short name in the given chat.
+   */
+  public getPollMessageIdByShortName (chatJid: string, shortName: string): string | null {
+    const row = this._getPollMessageIdByShortName.get(chatJid, shortName) as { poll_message_id: string } | undefined;
+    return row?.poll_message_id ?? null;
+  }
+
+  /**
+   * List short-name registrations for a chat (newest first).
+   */
+  public listPollShortNamesForChat (chatJid: string): Array<{
+    short_name: string;
+    poll_message_id: string;
+    created_at: number;
+  }> {
+    return this._listPollShortNamesForChat.all(chatJid) as Array<{
+      short_name: string;
+      poll_message_id: string;
+      created_at: number;
     }>;
   }
 

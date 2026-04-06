@@ -467,22 +467,48 @@ export function registerMessagingTools (
 
   // ── get_poll_results ─────────────────────────────────────────
 
+  const getPollResultsInput = z
+    .object({
+      poll_message_id: z
+        .string()
+        .optional()
+        .describe('Message ID of the poll creation message (from create_poll or list_messages)'),
+      short_name: z
+        .string()
+        .min(1)
+        .max(64)
+        .regex(/^[a-zA-Z0-9_-]+$/, 'Use only letters, digits, underscore, and hyphen')
+        .optional()
+        .describe('Short name registered for this poll in this chat (from create_poll)'),
+      chat: z.string().max(200).describe('Chat name, phone number, or JID where the poll was sent')
+    })
+    .superRefine((data, ctx) => {
+      if (!data.poll_message_id && !data.short_name) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Provide either poll_message_id or short_name',
+          path: ['poll_message_id']
+        });
+      }
+    });
+
   server.registerTool(
     'get_poll_results',
     {
-      description: 'Get poll results including vote counts for each option. Returns the poll question, options with vote counts, and detailed voter information.',
-      inputSchema: {
-        poll_message_id: z
-          .string()
-          .describe('Message ID of the poll creation message'),
-        chat: z
-          .string()
-          .max(200)
-          .describe('Chat name, phone number, or JID where the poll was sent')
-      }
+      description:
+        'Get poll results including vote counts for each option. Identify the poll by message id or by the short_name from create_poll.',
+      inputSchema: getPollResultsInput
     },
 
-    (async ({ poll_message_id, chat }: { poll_message_id: string; chat: string }) => {
+    (async ({
+      poll_message_id,
+      short_name,
+      chat
+    }: {
+      poll_message_id?: string;
+      short_name?: string;
+      chat: string;
+    }) => {
       const toolCheck = permissions.isToolEnabled('get_poll_results');
       if (!toolCheck.allowed) {
         return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
@@ -506,20 +532,45 @@ export function registerMessagingTools (
         return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
       }
 
+      let effectivePollId: string;
+      if (poll_message_id) {
+        effectivePollId = poll_message_id;
+      } else if (short_name) {
+        const id = store.getPollMessageIdByShortName(resolved, short_name);
+        if (!id) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No poll registered with short name "${short_name}" in this chat. Use create_poll with short_name or pass poll_message_id.`
+              }
+            ],
+            isError: true
+          };
+        }
+        effectivePollId = id;
+      } else {
+        return {
+          content: [{ type: 'text', text: 'Provide either poll_message_id or short_name.' }],
+          isError: true
+        };
+      }
+
       // Get the poll creation message
-      const pollMsg = store.listMessages({ chatJid: resolved, limit: 100, offset: 0 })
-        .find((m) => m.id === poll_message_id);
+      const pollMsg = store
+        .listMessages({ chatJid: resolved, limit: 100, offset: 0 })
+        .find((m) => m.id === effectivePollId);
 
       if (!pollMsg) {
         return {
-          content: [{ type: 'text', text: `Poll message not found: ${poll_message_id}` }],
+          content: [{ type: 'text', text: `Poll message not found: ${effectivePollId}` }],
           isError: true
         };
       }
 
       if (!pollMsg.body || !pollMsg.body.startsWith('Poll: ')) {
         return {
-          content: [{ type: 'text', text: `Message ${poll_message_id} is not a poll.` }],
+          content: [{ type: 'text', text: `Message ${effectivePollId} is not a poll.` }],
           isError: true
         };
       }
@@ -530,12 +581,12 @@ export function registerMessagingTools (
       const options: string[] = [];
       for (let i = 1; i < lines.length; i++) {
         if (lines[i].startsWith('  - ')) {
-          options.push(lines[i].substring(3));
+          options.push(lines[i].slice(4).trim());
         }
       }
 
       // Get all votes for this poll
-      const votes = store.getPollVotes(poll_message_id, resolved);
+      const votes = store.getPollVotes(effectivePollId, resolved);
 
       // Count votes per option
       const voteCounts = new Map<string, number>();
@@ -572,7 +623,8 @@ export function registerMessagingTools (
       for (const opt of options) {
         const count = voteCounts.get(opt) || 0;
         const percentage = totalVotes > 0 ? ((count / totalVotes) * 100).toFixed(1) : '0.0';
-        const bar = '█'.repeat(Math.round((count / totalVotes) * 10)) + '░'.repeat(10 - Math.round((count / totalVotes) * 10));
+        const barLen = totalVotes > 0 ? Math.round((count / totalVotes) * 10) : 0;
+        const bar = '█'.repeat(barLen) + '░'.repeat(10 - barLen);
         output += `  ${opt}: ${count} votes (${percentage}%)\n`;
         output += `    [${bar}]\n`;
 
@@ -587,13 +639,79 @@ export function registerMessagingTools (
         }
       }
 
-      audit.log('get_poll_results', 'read', { pollId: poll_message_id, totalVotes });
+      audit.log('get_poll_results', 'read', { pollId: effectivePollId, totalVotes });
 
       return {
         content: [
           {
             type: 'text',
             text: output
+          }
+        ]
+      };
+    }) as any
+  );
+
+  // ── list_polls ───────────────────────────────────────────────
+
+  server.registerTool(
+    'list_polls',
+    {
+      description:
+        'List polls that have a short name registered in a chat (from create_poll). Shows short_name, message id, and registration time.',
+      inputSchema: {
+        chat: z.string().max(200).describe('Chat name, phone number, or JID')
+      }
+    },
+
+    (async ({ chat }: { chat: string }) => {
+      const toolCheck = permissions.isToolEnabled('list_polls');
+      if (!toolCheck.allowed) {
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+      }
+
+      const chats = store.getAllChatsForMatching();
+      const { resolved, candidates, error } = resolveRecipient(chat, chats);
+
+      if (!resolved && candidates.length > 0) {
+        const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
+        return {
+          content: [{ type: 'text', text: `${error ?? 'Ambiguous recipient'}\n\n${list}` }],
+          isError: true
+        };
+      }
+      if (!resolved) {
+        return { content: [{ type: 'text', text: error ?? 'Could not resolve chat' }], isError: true };
+      }
+      const readCheck = permissions.canReadFrom(resolved);
+      if (!readCheck.allowed) {
+        return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+      }
+
+      const rows = store.listPollShortNamesForChat(resolved);
+      if (rows.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `No short-named polls in this chat. Create one with create_poll and the short_name argument.`
+            }
+          ]
+        };
+      }
+
+      const lines = rows.map((r) => {
+        const t = formatTimestamp(r.created_at);
+        return `  - ${r.short_name} → message id ${r.poll_message_id} (registered ${t})`;
+      });
+
+      audit.log('list_polls', 'read', { chatJid: resolved, count: rows.length });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Polls with short names in ${resolved}:\n\n${lines.join('\n')}`
           }
         ]
       };

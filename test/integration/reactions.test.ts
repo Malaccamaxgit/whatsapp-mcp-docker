@@ -219,6 +219,39 @@ describe('Message Action Tools (integration)', () => {
       assert.match(text, /Friday/);
     });
 
+    it('registers optional short_name and persists poll message for lookup', async () => {
+      const result = await ctx.client.callTool({
+        name: 'create_poll',
+        arguments: {
+          to: CHAT_JID,
+          question: 'Tea or coffee?',
+          options: ['Tea', 'Coffee'],
+          short_name: 'breakfast_drink'
+        }
+      });
+      assert.equal(result.isError, undefined);
+      assert.match(result.content[0].text, /Short name: breakfast_drink/);
+
+      const listed = await ctx.client.callTool({
+        name: 'list_polls',
+        arguments: { chat: CHAT_JID }
+      });
+      assert.equal(listed.isError, undefined);
+      assert.match(listed.content[0].text, /breakfast_drink/);
+
+      const pollIdMatch = result.content[0].text.match(/Message ID: (poll_\d+)/);
+      assert.ok(pollIdMatch, 'expected dynamic poll id from mock');
+      const pollResults = await ctx.client.callTool({
+        name: 'get_poll_results',
+        arguments: {
+          chat: CHAT_JID,
+          short_name: 'breakfast_drink'
+        }
+      });
+      assert.equal(pollResults.isError, undefined);
+      assert.match(pollResults.content[0].text, /Tea or coffee/);
+    });
+
     it('sends a poll to a group by name', async () => {
       const result = await ctx.client.callTool({
         name: 'create_poll',

@@ -211,12 +211,14 @@ export function registerReactionTools (
     to,
     question,
     options,
-    allow_multiple
+    allow_multiple,
+    short_name
   }: {
     to: string;
     question: string;
     options: string[];
     allow_multiple?: boolean;
+    short_name?: string;
   }): Promise<ApprovalResult> => {
     const toolCheck = permissions.isToolEnabled('create_poll');
     if (!toolCheck.allowed) {
@@ -236,18 +238,46 @@ export function registerReactionTools (
       }
 
       const result = await waClient.createPoll(jid, question, options, allow_multiple ?? false);
-      audit.log('create_poll', 'sent', { jid, question, optionCount: options.length });
+      const pollId = result?.id;
+
+      if (pollId) {
+        const pollBody = `Poll: ${question}\n${options.map((o) => `  - ${o}`).join('\n')}`;
+        store.addMessage({
+          id: pollId,
+          chatJid: jid,
+          senderJid: waClient.jid ?? null,
+          senderName: null,
+          body: pollBody,
+          timestamp: Math.floor(Date.now() / 1000),
+          isFromMe: true,
+          hasMedia: false,
+          mediaType: null,
+          pollMetadata: {
+            pollCreationMessageKey: pollId,
+            voteOptions: options
+          }
+        });
+        if (short_name) {
+          store.upsertPollShortName({ chatJid: jid, shortName: short_name, pollMessageId: pollId });
+        }
+      }
+
+      audit.log('create_poll', 'sent', { jid, question, optionCount: options.length, shortName: short_name });
+      const lines = [
+        `Poll sent to ${jid}.`,
+        `Question: "${question}"`,
+        `Options: ${options.map((o, i) => `${i + 1}. ${o}`).join(', ')}`,
+        `Multiple answers: ${allow_multiple ? 'yes' : 'no'}`,
+        `Message ID: ${pollId || 'unknown'}`
+      ];
+      if (short_name) {
+        lines.push(`Short name: ${short_name} (use with get_poll_results or list_polls)`);
+      }
       return {
         content: [
           {
             type: 'text',
-            text: [
-              `Poll sent to ${jid}.`,
-              `Question: "${question}"`,
-              `Options: ${options.map((o, i) => `${i + 1}. ${o}`).join(', ')}`,
-              `Multiple answers: ${allow_multiple ? 'yes' : 'no'}`,
-              `Message ID: ${result?.id || 'unknown'}`
-            ].join('\n')
+            text: lines.join('\n')
           }
         ]
       };
@@ -274,7 +304,16 @@ export function registerReactionTools (
           .boolean()
           .optional()
           .default(false)
-          .describe('Allow participants to select multiple answers (default: false)')
+          .describe('Allow participants to select multiple answers (default: false)'),
+        short_name: z
+          .string()
+          .min(1)
+          .max(64)
+          .regex(/^[a-zA-Z0-9_-]+$/, 'Use only letters, digits, underscore, and hyphen')
+          .optional()
+          .describe(
+            'Optional label for this poll in this chat — use instead of the long message id with get_poll_results'
+          )
       },
       annotations: { destructiveHint: false, openWorldHint: true }
     },

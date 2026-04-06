@@ -38,6 +38,31 @@ describe('MCP Tools (integration)', () => {
       hasMedia: false
     });
 
+    store.addMessage({
+      id: 'seed-poll-1',
+      chatJid: '15145551234@s.whatsapp.net',
+      senderJid: '15145559999@s.whatsapp.net',
+      senderName: null,
+      body: 'Poll: Lunch pick?\n  - Pizza\n  - Salad',
+      timestamp: 1500,
+      isFromMe: true,
+      hasMedia: false,
+      mediaType: null
+    });
+    store.upsertPollShortName({
+      chatJid: '15145551234@s.whatsapp.net',
+      shortName: 'lunch',
+      pollMessageId: 'seed-poll-1'
+    });
+    store.addPollVote({
+      pollMessageId: 'seed-poll-1',
+      voterJid: '15145551234@s.whatsapp.net',
+      voterName: 'John Smith',
+      voteOptions: ['Pizza'],
+      timestamp: 1600,
+      chatJid: '15145551234@s.whatsapp.net'
+    });
+
     ctx = await createTestServer({ store });
   });
 
@@ -145,6 +170,60 @@ describe('MCP Tools (integration)', () => {
       });
       const text = result.content[0].text;
       assert.ok(text.includes('Read:'), 'Output should include read status field');
+    });
+  });
+
+  describe('get_poll_results and list_polls', () => {
+    it('resolves results by poll_message_id', async () => {
+      const result = await ctx.client.callTool({
+        name: 'get_poll_results',
+        arguments: {
+          chat: '15145551234@s.whatsapp.net',
+          poll_message_id: 'seed-poll-1'
+        }
+      });
+      assert.equal(result.isError, undefined);
+      const text = result.content[0].text;
+      assert.match(text, /Lunch pick/);
+      assert.match(text, /Pizza/);
+      assert.match(text, /Total votes: 1/);
+    });
+
+    it('resolves results by short_name', async () => {
+      const result = await ctx.client.callTool({
+        name: 'get_poll_results',
+        arguments: {
+          chat: 'John Smith',
+          short_name: 'lunch'
+        }
+      });
+      assert.equal(result.isError, undefined);
+      const text = result.content[0].text;
+      assert.match(text, /Lunch pick/);
+      assert.match(text, /John Smith/);
+    });
+
+    it('lists short-named polls for a chat', async () => {
+      const result = await ctx.client.callTool({
+        name: 'list_polls',
+        arguments: { chat: '15145551234@s.whatsapp.net' }
+      });
+      assert.equal(result.isError, undefined);
+      const text = result.content[0].text;
+      assert.match(text, /lunch/);
+      assert.match(text, /seed-poll-1/);
+    });
+
+    it('returns a clear error when short_name is unknown', async () => {
+      const result = await ctx.client.callTool({
+        name: 'get_poll_results',
+        arguments: {
+          chat: '15145551234@s.whatsapp.net',
+          short_name: 'nope'
+        }
+      });
+      assert.ok(result.isError);
+      assert.match(result.content[0].text, /No poll registered/);
     });
   });
 

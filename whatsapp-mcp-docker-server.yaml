@@ -8,9 +8,9 @@ description: |
   Send messages, search chats, approval workflows, and intelligent
   activity summaries — all with fuzzy contact name matching.
 
-  33 tools: disconnect, authenticate, get_connection_status,
+  34 tools: disconnect, authenticate, get_connection_status,
   send_message, send_file, download_media, list_chats, list_messages,
-  search_messages, get_poll_results, search_contacts, catch_up, mark_messages_read,
+  search_messages, get_poll_results, list_polls, search_contacts, catch_up, mark_messages_read,
   export_chat_data, request_approval, check_approvals,
   create_group, get_group_info, get_joined_groups, get_group_invite_link,
   join_group, leave_group, update_group_participants, set_group_name,
@@ -250,14 +250,24 @@ tools:
         desc: Include surrounding messages for context (default false)
 
   - name: get_poll_results
-    description: Get poll results including vote counts and voter breakdown
+    description: Get poll results including vote counts and voter breakdown (by message id or short name)
     arguments:
       - name: poll_message_id
         type: string
-        desc: Message ID of the poll creation message
+        desc: Message ID of the poll creation message (omit if using short_name)
+      - name: short_name
+        type: string
+        desc: Short name from create_poll for this chat (omit if using poll_message_id)
       - name: chat
         type: string
         desc: Chat name, phone number, or JID where the poll was sent
+
+  - name: list_polls
+    description: List polls registered with a short name in a chat
+    arguments:
+      - name: chat
+        type: string
+        desc: Chat name, phone number, or JID
 
   - name: search_contacts
     description: Search contacts and groups by name or phone number
@@ -448,6 +458,9 @@ tools:
       - name: allow_multiple
         type: boolean
         desc: Allow multiple selections (default false)
+      - name: short_name
+        type: string
+        desc: Optional label for this poll in this chat (letters, digits, _, -) for get_poll_results
 
   - name: get_user_info
     description: Get WhatsApp profile info for one or more phone numbers
