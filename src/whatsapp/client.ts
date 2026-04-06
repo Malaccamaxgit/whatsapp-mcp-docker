@@ -1299,8 +1299,12 @@ export class WhatsAppClient {
 
   async generateQrImage (data: string): Promise<string> {
     const buf = await QRCode.toBuffer(data, {
-      width: 150,
-      margin: 2,
+      width: 200,
+      margin: 22,
+      color: {
+        dark: '#ffffffff',
+        light: '#000000ff',
+      },
       errorCorrectionLevel: 'M'
     });
     return buf.toString('base64');

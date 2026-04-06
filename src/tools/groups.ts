@@ -15,6 +15,7 @@ import type { MessageStore } from '../whatsapp/store.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import type { PermissionManager } from '../security/permissions.js';
+import { getJidTypeInfo } from '../utils/jid-utils.js';
 
 interface TextContent {
   type: 'text';
@@ -156,8 +157,9 @@ export function registerGroupTools (
 
         const admins = info.participants.filter((p) => p.isAdmin || p.isSuperAdmin).map((p) => p.jid);
         const members = info.participants.map((p) => {
+          const jidType = getJidTypeInfo(p.jid);
           const role = p.isSuperAdmin ? ' [owner]' : p.isAdmin ? ' [admin]' : '';
-          return `  - ${p.jid}${role}`;
+          return `  - ${p.jid} ${jidType.shortLabel}${role}`;
         });
 
         return {
@@ -213,8 +215,9 @@ export function registerGroupTools (
           const admins = g.participants
             ?.filter((p) => p.isAdmin || p.isSuperAdmin)
             .map((p) => {
+              const jidType = getJidTypeInfo(p.jid);
               const role = p.isSuperAdmin ? ' [owner]' : p.isAdmin ? ' [admin]' : '';
-              return `${p.jid}${role}`;
+              return `${p.jid} ${jidType.shortLabel}${role}`;
             });
           const adminList = admins && admins.length > 0 ? `\n    Admins: ${admins.join(', ')}` : '';
           return `  ${g.name || g.jid}${adminMark} — ${g.participants?.length ?? '?'} members — ${g.jid}${adminList}`;

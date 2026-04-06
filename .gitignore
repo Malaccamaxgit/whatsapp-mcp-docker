@@ -82,6 +82,11 @@ temp/
 # Media downloads
 media/
 
+# Images (downloaded/generated)
+*.png
+*.svg
+*.jpg
+
 # Audit
 audit/
 
@@ -101,10 +106,6 @@ scripts/cleanup.ps1
 scripts/cleanup.sh
 
 # Documentation archives (local-only historical snapshots)
-docs/archive/
-docs/archives/
-docs/bugs/archived/
-docs/enhancements/archived/
 **/archive/
 **/archives/
 **/archived/

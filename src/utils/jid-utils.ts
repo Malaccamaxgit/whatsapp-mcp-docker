@@ -50,6 +50,71 @@ export function isGroupJid (jid: string): boolean {
 }
 
 /**
+ * JID type information for display and categorization.
+ */
+export interface JidTypeInfo {
+  /** JID category: standard user, group, or linked/business ID */
+  type: 'user' | 'group' | 'lid';
+  /** Human-readable label for display */
+  label: string;
+  /** Short label for inline display */
+  shortLabel: string;
+  /** Description of what this JID type means */
+  description: string;
+}
+
+/**
+ * Get type information for a WhatsApp JID.
+ * @param jid - The JID to analyze
+ * @returns JidTypeInfo object with type, labels, and description
+ */
+export function getJidTypeInfo (jid: string): JidTypeInfo {
+  if (!jid || typeof jid !== 'string') {
+    return {
+      type: 'user',
+      label: 'Unknown',
+      shortLabel: '[?]',
+      description: 'Invalid JID format'
+    };
+  }
+
+  if (jid.endsWith('@g.us')) {
+    return {
+      type: 'group',
+      label: 'Group',
+      shortLabel: '[Group]',
+      description: 'WhatsApp group chat'
+    };
+  }
+
+  if (jid.endsWith('@lid')) {
+    return {
+      type: 'lid',
+      label: 'LID',
+      shortLabel: '[LID]',
+      description: 'Linked ID - User has privacy settings enabled (hiding phone number), Business API account, or linked device'
+    };
+  }
+
+  return {
+    type: 'user',
+    label: 'User',
+    shortLabel: '[User]',
+    description: 'Standard WhatsApp user identified by phone number'
+  };
+}
+
+/**
+ * Format a JID for display with type label.
+ * @param jid - The JID to format
+ * @returns Formatted string with type label (e.g., "123456@s.whatsapp.net [User]")
+ */
+export function formatJidWithType (jid: string): string {
+  const info = getJidTypeInfo(jid);
+  return `${jid} ${info.shortLabel}`;
+}
+
+/**
  * Normalize a JID to the preferred format using contact mappings.
  * Prefers @lid format for contacts with names, falls back to @s.whatsapp.net.
  * 

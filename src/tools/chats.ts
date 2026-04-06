@@ -13,6 +13,7 @@ import { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { PermissionManager } from '../security/permissions.js';
 import { formatTimestamp, formatTimeOnly } from '../utils/timezone.js';
+import { getJidTypeInfo } from '../utils/jid-utils.js';
 
 export function registerChatTools (
   server: McpServer,
@@ -116,7 +117,10 @@ export function registerChatTools (
           return c.jid;
         })();
         
-        return `${type} ${c.name || c.jid}${unread}\n     Last: ${time}${preview}\n     JID: ${jidInfo}`;
+        // Add JID type label (User, LID, or Group)
+        const jidType = getJidTypeInfo(c.jid);
+        
+        return `${type} ${c.name || c.jid}${unread}\n     Last: ${time}${preview}\n     JID: ${jidInfo} ${jidType.shortLabel}`;
       });
 
       const pageInfo = page > 0 ? ` (page ${page})` : '';
@@ -300,8 +304,8 @@ export function registerChatTools (
       }
 
       const lines = matches.map((c) => {
-        const isGroup = c.jid.endsWith('@g.us');
-        const phone = isGroup ? '' : ` (${c.jid.split('@')[0]})`;
+        const jidType = getJidTypeInfo(c.jid);
+        const phone = jidType.type === 'group' ? '' : ` (${c.jid.split('@')[0]})`;
         const unread = c.unread_count && c.unread_count > 0 ? ` [${c.unread_count} unread]` : '';
         const lastMsgTime = c.last_message_at
           ? formatTimestamp(c.last_message_at)
@@ -309,7 +313,7 @@ export function registerChatTools (
         const preview = c.last_message_preview
           ? ` — ${c.last_message_preview.substring(0, 60)}${c.last_message_preview.length > 60 ? '...' : ''}`
           : '';
-        return `  - ${c.name || c.jid}${phone}${unread} → ${c.jid}${isGroup ? ' [Group]' : ''}\n     Last: ${lastMsgTime}${preview}`;
+        return `  - ${c.name || c.jid}${phone}${unread} → ${c.jid} ${jidType.shortLabel}\n     Last: ${lastMsgTime}${preview}`;
       });
 
       let output = `Contacts matching "${query}" (${matches.length}):\n\n${lines.join('\n')}`;
