@@ -11,7 +11,12 @@ import {
   getUserTimezone,
   formatTimestamp,
   formatTimeOnly,
-  formatTimestampISO
+  formatTimestampISO,
+  formatTimeAgo,
+  getStartOfCalendarDayInTimezoneSeconds,
+  formatCalendarDayHint,
+  formatMessageLineTimeContext,
+  describeCatchUpWindow
 } from '../../src/utils/timezone.js';
 
 describe('Timezone Utilities', () => {
@@ -239,6 +244,82 @@ describe('Timezone Utilities', () => {
       const formatted = formatTimestamp(timestamp);
       
       assert.match(formatted, /2028-02-29/);
+    });
+  });
+
+  describe('formatTimeAgo()', () => {
+    it('should describe seconds and minutes', () => {
+      assert.strictEqual(formatTimeAgo(100, 100), '0s ago');
+      assert.strictEqual(formatTimeAgo(100, 159), '59s ago');
+      assert.strictEqual(formatTimeAgo(100, 220), '2 min ago');
+    });
+
+    it('should describe hours and days', () => {
+      assert.strictEqual(formatTimeAgo(0, 7200), '2h ago');
+      assert.strictEqual(formatTimeAgo(0, 86400), '1 day ago');
+      assert.strictEqual(formatTimeAgo(0, 172800), '2 days ago');
+    });
+
+    it('should fall back to absolute timestamp for older events', () => {
+      process.env.TZ = 'America/Toronto';
+      const ts = Math.floor(new Date('2020-01-01T12:00:00-05:00').getTime() / 1000);
+      const now = Math.floor(new Date('2026-04-06T12:00:00-04:00').getTime() / 1000);
+      const out = formatTimeAgo(ts, now);
+      assert.match(out, /2020/);
+    });
+  });
+
+  describe('getStartOfCalendarDayInTimezoneSeconds()', () => {
+    it('should return midnight in the configured timezone', () => {
+      process.env.TZ = 'America/Toronto';
+      const noon = new Date('2026-07-15T12:00:00-04:00');
+      const start = getStartOfCalendarDayInTimezoneSeconds(noon);
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Toronto',
+        hour: '2-digit',
+        hour12: false,
+        minute: '2-digit',
+        second: '2-digit',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(new Date(start * 1000));
+      assert.strictEqual(parts.find((p) => p.type === 'hour')!.value, '00');
+      assert.strictEqual(parts.find((p) => p.type === 'minute')!.value, '00');
+      assert.strictEqual(parts.find((p) => p.type === 'second')!.value, '00');
+    });
+  });
+
+  describe('formatCalendarDayHint()', () => {
+    it('should label today and yesterday in user timezone', () => {
+      process.env.TZ = 'America/Toronto';
+      const now = Math.floor(new Date('2026-04-06T15:00:00-04:00').getTime() / 1000);
+      const todayMorning = Math.floor(new Date('2026-04-06T08:00:00-04:00').getTime() / 1000);
+      const yesterday = Math.floor(new Date('2026-04-05T20:00:00-04:00').getTime() / 1000);
+      assert.strictEqual(formatCalendarDayHint(todayMorning, now), 'today');
+      assert.strictEqual(formatCalendarDayHint(yesterday, now), 'yesterday');
+    });
+  });
+
+  describe('formatMessageLineTimeContext()', () => {
+    it('should combine absolute time, hint, and ago', () => {
+      process.env.TZ = 'America/Toronto';
+      const ts = Math.floor(new Date('2026-04-06T10:00:00-04:00').getTime() / 1000);
+      const now = Math.floor(new Date('2026-04-06T15:00:00-04:00').getTime() / 1000);
+      const line = formatMessageLineTimeContext(ts, now);
+      assert.ok(line.includes('today'));
+      assert.ok(line.includes('ago'));
+    });
+  });
+
+  describe('describeCatchUpWindow()', () => {
+    it('should describe the window with timezone', () => {
+      process.env.TZ = 'America/Toronto';
+      const now = Math.floor(new Date('2026-04-06T15:00:00-04:00').getTime() / 1000);
+      const sinceTs = now - 3600;
+      const text = describeCatchUpWindow('1h', sinceTs, now);
+      assert.ok(text.includes('Window:'));
+      assert.ok(text.includes('America/Toronto'));
     });
   });
 

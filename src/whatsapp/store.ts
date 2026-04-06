@@ -1437,7 +1437,7 @@ export class MessageStore {
       this.db!
         .prepare(
           `
-      SELECT c.jid, c.name, c.is_group, c.unread_count,
+      SELECT c.jid, c.name, c.is_group, c.unread_count, c.last_message_at,
              COUNT(m.id) as recent_messages
       FROM chats c
       LEFT JOIN messages m ON m.chat_jid = c.jid AND m.timestamp > ?

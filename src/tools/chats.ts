@@ -12,7 +12,13 @@ import type { MessageStore } from '../whatsapp/store.js';
 import { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { PermissionManager } from '../security/permissions.js';
-import { formatTimestamp, formatTimeOnly } from '../utils/timezone.js';
+import {
+  describeCatchUpWindow,
+  formatMessageLineTimeContext,
+  formatTimestamp,
+  getStartOfCalendarDayInTimezoneSeconds,
+  getUserTimezone
+} from '../utils/timezone.js';
 import { getJidTypeInfo } from '../utils/jid-utils.js';
 
 export function registerChatTools (
@@ -48,7 +54,7 @@ export function registerChatTools (
       }
       const safeLimit = Math.min(limit || 20, 100);
       const offset = (page || 0) * safeLimit;
-      
+
       // Use unified chat listing to merge duplicate JID entries
       const chats = store.getAllChatsUnified({
         filter,
@@ -79,33 +85,33 @@ export function registerChatTools (
         const preview = c.last_message_preview
           ? `: ${c.last_message_preview.substring(0, 60)}${c.last_message_preview.length > 60 ? '...' : ''}`
           : '';
-        
+
         // Phase 4: Show multi-device info for non-group chats
         const jidInfo = c.is_group ? c.jid : (() => {
           // Try new multi-device schema first
           const contact = store.getContactByJid(c.jid);
           if (contact) {
             const parts = [c.jid];
-            
+
             // Add device count info
             if (contact.devices.length > 1) {
               parts.push(`[${contact.devices.length} devices]`);
             }
-            
+
             // Add phone number if available
             if (contact.phoneNumber) {
               parts.push(`(${contact.phoneNumber})`);
             }
-            
+
             // Show primary device if set
             const primaryDevice = contact.devices.find((d) => d.isPrimary);
             if (primaryDevice) {
               parts.push(`primary: ${primaryDevice.lidJid}`);
             }
-            
+
             return parts.join(' ');
           }
-          
+
           // Fallback to legacy mapping
           const mapping = store.getJidMapping(c.jid);
           if (mapping && (mapping.phoneJid || mapping.phoneNumber)) {
@@ -116,10 +122,10 @@ export function registerChatTools (
           }
           return c.jid;
         })();
-        
+
         // Add JID type label (User, LID, or Group)
         const jidType = getJidTypeInfo(c.jid);
-        
+
         return `${type} ${c.name || c.jid}${unread}\n     Last: ${time}${preview}\n     JID: ${jidInfo} ${jidType.shortLabel}`;
       });
 
@@ -145,7 +151,8 @@ export function registerChatTools (
   server.registerTool(
     'catch_up',
     {
-      description: 'Get an intelligent summary of recent WhatsApp activity. Shows active chats with unread counts, recent messages directed at you, questions awaiting your response, and pending approval requests. Much more useful than reading raw message lists.',
+      description:
+        'Get an intelligent summary of recent WhatsApp activity. Shows active chats with unread counts, last activity timestamps (relative and absolute), recent messages directed at you with status and time context, questions awaiting your response, and pending approval requests. Much more useful than reading raw message lists.',
       inputSchema: {
         since: z
           .enum(['1h', '4h', 'today', '24h', 'this_week'])
@@ -166,11 +173,11 @@ export function registerChatTools (
       const sinceMap: Record<string, number> = {
         '1h': now - 3600,
         '4h': now - 14400,
-        today: now - (now % 86400),
+        today: getStartOfCalendarDayInTimezoneSeconds(),
         '24h': now - 86400,
         this_week: now - 604800
       };
-      const sinceTs = sinceMap[since] || sinceMap['today'];
+      const sinceTs = sinceMap[since] ?? sinceMap['today'];
 
       const data = store.getCatchUpData(sinceTs);
       const readableJids = new Set(
@@ -193,7 +200,11 @@ export function registerChatTools (
           const name = c.name || c.jid;
           const type = c.is_group ? '(group)' : '';
           const unread = c.unread_count > 0 ? ` — ${c.unread_count} unread` : '';
-          return `  - ${name} ${type}${unread} [${c.recent_messages} recent messages]`;
+          const last =
+            c.last_message_at !== null
+              ? ` · last activity ${formatMessageLineTimeContext(c.last_message_at, now)}`
+              : '';
+          return `  - ${name} ${type}${unread} [${c.recent_messages} messages in window]${last}`;
         });
         sections.push(`Active Chats:\n${chatLines.join('\n')}`);
       } else {
@@ -205,8 +216,8 @@ export function registerChatTools (
         const qLines = filteredData.questions.slice(0, 10).map((m) => {
           const sender = m.sender_name || m.sender_jid?.split('@')[0] || '?';
           const chatName = m.chat_name || m.chat_jid;
-          const time = formatTimeOnly(m.timestamp);
-          return `  - [${chatName}] ${sender} (${time}): ${m.body?.substring(0, 120) || ''}`;
+          const timeCtx = formatMessageLineTimeContext(m.timestamp, now);
+          return `  - [${chatName}] ${sender} @ ${timeCtx} · status: awaiting your reply\n    ${m.body?.substring(0, 120) || ''}`;
         });
         sections.push(
           `Questions Awaiting Response (${filteredData.questions.length}):\n${qLines.join('\n')}`
@@ -222,7 +233,8 @@ export function registerChatTools (
         const highlights = filteredData.recentUnread.slice(0, 5).map((m) => {
           const sender = m.sender_name || m.sender_jid?.split('@')[0] || '?';
           const chatName = m.chat_name || m.chat_jid;
-          return `  - [${chatName}] ${sender}: ${m.body?.substring(0, 100) || '[media]'}`;
+          const timeCtx = formatMessageLineTimeContext(m.timestamp, now);
+          return `  - [${chatName}] ${sender} @ ${timeCtx} · status: unread\n    ${m.body?.substring(0, 100) || '[media]'}`;
         });
         sections.push(`Recent Highlights:\n${highlights.join('\n')}`);
       } else {
@@ -236,7 +248,9 @@ export function registerChatTools (
             0,
             Math.round((a.created_at + a.timeout_ms - Date.now()) / 1000)
           );
-          return `  - [${a.id}] "${a.action}" — ${remaining}s remaining`;
+          const createdSec = Math.floor(a.created_at / 1000);
+          const createdCtx = formatMessageLineTimeContext(createdSec, now);
+          return `  - [${a.id}] "${a.action}" · status: ${a.status} · created ${createdCtx} · ${remaining}s remaining`;
         });
         sections.push(`Pending Approvals (${filteredData.pendingApprovals.length}):\n${aLines.join('\n')}`);
       }
@@ -247,11 +261,17 @@ export function registerChatTools (
         unread: filteredData.recentUnread.length
       });
 
+      const headerLines = [
+        `WhatsApp Activity Summary (${since})`,
+        `Generated: ${formatTimestamp(now)} (${getUserTimezone()})`,
+        describeCatchUpWindow(since, sinceTs, now)
+      ];
+
       return {
         content: [
           {
             type: 'text',
-            text: `WhatsApp Activity Summary (${since}):\n\n${sections.join('\n\n')}`
+            text: `${headerLines.join('\n')}\n\n${sections.join('\n\n')}`
           }
         ]
       };
@@ -323,9 +343,9 @@ export function registerChatTools (
         if (contactChats.length > 0) {
           const chatLines = contactChats.map((c) => {
             const type = c.is_group ? '[Group]' : '[Chat]';
-        const time = c.last_message_at
-          ? formatTimestamp(c.last_message_at)
-          : 'never';
+            const time = c.last_message_at
+              ? formatTimestamp(c.last_message_at)
+              : 'never';
             return `  - ${type} ${c.name || c.jid} (last: ${time})`;
           });
           output += `\n\nChats involving ${matches[0].name || matches[0].jid}:\n${chatLines.join('\n')}`;
@@ -478,7 +498,7 @@ export function registerChatTools (
           const sampleRows = previewRows.slice(1, 6); // First 5 data rows
           const preview = [headers, ...sampleRows].join('\n');
           const remaining = previewRows.length - 1 - sampleRows.length;
-          
+
           return {
             content: [
               {

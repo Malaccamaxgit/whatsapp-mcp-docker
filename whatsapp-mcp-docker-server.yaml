@@ -273,7 +273,7 @@ tools:
         desc: Max results (default 20)
 
   - name: catch_up
-    description: Intelligent summary of recent activity
+    description: Intelligent summary of recent activity with timestamps, time-ago, calendar hints, and response status
     arguments:
       - name: since
         type: string
