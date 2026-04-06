@@ -49,7 +49,7 @@ export interface WhatsmeowClient {
   markRead(ids: string[], chatJid: string, senderJid: string | null | undefined): Promise<void>;
   sendMessage(jid: string, message: { conversation: string }): Promise<SendResult>;
   sendRawMessage(jid: string, message: object): Promise<SendResult>;
-  getChats(): Promise<unknown[]>;
+  getChats?(): Promise<unknown[]>;
   getGroupInfo(jid: string): Promise<{ subject?: string; name?: string } | null>;
   getContact?(jid: string): Promise<{ fullName?: string; pushName?: string } | null>;
   createGroup(name: string, participants: string[]): Promise<{ jid: string }>;
@@ -1220,6 +1220,7 @@ export class WhatsAppClient {
    */
   async _probeWebSocket (): Promise<void> {
     try {
+      // Try getContact first (most reliable if available)
       if (typeof this.client!.getContact === 'function') {
         const result = await this._withTimeout(
           Promise.resolve(this.client!.getContact(this.jid!)),
@@ -1227,13 +1228,20 @@ export class WhatsAppClient {
           'ws-probe'
         );
         this._probeVerified = result !== null && result !== undefined;
-      } else {
+      } else if (typeof this.client!.getChats === 'function') {
+        // Fallback to getChats if getContact is not available
         await this._withTimeout(
           Promise.resolve(this.client!.getChats()),
           8000,
           'ws-probe-fallback'
         );
         this._probeVerified = true;
+      } else {
+        // Last resort: just check if client reports connected
+        // This is less reliable but better than nothing
+        const alive = this.client?.isConnected?.() ?? this.client?.isLoggedIn?.() ?? true;
+        this._probeVerified = alive;
+        console.error('[WA] WebSocket probe: No RPC method available, using isConnected/isLoggedIn fallback');
       }
       this._probeLastError = null;
       console.error('[WA] WebSocket probe:', this._probeVerified ? 'PASSED' : 'FAILED (null response)');
@@ -1275,9 +1283,11 @@ export class WhatsAppClient {
       try {
         if (typeof this.client!.getContact === 'function') {
           await this.client!.getContact(this.jid);
-        } else {
+        } else if (typeof this.client!.getChats === 'function') {
           await this.client!.getChats();
         }
+        // If neither method is available, we still consider it healthy
+        // since the client reports connected
         return { healthy: true };
       } catch {
         return { healthy: false, reason: 'contact_check_failed' };
@@ -1499,7 +1509,10 @@ export class WhatsAppClient {
       throw new Error('WhatsApp not connected.');
     }
     try {
-      return await this.client!.getChats();
+      if (typeof this.client!.getChats === 'function') {
+        return await this.client!.getChats();
+      }
+      return [];
     } catch {
       return [];
     }
