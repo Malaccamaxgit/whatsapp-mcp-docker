@@ -134,8 +134,10 @@ Clone and build locally if you want to modify the source or run without Docker H
 ```bash
 git clone https://github.com/Malaccamaxgit/whatsapp-mcp-docker.git
 cd whatsapp-mcp-docker
-docker compose build
+docker compose build --no-cache
 ```
+
+> **Why `--no-cache`?** BuildKit's layer caching can incorrectly cache TypeScript compilation even when source files change. Always use `--no-cache` to ensure the latest compiled code is used.
 
 > **Stay in the directory containing `whatsapp-mcp-docker-server.yaml`** for all subsequent commands — the `file://./` path in catalog and profile commands is relative to your working directory.
 
