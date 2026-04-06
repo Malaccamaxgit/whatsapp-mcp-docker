@@ -1792,6 +1792,26 @@ export class WhatsAppClient {
     );
     const id = result?.id || result?.key?.id;
     this._trackSentId(id);
+
+    if (id) {
+      const pollBody = `Poll: ${question}\n${options.map((o) => `  - ${o}`).join('\n')}`;
+      this.messageStore.addMessage({
+        id,
+        chatJid: jid,
+        senderJid: this.jid,
+        senderName: null,
+        body: pollBody,
+        timestamp: Math.floor(Date.now() / 1000),
+        isFromMe: true,
+        hasMedia: false,
+        mediaType: null,
+        pollMetadata: {
+          pollCreationMessageKey: id,
+          voteOptions: options
+        }
+      });
+    }
+
     return { id };
   }
 
