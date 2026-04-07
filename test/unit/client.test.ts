@@ -29,7 +29,8 @@ interface MockStoreState {
 }
 
 function makeMockStore(
-  pendingApprovals: Array<{ id: string; to_jid: string }> = []
+  pendingApprovals: Array<{ id: string; to_jid: string }> = [],
+  jidMappingFn?: (jid: string) => { lidJid?: string; phoneJid?: string; phoneNumber?: string } | null
 ): { store: MessageStore; state: MockStoreState } {
   const state: MockStoreState = { added: [], responded: [] };
   const store = {
@@ -39,12 +40,16 @@ function makeMockStore(
       state.responded.push({ id, approved, text });
       return true;
     },
+    getJidMapping: (jid: string) => jidMappingFn?.(jid) ?? null,
   } as unknown as MessageStore;
   return { store, state };
 }
 
-function makeClient(pendingApprovals: Array<{ id: string; to_jid: string }> = []) {
-  const { store, state } = makeMockStore(pendingApprovals);
+function makeClient(
+  pendingApprovals: Array<{ id: string; to_jid: string }> = [],
+  jidMappingFn?: (jid: string) => { lidJid?: string; phoneJid?: string; phoneNumber?: string } | null
+) {
+  const { store, state } = makeMockStore(pendingApprovals, jidMappingFn);
   // Pass client: null — no real WhatsApp connection, bypasses initialize()
   const client = new WhatsAppClient({ messageStore: store, client: null });
   return { client, state };
@@ -497,6 +502,33 @@ describe('WhatsAppClient._checkApprovalResponse — approval keyword matching', 
   it('does nothing when chatJid does not match any pending approval', () => {
     const { client, state } = makeClient([baseApproval]);
     client._checkApprovalResponse({ body: 'yes', chatJid: 'unrelated@s.whatsapp.net' } as StoredMessage);
+    assert.equal(state.responded.length, 0);
+  });
+
+  it('matches approval when reply arrives on LID but approval was sent to phone JID', () => {
+    const approval = { id: 'approval_lid_phone', to_jid: '14384083030@s.whatsapp.net' };
+    const mapping = { lidJid: '128819088347371@lid', phoneJid: '14384083030@s.whatsapp.net' };
+    const { client, state } = makeClient([approval], () => mapping);
+    client._checkApprovalResponse({ body: 'APPROVE', chatJid: mapping.lidJid } as StoredMessage);
+    assert.equal(state.responded.length, 1);
+    assert.equal(state.responded[0].id, approval.id);
+    assert.equal(state.responded[0].approved, true);
+  });
+
+  it('matches approval when reply arrives on phone JID but approval was sent to LID', () => {
+    const approval = { id: 'approval_phone_lid', to_jid: '128819088347371@lid' };
+    const mapping = { lidJid: '128819088347371@lid', phoneJid: '14384083030@s.whatsapp.net' };
+    const { client, state } = makeClient([approval], () => mapping);
+    client._checkApprovalResponse({ body: 'DENY', chatJid: mapping.phoneJid } as StoredMessage);
+    assert.equal(state.responded.length, 1);
+    assert.equal(state.responded[0].id, approval.id);
+    assert.equal(state.responded[0].approved, false);
+  });
+
+  it('falls through cleanly when no JID mapping exists', () => {
+    const approval = { id: 'approval_nomap', to_jid: '111@s.whatsapp.net' };
+    const { client, state } = makeClient([approval], () => null);
+    client._checkApprovalResponse({ body: 'yes', chatJid: '999@lid' } as StoredMessage);
     assert.equal(state.responded.length, 0);
   });
 });

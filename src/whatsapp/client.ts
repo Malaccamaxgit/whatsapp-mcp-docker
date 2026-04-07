@@ -1257,6 +1257,15 @@ export class WhatsAppClient {
     if (!targetApproval) {
       targetApproval = pendingApprovals.find((a) => a.to_jid === msg.chatJid);
     }
+    if (!targetApproval && msg.chatJid) {
+      const incomingMapping = this.messageStore.getJidMapping(msg.chatJid);
+      if (incomingMapping) {
+        targetApproval = pendingApprovals.find((a) =>
+          (incomingMapping.phoneJid && a.to_jid === incomingMapping.phoneJid) ||
+          (incomingMapping.lidJid && a.to_jid === incomingMapping.lidJid)
+        );
+      }
+    }
     if (!targetApproval) {return;}
 
     const isApproved = matchesApprovalKeywords(text, APPROVAL_KEYWORDS.APPROVE);
