@@ -1534,8 +1534,19 @@ export class MessageStore {
     ) as (MessageRow & { chat_name: string | null }) | null;
   }
 
-  public updateChatName (jid: string, name: string | null): void {
+  /**
+   * Update stored chat display name from WhatsApp (push/profile).
+   * @param force - If true, overwrite DM names even when already set (used by sync_contact_names).
+   */
+  public updateChatName (jid: string, name: string | null, options?: { force?: boolean }): void {
     if (!name) {return;}
+    if (options?.force) {
+      // DMs only — never overwrite group subjects via this path (groups use resolveGroupName / group tools).
+      this.db!
+        .prepare('UPDATE chats SET name = ? WHERE jid = ? AND (is_group = 0 OR is_group IS NULL)')
+        .run(name, jid);
+      return;
+    }
     // Group names resolved from WhatsApp are authoritative — always overwrite.
     // DM names: only set when unset (null) or still equal to the JID placeholder.
     this.db!

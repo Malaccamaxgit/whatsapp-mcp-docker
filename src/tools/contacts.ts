@@ -1,7 +1,7 @@
 /**
  * Contact & User Info Tools
  *
- * get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name
+ * get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name, sync_contact_names
  */
 
 import { z } from 'zod';
@@ -12,6 +12,19 @@ import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { toJid } from '../utils/phone.js';
 import { PhoneArraySchema } from '../utils/zod-schemas.js';
+
+const SYNC_RATE_LIMIT_DELAY_MS = 500;
+
+function pickNameFromUserInfo (results: unknown, jids: string[]): string | null {
+  const o = results as Record<string, { name?: string } | undefined> | null;
+  if (!o || typeof o !== 'object') {return null;}
+  for (const jid of jids) {
+    if (!jid) {continue;}
+    const n = o[jid]?.name;
+    if (typeof n === 'string' && n.trim()) {return n.trim();}
+  }
+  return null;
+}
 
 interface OnWhatsAppResult {
   jid?: string;
@@ -40,7 +53,7 @@ export function registerContactTools (
 ): void {
   // ── get_user_info ─────────────────────────────────────────────
 
-  const get_user_info_handler = async ({ phones }: { phones: string[] }) => {
+  const get_user_info_handler = async ({ phones, save_names: saveNames }: { phones: string[]; save_names?: boolean }) => {
     const toolCheck = permissions.isToolEnabled('get_user_info');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -59,10 +72,18 @@ export function registerContactTools (
         }
       }
       const results = await waClient.getUserInfo(jids);
-      audit.log('get_user_info', 'read', { count: jids.length });
+      audit.log('get_user_info', 'read', { count: jids.length, save_names: Boolean(saveNames) });
 
       if (!results || Object.keys(results).length === 0) {
         return { content: [{ type: 'text', text: 'No information found for the provided numbers.' }] };
+      }
+
+      if (saveNames) {
+        for (const [jid, info] of Object.entries(results as Record<string, { name?: string }>)) {
+          if (info?.name && typeof info.name === 'string') {
+            store.updateChatName(jid, info.name.trim());
+          }
+        }
       }
 
       const lines = Object.entries(results).map(([jid, info]) => {
@@ -84,11 +105,17 @@ export function registerContactTools (
   server.registerTool(
     'get_user_info',
     {
-      description: 'Get WhatsApp profile information for one or more phone numbers: display name, status, and business details if available.',
+      description:
+        'Get WhatsApp profile information for one or more phone numbers: display name, status, and business details if available. Optionally store retrieved names in the local chat database (save_names).',
       inputSchema: {
-        phones: PhoneArraySchema(1, 20).describe('Phone numbers in E.164 format (e.g. ["+14155552671"])')
+        phones: PhoneArraySchema(1, 20).describe('Phone numbers in E.164 format (e.g. ["+14155552671"])'),
+        save_names: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('If true, store retrieved profile names in the local database (same rules as sync: does not override custom names from set_contact_name)')
       },
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
     },
 
     get_user_info_handler as any
@@ -209,6 +236,161 @@ export function registerContactTools (
     },
 
     get_profile_picture_handler as any
+  );
+
+  // ── sync_contact_names ───────────────────────────────────────
+
+  const sync_contact_names_handler = async ({
+    contacts: contactInputs,
+    force = false
+  }: {
+    contacts?: string[];
+    force?: boolean;
+  }) => {
+    const toolCheck = permissions.isToolEnabled('sync_contact_names');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
+
+    if (!waClient.isConnected()) {
+      return notConnected();
+    }
+
+    const jidsToSync: string[] = [];
+    const seen = new Set<string>();
+
+    const pushJid = (jid: string | null) => {
+      if (!jid || seen.has(jid)) {return;}
+      seen.add(jid);
+      jidsToSync.push(jid);
+    };
+
+    if (contactInputs !== undefined && contactInputs.length === 0) {
+      return { content: [{ type: 'text', text: 'No contacts to sync.' }] };
+    }
+
+    if (contactInputs && contactInputs.length > 0) {
+      for (const raw of contactInputs) {
+        let resolved: string | null = null;
+        try {
+          const t = raw.trim();
+          if (!t) {continue;}
+          resolved = t.includes('@') ? t : toJid(t)!;
+        } catch {
+          continue;
+        }
+        if (!resolved) {continue;}
+        if (store.getCustomContactName(resolved)) {continue;}
+        if (!force) {
+          const display = store.getDisplayNameForJid(resolved);
+          if (display !== resolved) {continue;}
+        }
+        pushJid(resolved);
+      }
+    } else {
+      const allChats = store.getAllChatsForMatching();
+      for (const chat of allChats) {
+        if (chat.is_group === 1) {continue;}
+        if (store.getCustomContactName(chat.jid)) {continue;}
+        if (force) {
+          pushJid(chat.jid);
+        } else if (chat.name === chat.jid) {
+          pushJid(chat.jid);
+        }
+      }
+    }
+
+    if (jidsToSync.length === 0) {
+      return { content: [{ type: 'text', text: 'No contacts to sync.' }] };
+    }
+
+    const results: { jid: string; name: string | null; status: string }[] = [];
+
+    for (let i = 0; i < jidsToSync.length; i++) {
+      if (i > 0) {
+        await new Promise((r) => setTimeout(r, SYNC_RATE_LIMIT_DELAY_MS));
+      }
+
+      const jid = jidsToSync[i]!;
+      const readCheck = permissions.canReadFrom(jid);
+      if (!readCheck.allowed) {
+        results.push({ jid, name: null, status: `error: ${readCheck.error ?? 'Read access denied'}` });
+        continue;
+      }
+
+      try {
+        const mapping = store.getJidMapping(jid);
+        const queryJid = mapping?.phoneJid || jid;
+
+        const info = await waClient.getUserInfo([queryJid]);
+        let name = pickNameFromUserInfo(info, [queryJid, jid]);
+
+        if (!name && typeof waClient.resolveContactName === 'function') {
+          name = await waClient.resolveContactName(jid);
+        }
+
+        if (name) {
+          store.updateChatName(jid, name, { force });
+          results.push({ jid, name, status: 'updated' });
+        } else {
+          results.push({ jid, name: null, status: 'no_name_available' });
+        }
+      } catch (err) {
+        results.push({
+          jid,
+          name: null,
+          status: `error: ${err instanceof Error ? err.message : String(err || '')}`
+        });
+      }
+    }
+
+    audit.log('sync_contact_names', 'synced', { count: results.length, force });
+
+    const updated = results.filter((r) => r.status === 'updated');
+    const noName = results.filter((r) => r.status === 'no_name_available');
+    const errors = results.filter((r) => r.status.startsWith('error'));
+
+    const lines = [
+      `Synced ${results.length} contacts:`,
+      `${updated.length} names updated`,
+      `${noName.length} have no profile name`,
+      errors.length > 0 ? `${errors.length} errors` : null
+    ].filter(Boolean) as string[];
+
+    if (updated.length > 0) {
+      lines.push('', 'Updated:');
+      for (const r of updated.slice(0, 10)) {
+        lines.push(`  ${r.jid} → "${r.name}"`);
+      }
+      if (updated.length > 10) {
+        lines.push(`  ... and ${updated.length - 10} more`);
+      }
+    }
+
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  };
+
+  server.registerTool(
+    'sync_contact_names',
+    {
+      description:
+        'Fetch WhatsApp profile names and store them locally for chats that still show as raw JIDs. Syncs all such contacts, or specific JIDs/phone numbers. Use force to refresh names even when a push name is already stored. Does not override custom names from set_contact_name.',
+      inputSchema: {
+        contacts: z
+          .array(z.string().max(200))
+          .max(50)
+          .optional()
+          .describe('Optional JIDs or phone numbers to sync; omit to sync all chats that have no display name yet'),
+        force: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('If true, re-fetch and update stored names even when a non-JID name is already present')
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
+    },
+
+    sync_contact_names_handler as any
   );
 
   // ── set_contact_name ─────────────────────────────────────────

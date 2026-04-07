@@ -8,14 +8,14 @@ description: |
   Send messages, search chats, approval workflows, and intelligent
   activity summaries — all with fuzzy contact name matching.
 
-  35 tools: disconnect, authenticate, get_connection_status,
+  36 tools: disconnect, authenticate, get_connection_status,
   send_message, send_file, download_media, list_chats, list_messages,
   search_messages, get_poll_results, list_polls, search_contacts, catch_up, mark_messages_read,
   export_chat_data, request_approval, check_approvals,
   create_group, get_group_info, get_joined_groups, get_group_invite_link,
   join_group, leave_group, update_group_participants, set_group_name,
   set_group_topic, send_reaction, edit_message, delete_message,
-  create_poll, get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name,
+  create_poll, get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name, sync_contact_names,
   wait_for_message.
 
   Uses whatsmeow-node for native WhatsApp protocol. Pairing-code
@@ -468,6 +468,19 @@ tools:
       - name: phones
         type: array
         desc: Phone numbers in E.164 format
+      - name: save_names
+        type: boolean
+        desc: If true, store retrieved profile names in the local chat database
+
+  - name: sync_contact_names
+    description: Fetch WhatsApp profile names and store them for chats that still show as raw JIDs
+    arguments:
+      - name: contacts
+        type: array
+        desc: Optional JIDs or phone numbers to sync; omit to sync all unnamed chats
+      - name: force
+        type: boolean
+        desc: Re-fetch names even when a non-JID name is already stored
 
   - name: is_on_whatsapp
     description: Check whether phone numbers have WhatsApp accounts
