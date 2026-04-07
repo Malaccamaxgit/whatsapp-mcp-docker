@@ -60,9 +60,9 @@ export interface WhatsmeowClient {
   updateGroupParticipants(jid: string, participants: string[], action: string): Promise<unknown>;
   setGroupName(jid: string, name: string): Promise<void>;
   setGroupTopic(jid: string, topic: string): Promise<void>;
-  sendReaction(jid: string, messageId: string, emoji: string): Promise<unknown>;
+  sendReaction(jid: string, senderJid: string, messageId: string, emoji: string): Promise<unknown>;
   editMessage(jid: string, messageId: string, message: { conversation: string }): Promise<unknown>;
-  revokeMessage(jid: string, messageId: string): Promise<unknown>;
+  revokeMessage(jid: string, senderJid: string, messageId: string): Promise<unknown>;
   sendPollCreation(jid: string, question: string, options: string[], maxSelections: number): Promise<SendResult>;
   getUserInfo(jids: string[]): Promise<unknown>;
   isOnWhatsApp(phones: string[]): Promise<unknown>;
@@ -1838,9 +1838,9 @@ export class WhatsAppClient {
 
   // ── Message Actions ──────────────────────────────────────────────────────────
 
-  async sendReaction (jid: string, messageId: string, emoji: string): Promise<unknown> {
+  async sendReaction (jid: string, senderJid: string, messageId: string, emoji: string): Promise<unknown> {
     return this._withRetry(
-      () => this.client!.sendReaction(jid, messageId, emoji),
+      () => this.client!.sendReaction(jid, senderJid, messageId, emoji),
       'sendReaction'
     );
   }
@@ -1852,8 +1852,8 @@ export class WhatsAppClient {
     );
   }
 
-  async revokeMessage (jid: string, messageId: string): Promise<unknown> {
-    return this._withRetry(() => this.client!.revokeMessage(jid, messageId), 'revokeMessage');
+  async revokeMessage (jid: string, senderJid: string, messageId: string): Promise<unknown> {
+    return this._withRetry(() => this.client!.revokeMessage(jid, senderJid, messageId), 'revokeMessage');
   }
 
   async createPoll (jid: string, question: string, options: string[], allowMultiple: boolean): Promise<{ id: string | undefined }> {

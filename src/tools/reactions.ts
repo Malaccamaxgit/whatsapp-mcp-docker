@@ -71,13 +71,24 @@ export function registerReactionTools (
 
       const storedMessage = store.getMessageById(message_id);
       const storedMessageChatJid = storedMessage?.chat_jid || null;
+      const senderJid = storedMessage?.sender_jid || waClient.jid || null;
       const jid = storedMessageChatJid || resolvedJid;
       const chatMismatch = Boolean(storedMessageChatJid && storedMessageChatJid !== resolvedJid);
+      if (!senderJid) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Could not resolve sender for message ${message_id}. Ensure the message exists in local history (list_messages) and try again.`
+          }],
+          isError: true
+        };
+      }
 
-      await waClient.sendReaction(jid, message_id, emoji);
+      await waClient.sendReaction(jid, senderJid, message_id, emoji);
       const action = emoji ? `reacted with ${emoji}` : 'removed reaction';
       audit.log('send_reaction', action, {
         jid,
+        sender_jid: senderJid,
         message_id,
         emoji,
         chat_input: chat,
@@ -173,13 +184,26 @@ export function registerReactionTools (
     }
 
     try {
-      const jid = resolveJid(chat, store);
-      if (!jid) {
+      const resolvedJid = resolveJid(chat, store);
+      if (!resolvedJid) {
         return { content: [{ type: 'text', text: `Chat not found: "${chat}"` }], isError: true };
       }
+      const storedMessage = store.getMessageById(message_id);
+      const storedMessageChatJid = storedMessage?.chat_jid || null;
+      const senderJid = storedMessage?.sender_jid || waClient.jid || null;
+      const jid = storedMessageChatJid || resolvedJid;
+      if (!senderJid) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Could not resolve sender for message ${message_id}. Ensure the message exists in local history (list_messages) and try again.`
+          }],
+          isError: true
+        };
+      }
 
-      await waClient.revokeMessage(jid, message_id);
-      audit.log('delete_message', 'deleted', { jid, message_id });
+      await waClient.revokeMessage(jid, senderJid, message_id);
+      audit.log('delete_message', 'deleted', { jid, sender_jid: senderJid, message_id });
       return { content: [{ type: 'text', text: `Message ${message_id} deleted for everyone.` }] };
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err || '');

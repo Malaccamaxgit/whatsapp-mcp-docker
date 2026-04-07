@@ -33,9 +33,9 @@ interface MockBehavior {
   updateGroupParticipants?: (jid: string, participantJids: string[], action: string) => Promise<unknown>;
   setGroupName?: (jid: string, name: string) => Promise<unknown>;
   setGroupTopic?: (jid: string, topic: string) => Promise<unknown>;
-  sendReaction?: (jid: string, messageId: string, emoji: string) => Promise<unknown>;
+  sendReaction?: (jid: string, senderJid: string, messageId: string, emoji: string) => Promise<unknown>;
   editMessage?: (jid: string, messageId: string, content: string) => Promise<unknown>;
-  revokeMessage?: (jid: string, messageId: string) => Promise<unknown>;
+  revokeMessage?: (jid: string, senderJid: string, messageId: string) => Promise<unknown>;
   createPoll?: (jid: string, question: string, options: string[], allowMultiple: boolean) => Promise<unknown>;
   getUserInfo?: (jids: string[]) => Promise<unknown>;
   isOnWhatsApp?: (phones: string[]) => Promise<unknown>;
@@ -195,9 +195,9 @@ interface MockWaClient {
   setGroupTopic(jid: string, topic: string): Promise<null>;
 
   // Message actions
-  sendReaction(jid: string, messageId: string, emoji: string): Promise<{ id: string }>;
+  sendReaction(jid: string, senderJid: string, messageId: string, emoji: string): Promise<{ id: string }>;
   editMessage(jid: string, messageId: string, content: string): Promise<{ id: string }>;
-  revokeMessage(jid: string, messageId: string): Promise<null>;
+  revokeMessage(jid: string, senderJid: string, messageId: string): Promise<null>;
   createPoll(jid: string, question: string, options: string[], allowMultiple: boolean): Promise<{ id: string }>;
 
   // Contact info
@@ -685,8 +685,8 @@ export function createMockWaClient (overrides: MockWaClientOverrides = {}): Mock
 
     // ── Message Actions ──────────────────────────────────────────────────────────
 
-    async sendReaction (jid: string, messageId: string, emoji: string): Promise<{ id: string }> {
-      if (behaviors.sendReaction) {return behaviors.sendReaction(jid, messageId, emoji);}
+    async sendReaction (jid: string, senderJid: string, messageId: string, emoji: string): Promise<{ id: string }> {
+      if (behaviors.sendReaction) {return behaviors.sendReaction(jid, senderJid, messageId, emoji);}
       if (!this._connected) {throw new Error('WhatsApp not connected');}
       return { id: `reaction_${Date.now()}` };
     },
@@ -697,8 +697,8 @@ export function createMockWaClient (overrides: MockWaClientOverrides = {}): Mock
       return { id: messageId };
     },
 
-    async revokeMessage (jid: string, messageId: string): Promise<null> {
-      if (behaviors.revokeMessage) {return behaviors.revokeMessage(jid, messageId);}
+    async revokeMessage (jid: string, senderJid: string, messageId: string): Promise<null> {
+      if (behaviors.revokeMessage) {return behaviors.revokeMessage(jid, senderJid, messageId);}
       if (!this._connected) {throw new Error('WhatsApp not connected');}
       return null;
     },

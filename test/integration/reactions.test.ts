@@ -83,8 +83,10 @@ describe('Message Action Tools (integration)', () => {
 
     it('uses the message stored chat JID when chat resolution disagrees', async () => {
       let sentJid: string | null = null;
-      ctx.waClient.setBehavior('sendReaction', (jid: unknown) => {
+      let sentSenderJid: string | null = null;
+      ctx.waClient.setBehavior('sendReaction', (jid: unknown, senderJid: unknown) => {
         sentJid = String(jid);
+        sentSenderJid = String(senderJid);
         return { id: 'reaction_mismatch_test' };
       });
 
@@ -95,6 +97,7 @@ describe('Message Action Tools (integration)', () => {
 
       assert.equal(result.isError, undefined);
       assert.equal(sentJid, CHAT_JID);
+      assert.equal(sentSenderJid, '15145559999@s.whatsapp.net');
       ctx.waClient.resetBehaviors();
     });
 
@@ -189,6 +192,26 @@ describe('Message Action Tools (integration)', () => {
         arguments: { chat: 'John Smith', message_id: MSG_ID }
       });
       assert.equal(result.isError, undefined);
+    });
+
+    it('uses the stored message chat and sender JIDs for revoke', async () => {
+      let sentJid: string | null = null;
+      let sentSenderJid: string | null = null;
+      ctx.waClient.setBehavior('revokeMessage', (jid: unknown, senderJid: unknown) => {
+        sentJid = String(jid);
+        sentSenderJid = String(senderJid);
+        return null;
+      });
+
+      const result = await ctx.client.callTool({
+        name: 'delete_message',
+        arguments: { chat: GROUP_JID, message_id: MSG_ID }
+      });
+
+      assert.equal(result.isError, undefined);
+      assert.equal(sentJid, CHAT_JID);
+      assert.equal(sentSenderJid, '15145559999@s.whatsapp.net');
+      ctx.waClient.resetBehaviors();
     });
 
     it('returns error when not connected', async () => {
