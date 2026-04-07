@@ -307,7 +307,7 @@ export function registerChatTools (
         return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
-      const chats = store.getAllChatsForMatching();
+      const chats = store.getAllChatsUnifiedForMatching();
       const lowerQuery = query.toLowerCase();
 
       const matches = chats

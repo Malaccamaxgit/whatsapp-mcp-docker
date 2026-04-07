@@ -639,6 +639,20 @@ export class MessageStore {
     }));
   }
 
+  /**
+   * Same as getAllChatsForMatching but deduplicates JIDs using the multi-device
+   * and legacy contact_mappings unification logic (same merge used by list_chats).
+   * A contact that has both an @lid and an @s.whatsapp.net chat row is collapsed
+   * into a single entry, with display names resolved via getDisplayNameForJid.
+   */
+  public getAllChatsUnifiedForMatching (): { jid: string; name: string | null; unread_count?: number; last_message_at?: number | null; last_message_preview?: string | null; is_group?: number }[] {
+    const unified = this.getAllChatsUnified({ limit: 10_000 });
+    return unified.map((row) => ({
+      ...row,
+      name: this.getDisplayNameForJid(row.jid)
+    }));
+  }
+
   public incrementUnread (chatJid: string): void {
     this.db!.prepare('UPDATE chats SET unread_count = unread_count + 1 WHERE jid = ?').run(chatJid);
   }
