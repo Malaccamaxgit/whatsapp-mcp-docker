@@ -190,7 +190,7 @@ tools:
         desc: The chat name, phone, or JID (optional)
 
   - name: list_chats
-    description: List conversations sorted by recent activity
+    description: List conversations with previews, unread counts, total messages, and last-hour message counts
     arguments:
       - name: filter
         type: string

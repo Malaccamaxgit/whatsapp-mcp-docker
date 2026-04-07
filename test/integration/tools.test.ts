@@ -91,6 +91,7 @@ describe('MCP Tools (integration)', () => {
       assert.ok(
         text.includes('John Smith') || text.includes('Jane Doe') || text.includes('Engineering')
       );
+      assert.ok(text.includes('messages'), 'list_chats should include per-chat message counts');
     });
 
     it('filters chats by name', async () => {

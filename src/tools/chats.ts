@@ -34,7 +34,8 @@ export function registerChatTools (
   server.registerTool(
     'list_chats',
     {
-      description: 'List WhatsApp conversations sorted by recent activity. Shows last message preview, unread count, and timestamps. Filter by name or restrict to groups only.',
+      description:
+        'List WhatsApp conversations sorted by recent activity. Shows last message preview, unread count, timestamps, total message count, and messages in the last hour (merged across linked LID/phone JIDs). Filter by name or restrict to groups only.',
       inputSchema: {
         filter: z
           .string()
@@ -87,6 +88,13 @@ export function registerChatTools (
           ? `: ${c.last_message_preview.substring(0, 60)}${c.last_message_preview.length > 60 ? '...' : ''}`
           : '';
 
+        const msgCount = c.message_count ?? 0;
+        const lastHour = c.messages_last_hour ?? 0;
+        const statsParts: string[] = [`${msgCount} messages`];
+        if (lastHour > 0) {
+          statsParts.push(`${lastHour} last hour`);
+        }
+
         // Phase 4: Show multi-device info for non-group chats
         const jidInfo = c.is_group ? c.jid : (() => {
           // Try new multi-device schema first
@@ -128,7 +136,7 @@ export function registerChatTools (
         const jidType = getJidTypeInfo(c.jid);
 
         const displayName = store.getDisplayNameForJid(c.jid);
-        return `${type} ${displayName}${unread}\n     Last: ${time}${preview}\n     JID: ${jidInfo} ${jidType.shortLabel}`;
+        return `${type} ${displayName}${unread}\n     Last: ${time} | ${statsParts.join(' | ')}${preview}\n     JID: ${jidInfo} ${jidType.shortLabel}`;
       });
 
       const pageInfo = page > 0 ? ` (page ${page})` : '';

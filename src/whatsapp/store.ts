@@ -20,6 +20,9 @@ type ChatRow = {
   last_message_at: number | null;
   last_message_preview: string | null;
   updated_at: number;
+  /** Present when loaded via listChatsWithStats / getAllChatsUnified */
+  message_count?: number;
+  messages_last_hour?: number;
 };
 
 type MessageRow = {
@@ -576,6 +579,70 @@ export class MessageStore {
     return this._decryptRows(this.db!.prepare(sql).all(...params)) as ChatRow[];
   }
 
+  /**
+   * Chats with per-chat message totals and count in the last hour (wall clock).
+   * Same filters as {@link listChats}; pagination via limit/offset.
+   */
+  public listChatsWithStats ({
+    filter,
+    groupsOnly,
+    limit = 20,
+    offset = 0
+  }: { filter?: string; groupsOnly?: boolean; limit?: number; offset?: number } = {}): ChatRow[] {
+    return this._queryChatsWithStats({ filter, groupsOnly, limit, offset });
+  }
+
+  /**
+   * Shared query for chat rows with message_count / messages_last_hour aggregates.
+   */
+  private _queryChatsWithStats ({
+    filter,
+    groupsOnly,
+    limit,
+    offset
+  }: {
+    filter?: string;
+    groupsOnly?: boolean;
+    limit?: number;
+    offset?: number;
+  }): ChatRow[] {
+    const oneHourAgo = Math.floor(Date.now() / 1000) - 3600;
+
+    let sql = `
+SELECT
+  c.jid,
+  c.name,
+  c.is_group,
+  c.unread_count,
+  c.last_message_at,
+  c.last_message_preview,
+  c.updated_at,
+  COUNT(m.id) AS message_count,
+  COALESCE(SUM(CASE WHEN m.timestamp > ? THEN 1 ELSE 0 END), 0) AS messages_last_hour
+FROM chats c
+LEFT JOIN messages m ON m.chat_jid = c.jid
+WHERE 1=1
+`;
+    const params: (string | number)[] = [oneHourAgo];
+
+    if (filter) {
+      sql += ' AND (c.name LIKE ? OR c.jid IN (SELECT jid FROM custom_contact_names WHERE name LIKE ?))';
+      const like = `%${filter}%`;
+      params.push(like, like);
+    }
+    if (groupsOnly) {
+      sql += ' AND c.is_group = 1';
+    }
+
+    sql += ' GROUP BY c.jid ORDER BY c.last_message_at DESC NULLS LAST';
+    if (limit !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset ?? 0);
+    }
+
+    return this._decryptRows(this.db!.prepare(sql).all(...params)) as ChatRow[];
+  }
+
   public getChatByJid (jid: string): ChatRow | null {
     return this._decryptRow(this.db!.prepare('SELECT * FROM chats WHERE jid = ?').get(jid)) as ChatRow | null;
   }
@@ -838,21 +905,7 @@ export class MessageStore {
       }
     }
 
-    // Get all chats
-    let sql = 'SELECT * FROM chats WHERE 1=1';
-    const params: (string | number)[] = [];
-
-    if (filter) {
-      sql += ' AND (name LIKE ? OR jid IN (SELECT jid FROM custom_contact_names WHERE name LIKE ?))';
-      const like = `%${filter}%`;
-      params.push(like, like);
-    }
-    if (groupsOnly) {
-      sql += ' AND is_group = 1';
-    }
-
-    sql += ' ORDER BY last_message_at DESC';
-    const allChats = this._decryptRows(this.db!.prepare(sql).all(...params)) as ChatRow[];
+    const allChats = this._queryChatsWithStats({ filter, groupsOnly });
 
     // Merge duplicates using mappings
     const unifiedMap = new Map<string, ChatRow>();
@@ -884,7 +937,9 @@ export class MessageStore {
           last_message_preview: chat.last_message_at && (!existing.last_message_at || chat.last_message_at > existing.last_message_at)
             ? chat.last_message_preview
             : existing.last_message_preview,
-          updated_at: Math.max(existing.updated_at, chat.updated_at)
+          updated_at: Math.max(existing.updated_at, chat.updated_at),
+          message_count: (existing.message_count ?? 0) + (chat.message_count ?? 0),
+          messages_last_hour: (existing.messages_last_hour ?? 0) + (chat.messages_last_hour ?? 0)
         };
         unifiedMap.set(unifiedJid, merged);
       }

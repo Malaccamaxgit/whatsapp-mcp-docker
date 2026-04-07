@@ -361,6 +361,8 @@ describe('JID Unification', () => {
 
       assert.ok(chat !== null);
       assert.equal(chat?.jid, lidJid);
+      assert.equal(chat?.message_count, 2);
+      assert.equal(chat?.messages_last_hour, 2);
 
       const messages1 = store.listMessages({ chatJid: phoneJid, limit: 10 });
       const messages2 = store.listMessages({ chatJid: lidJid, limit: 10 });
