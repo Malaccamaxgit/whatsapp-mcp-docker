@@ -1189,6 +1189,12 @@ export class MessageStore {
     );
   }
 
+  public getMessageById (messageId: string): MessageRow | null {
+    return this._decryptRow(
+      this.db!.prepare('SELECT * FROM messages WHERE id = ?').get(messageId)
+    ) as MessageRow | null;
+  }
+
   public getMessageContext (messageId: string, contextBefore = 3, contextAfter = 3): { before: MessageRow[]; message: MessageRow | null; after: MessageRow[] } | null {
     const target = this._decryptRow(
       this.db!.prepare('SELECT * FROM messages WHERE id = ?').get(messageId)

@@ -63,14 +63,27 @@ export function registerReactionTools (
     }
 
     try {
-      const jid = resolveJid(chat, store);
-      if (!jid) {
+      const resolvedJid = resolveJid(chat, store);
+      if (!resolvedJid) {
         return { content: [{ type: 'text', text: `Chat not found: "${chat}"` }], isError: true };
       }
 
+      const storedMessage = store.getMessageById(message_id);
+      const storedMessageChatJid = storedMessage?.chat_jid || null;
+      const jid = storedMessageChatJid || resolvedJid;
+      const chatMismatch = Boolean(storedMessageChatJid && storedMessageChatJid !== resolvedJid);
+
       await waClient.sendReaction(jid, message_id, emoji);
       const action = emoji ? `reacted with ${emoji}` : 'removed reaction';
-      audit.log('send_reaction', action, { jid, message_id, emoji });
+      audit.log('send_reaction', action, {
+        jid,
+        message_id,
+        emoji,
+        chat_input: chat,
+        resolved_jid: resolvedJid,
+        stored_message_chat_jid: storedMessageChatJid,
+        chat_mismatch: chatMismatch
+      });
       return {
         content: [{ type: 'text', text: `Reaction ${emoji ? `"${emoji}"` : 'removed'} on message ${message_id}.` }]
       };
