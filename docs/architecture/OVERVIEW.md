@@ -19,7 +19,7 @@ description: "High-level architecture, component overview, data flow, storage sc
 | Validation | Zod |
 | Container | Docker 4-stage build (~80 MB, npm removed from runtime) |
 | Provenance | SLSA max-mode attestations via BuildKit |
-| Tools | 34 MCP tools |
+| Tools | 33 MCP tools |
 
 ---
 
@@ -63,7 +63,7 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 | **Portability** | Identical on Windows, macOS, Linux | Platform-specific native dependency issues |
 | **Lifecycle** | Health checks, auto-restart, graceful shutdown, long-lived containers | Manual process management |
 | **Cleanup** | `docker compose down -v` removes everything | Manual cleanup of data, sessions, processes |
-| **Discovery** | `whatsapp-mcp-docker-server.yaml` auto-describes 34 tools to all clients | Manual per-client configuration |
+| **Discovery** | `whatsapp-mcp-docker-server.yaml` auto-describes 33 tools to all clients | Manual per-client configuration |
 
 ---
 
@@ -82,7 +82,7 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 │             │           │           │                         │
 │   ┌─────────▼──┐ ┌──────▼──────┐ ┌──▼──────────┐            │
 │   │   Tools    │ │  Security   │ │   Utils      │            │
-│   │  (32 MCP)  │ │  audit.ts   │ │ fuzzy-match  │            │
+│   │  (31 MCP)  │ │  audit.ts   │ │ fuzzy-match  │            │
 │   │            │ │ permissions.ts │ │ phone.ts   │            │
 │   └─────────┬──┘ └─────────────┘ └─────────────┘            │
 │             │                                                │
@@ -162,12 +162,12 @@ This server runs inside Docker Desktop's [MCP Toolkit](https://docs.docker.com/a
 |------|-------|----------|
 | `auth.ts` | `disconnect`, `authenticate` | Authentication |
 | `status.ts` | `get_connection_status` | Status |
-| `messaging.ts` | `send_message`, `list_messages`, `search_messages`, `get_poll_results` | Messaging |
+| `messaging.ts` | `send_message`, `list_messages`, `search_messages` | Messaging |
 | `chats.ts` | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` | Chats |
 | `media.ts` | `download_media`, `send_file` | Media |
 | `approvals.ts` | `request_approval`, `check_approvals` | Approvals |
 | `groups.ts` | `create_group`, `get_group_info`, `get_joined_groups`, `get_group_invite_link`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic` | Groups |
-| `reactions.ts` | `send_reaction`, `edit_message`, `delete_message`, `create_poll` | Message Actions |
+| `reactions.ts` | `send_reaction`, `edit_message`, `delete_message` | Message Actions |
 | `contacts.ts` | `get_user_info`, `is_on_whatsapp`, `get_profile_picture` | Contacts |
 | `wait.ts` | `wait_for_message` | Workflow |
 

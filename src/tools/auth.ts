@@ -11,20 +11,7 @@ import type { PermissionManager } from '../security/permissions.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { validatePhoneNumber } from '../utils/phone.js';
-
-// Union type for content that can be either text or image
-interface TextContent {
-  type: 'text';
-  text: string;
-}
-
-interface ImageContent {
-  type: 'image';
-  data: string;
-  mimeType: string;
-}
-
-type McpContent = TextContent | ImageContent;
+import { registerTool, type ToolInput, type McpResult } from '../utils/mcp-types.js';
 
 const DEFAULT_POLL_MS = 5000;
 const DEFAULT_LINK_TIMEOUT_SEC = 120;
@@ -95,23 +82,12 @@ function appendWaitResult (text: string, wait: WaitResult): string {
   );
 }
 
-interface DisconnectResult {
-  content: { type: 'text'; text: string }[];
-  isError?: boolean;
-}
-
-interface AuthenticateResult {
-  content: McpContent[];
-  isError?: boolean;
-}
-
-
 function createDisconnectHandler (
   waClient: WhatsAppClient,
   permissions: PermissionManager,
   audit: AuditLogger
 ) {
-  return async (): Promise<DisconnectResult> => {
+  return async (): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('disconnect');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -160,6 +136,45 @@ function createDisconnectHandler (
   };
 }
 
+const authenticateInputSchema = {
+  phoneNumber: z
+    .string()
+    .describe(
+      'Phone number in international E.164 format: "+" followed by country code and number, no spaces or dashes. ' +
+        'Examples: "+15145551234" (Canada), "+353871234567" (Ireland), "+33612345678" (France), "+491711234567" (Germany). ' +
+        'The country code is mandatory — do NOT use local formats like "06..." or "(514) 555-1234".'
+    )
+    .optional(),
+  waitForLink: z
+    .boolean()
+    .optional()
+    .describe(
+      'If true, after showing pairing code or QR, poll until connected or timeout. If false, return immediately. Omit to use profile default (auth_wait_for_link / AUTH_WAIT_FOR_LINK).'
+    ),
+  linkTimeoutSec: z
+    .number()
+    .min(15)
+    .max(600)
+    .optional()
+    .describe(
+      'Max seconds to wait when waiting (15–600). Omit to use profile default (auth_link_timeout_sec / AUTH_LINK_TIMEOUT_SEC).'
+    ),
+  pollIntervalSec: z
+    .number()
+    .min(2)
+    .max(60)
+    .optional()
+    .describe(
+      'Seconds between connection checks (2–60). Omit to use profile default (auth_poll_interval_sec / AUTH_POLL_INTERVAL_SEC).'
+    ),
+  force: z
+    .boolean()
+    .optional()
+    .describe(
+      'Force re-pairing even when the server reports being connected. Use this when the connection is broken but isConnected() falsely returns true.'
+    )
+};
+
 function createAuthenticateHandler (
   waClient: WhatsAppClient,
   permissions: PermissionManager,
@@ -171,13 +186,7 @@ function createAuthenticateHandler (
     linkTimeoutSec,
     pollIntervalSec,
     force
-  }: {
-    phoneNumber?: string;
-    waitForLink?: boolean;
-    linkTimeoutSec?: number;
-    pollIntervalSec?: number;
-    force?: boolean;
-  }): Promise<AuthenticateResult> => {
+  }: ToolInput<typeof authenticateInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('authenticate');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -332,7 +341,7 @@ function createAuthenticateHandler (
         audit.log('authenticate', 'qr_fallback', { number: validation.number });
         const containerName = process.env.HOSTNAME || 'whatsapp-mcp-docker';
 
-        const content: McpContent[] = [];
+        const content: McpResult['content'] = [];
         if (result.qrImageBase64) {
           content.push({
             type: 'image',
@@ -443,62 +452,15 @@ export function registerAuthTools (
   permissions: PermissionManager,
   audit: AuditLogger
 ): void {
-  server.registerTool(
-    'disconnect',
-    {
-      description: 'Log out and disconnect from WhatsApp. This clears the session and requires re-authentication. Use this when you want to unlink the current device or switch to a different WhatsApp account.',
-      inputSchema: {},
-      annotations: { idempotentHint: false, readOnlyHint: false }
-    },
+  registerTool(server, 'disconnect', {
+    description: 'Log out and disconnect from WhatsApp. This clears the session and requires re-authentication. Use this when you want to unlink the current device or switch to a different WhatsApp account.',
+    inputSchema: {},
+    annotations: { idempotentHint: false, readOnlyHint: false }
+  }, createDisconnectHandler(waClient, permissions, audit));
 
-    createDisconnectHandler(waClient, permissions, audit) as any
-  );
-
-  server.registerTool(
-    'authenticate',
-    {
-      description: 'Link this device to WhatsApp. Returns an 8-digit pairing code or a QR code. By default, waits and polls until the device links or a timeout, then appends success or failure to the same response. Defaults for waitForLink, linkTimeoutSec, and pollIntervalSec come from Docker MCP Toolkit profile (whatsapp-mcp-docker.auth_* config → AUTH_* env) when arguments are omitted; pass explicit tool arguments to override per call.',
-      inputSchema: {
-        phoneNumber: z
-          .string()
-          .describe(
-            'Phone number in international E.164 format: "+" followed by country code and number, no spaces or dashes. ' +
-              'Examples: "+15145551234" (Canada), "+353871234567" (Ireland), "+33612345678" (France), "+491711234567" (Germany). ' +
-              'The country code is mandatory — do NOT use local formats like "06..." or "(514) 555-1234".'
-          )
-          .optional(),
-        waitForLink: z
-          .boolean()
-          .optional()
-          .describe(
-            'If true, after showing pairing code or QR, poll until connected or timeout. If false, return immediately. Omit to use profile default (auth_wait_for_link / AUTH_WAIT_FOR_LINK).'
-          ),
-        linkTimeoutSec: z
-          .number()
-          .min(15)
-          .max(600)
-          .optional()
-          .describe(
-            'Max seconds to wait when waiting (15–600). Omit to use profile default (auth_link_timeout_sec / AUTH_LINK_TIMEOUT_SEC).'
-          ),
-        pollIntervalSec: z
-          .number()
-          .min(2)
-          .max(60)
-          .optional()
-          .describe(
-            'Seconds between connection checks (2–60). Omit to use profile default (auth_poll_interval_sec / AUTH_POLL_INTERVAL_SEC).'
-          ),
-        force: z
-          .boolean()
-          .optional()
-          .describe(
-            'Force re-pairing even when the server reports being connected. Use this when the connection is broken but isConnected() falsely returns true.'
-          )
-      },
-      annotations: { idempotentHint: true, readOnlyHint: false }
-    },
-
-    createAuthenticateHandler(waClient, permissions, audit) as any
-  );
+  registerTool(server, 'authenticate', {
+    description: 'Link this device to WhatsApp. Returns an 8-digit pairing code or a QR code. By default, waits and polls until the device links or a timeout, then appends success or failure to the same response. Defaults for waitForLink, linkTimeoutSec, and pollIntervalSec come from Docker MCP Toolkit profile (whatsapp-mcp-docker.auth_* config → AUTH_* env) when arguments are omitted; pass explicit tool arguments to override per call.',
+    inputSchema: authenticateInputSchema,
+    annotations: { idempotentHint: true, readOnlyHint: false }
+  }, createAuthenticateHandler(waClient, permissions, audit));
 }

@@ -2,12 +2,12 @@
 layout: default
 title: API Reference
 nav_order: 2
-description: "Complete API documentation for all 34 MCP tools — parameters, return types, and examples."
+description: "Complete API documentation for all 33 MCP tools — parameters, return types, and examples."
 ---
 
 # WhatsApp MCP Server API Reference
 
-> **API documentation for all 34 MCP tools**
+> **API documentation for all 33 MCP tools**
 
 ## Table of Contents
 
@@ -227,36 +227,6 @@ Full-text search across all messages using SQLite FTS5.
 - Exact phrase: `"project deadline"`
 - Boolean: `deadline AND urgent`
 - Exclusion: `meeting NOT zoom`
-
----
-
-### `get_poll_results`
-
-Get poll results including vote counts for each option and voter breakdown.
-
-**Parameters:**
-```typescript
-{
-  poll_message_id: string;  // Message ID of the poll creation message
-  chat: string;             // Chat name, phone number, or JID where the poll was sent
-}
-```
-
-**Returns:**
-```typescript
-{
-  content: [{
-    type: 'text';
-    text: string;  // Poll question, totals, percentages, and voter list
-  }];
-  isError?: boolean;
-}
-```
-
-**Example:**
-```javascript
-get_poll_results({ poll_message_id: "msg-poll-123", chat: "Engineering Team" })
-```
 
 ---
 
@@ -882,40 +852,6 @@ Delete a WhatsApp message for everyone in the chat (revoke). Only works on messa
 
 ---
 
-### `create_poll`
-
-Send a poll to a WhatsApp chat. Participants can vote on one or more options.
-
-**Parameters:**
-```typescript
-{
-  to: string;              // Recipient: contact name, group name, phone number, or JID
-  question: string;        // Poll question (max 255 characters)
-  options: string[];       // Answer options (2–12 options, max 100 chars each)
-  allow_multiple?: boolean;// Allow multiple selections (default: false)
-}
-```
-
-**Returns:**
-```typescript
-{
-  content: [{ type: 'text'; text: string }];  // Poll confirmation with message ID
-  isError?: boolean;
-}
-```
-
-**Example:**
-```javascript
-create_poll({
-  to: "Engineering Team",
-  question: "Which day for the team lunch?",
-  options: ["Monday", "Tuesday", "Wednesday", "Thursday"],
-  allow_multiple: false
-})
-```
-
----
-
 ## Contact Info
 
 ### `get_user_info`
@@ -991,6 +927,58 @@ Get the profile picture URL for a contact or group. Returns the direct image URL
 **Notes:**
 - CDN URLs expire after a short period; fetch the image promptly
 - Privacy settings may prevent retrieval for non-contacts
+
+---
+
+### `sync_contact_names`
+
+Fetch WhatsApp profile names and store them locally for chats that still show as raw JIDs. Syncs all such contacts, or specific JIDs/phone numbers. Does not override custom names set via `set_contact_name`.
+
+**Parameters:**
+```typescript
+{
+  contacts?: string[];  // JIDs or E.164 phones to sync; omit to sync all with no display name
+  force?: boolean;      // Re-fetch even when a name is already stored (default false)
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Summary of names synced and skipped
+  isError?: boolean;
+}
+```
+
+**Notes:**
+- Custom names (set via `set_contact_name`) are never overwritten
+- Requires an active WhatsApp connection
+
+---
+
+### `set_contact_name`
+
+Set a custom display name for a contact or group JID, stored locally. This name takes priority over push names in `list_chats`, `search_contacts`, and `catch_up`. Pass an empty string to clear a previously set name.
+
+**Parameters:**
+```typescript
+{
+  jid: string;   // JID (e.g. 123@s.whatsapp.net) or E.164 phone number
+  name: string;  // Display name, or empty string to remove the custom name
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Confirmation or cleared message
+  isError?: boolean;
+}
+```
+
+**Notes:**
+- Custom names are stored locally in SQLite; WhatsApp contacts are not notified
+- Takes highest priority in name resolution (above push names and JIDs)
 
 ---
 
@@ -1078,6 +1066,26 @@ The server sends async notifications for real-time events:
   }
 }
 ```
+
+---
+
+## Known Limitations — Disabled Poll Tools
+
+The following four tools exist in the codebase but are **disabled** in this Docker deployment due to WhatsApp's multidevice protocol restrictions. They will return a "tool not found" error if called.
+
+| Tool | Reason disabled |
+|------|----------------|
+| `create_poll` | Poll creation is functional, but vote tracking is unreliable on secondary devices — see details below |
+| `get_poll_results` | WhatsApp does not forward `poll_update_message` events to companion devices in real-time |
+| `debug_poll_votes` | Same underlying limitation as `get_poll_results` |
+| `list_polls` | Read-only poll listing; disabled alongside the other poll tools for consistency |
+
+> **Details:** See [POLL_LIMITATIONS.md](../POLL_LIMITATIONS.md) for a full technical explanation, including why WhatsApp's event-driven multidevice architecture prevents reliable vote tracking on secondary devices, and what workarounds were considered and rejected.
+
+**User guidance when asked about polls:**
+- Poll results shown by this server may be incomplete or show 0 votes
+- Check the poll directly in the WhatsApp app for accurate, real-time vote counts
+- The server must be running continuously when votes are cast to have any chance of receiving them
 
 ---
 

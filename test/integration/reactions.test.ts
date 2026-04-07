@@ -218,8 +218,10 @@ describe('Message Action Tools (integration)', () => {
   });
 
   // ── create_poll ─────────────────────────────────────────────────────────────
+  // Skipped: create_poll is intentionally disabled (ephemeral container /
+  // gateway limitation). See POLL_LIMITATIONS.md.
 
-  describe('create_poll', () => {
+  describe.skip('create_poll', () => {
     it('sends a poll to a 1:1 chat', async () => {
       const result = await ctx.client.callTool({
         name: 'create_poll',

@@ -33,7 +33,7 @@ This server runs inside a Docker container managed by [Docker MCP Toolkit](https
 
 ## Features
 
-- **34 MCP Tools** — Full WhatsApp control: messaging, media, search, contacts, groups, message actions, approvals, status, live interaction, and session management
+- **33 MCP Tools** — Full WhatsApp control: messaging, media, search, contacts, groups, message actions, approvals, status, live interaction, and session management
 - **Fuzzy Name Matching** — Say "John" or "book club" and the server finds the right chat via Levenshtein distance
 - **Media Support** — Download received media and send images, videos, audio, and documents
 - **Full-Text Search** — SQLite FTS5 indexes all messages with keyword, phrase, and boolean operators
@@ -339,7 +339,7 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 
 ---
 
-## Available Tools (34)
+## Available Tools (31)
 
 ### Authentication & Status
 
@@ -357,7 +357,6 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 | `send_file` | Send image, video, audio, or document with optional caption |
 | `list_messages` | Get messages from a chat with date range filtering and pagination |
 | `search_messages` | Full-text search across all messages (SQLite FTS5) |
-| `get_poll_results` | Get poll vote counts and voter breakdown for a poll message |
 
 ### Contacts & Chats
 
@@ -408,7 +407,6 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 | `send_reaction` | React to a message with an emoji, or remove an existing reaction |
 | `edit_message` | Edit a previously sent message (own messages, within ~15 min) |
 | `delete_message` | Delete a sent message for everyone (revoke) |
-| `create_poll` | Send a poll with a question and 2–12 answer options |
 
 **Contacts & User Info**
 
@@ -480,7 +478,7 @@ whatsapp-mcp-docker/
 │   │   ├── media.ts          # download_media, send_file
 │   │   ├── approvals.ts      # request_approval, check_approvals
 │   │   ├── groups.ts         # create_group, get_group_info, get_joined_groups, get_group_invite_link, join_group, leave_group, update_group_participants, set_group_name, set_group_topic
-│   │   ├── reactions.ts      # send_reaction, edit_message, delete_message, create_poll
+│   │   ├── reactions.ts      # send_reaction, edit_message, delete_message
 │   │   ├── contacts.ts       # get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name, sync_contact_names
 │   │   └── wait.ts           # wait_for_message
 │   ├── security/

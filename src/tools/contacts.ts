@@ -12,6 +12,7 @@ import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { toJid } from '../utils/phone.js';
 import { PhoneArraySchema } from '../utils/zod-schemas.js';
+import { registerTool, type ToolInput, type McpResult } from '../utils/mcp-types.js';
 
 const SYNC_RATE_LIMIT_DELAY_MS = 500;
 
@@ -53,7 +54,16 @@ export function registerContactTools (
 ): void {
   // ── get_user_info ─────────────────────────────────────────────
 
-  const get_user_info_handler = async ({ phones, save_names: saveNames }: { phones: string[]; save_names?: boolean }) => {
+  const getUserInfoInputSchema = {
+    phones: PhoneArraySchema(1, 20).describe('Phone numbers in E.164 format (e.g. ["+14155552671"])'),
+    save_names: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('If true, store retrieved profile names in the local database (same rules as sync: does not override custom names from set_contact_name)')
+  };
+
+  const get_user_info_handler = async ({ phones, save_names: saveNames }: ToolInput<typeof getUserInfoInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('get_user_info');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -102,28 +112,20 @@ export function registerContactTools (
     }
   };
 
-  server.registerTool(
-    'get_user_info',
-    {
-      description:
-        'Get WhatsApp profile information for one or more phone numbers: display name, status, and business details if available. Optionally store retrieved names in the local chat database (save_names).',
-      inputSchema: {
-        phones: PhoneArraySchema(1, 20).describe('Phone numbers in E.164 format (e.g. ["+14155552671"])'),
-        save_names: z
-          .boolean()
-          .optional()
-          .default(false)
-          .describe('If true, store retrieved profile names in the local database (same rules as sync: does not override custom names from set_contact_name)')
-      },
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
-    },
-
-    get_user_info_handler as any
-  );
+  registerTool(server, 'get_user_info', {
+    description:
+      'Get WhatsApp profile information for one or more phone numbers: display name, status, and business details if available. Optionally store retrieved names in the local chat database (save_names).',
+    inputSchema: getUserInfoInputSchema,
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
+  }, get_user_info_handler);
 
   // ── is_on_whatsapp ────────────────────────────────────────────
 
-  const is_on_whatsapp_handler = async ({ phones }: { phones: string[] }) => {
+  const isOnWhatsAppInputSchema = {
+    phones: PhoneArraySchema(1, 50).describe('Phone numbers to check in E.164 format (e.g. ["+14155552671", "+447911123456"])')
+  };
+
+  const is_on_whatsapp_handler = async ({ phones }: ToolInput<typeof isOnWhatsAppInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('is_on_whatsapp');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -161,22 +163,20 @@ export function registerContactTools (
     }
   };
 
-  server.registerTool(
-    'is_on_whatsapp',
-    {
-      description: 'Check whether one or more phone numbers have WhatsApp accounts. Useful before sending a message to a new contact.',
-      inputSchema: {
-        phones: PhoneArraySchema(1, 50).describe('Phone numbers to check in E.164 format (e.g. ["+14155552671", "+447911123456"])')
-      },
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
-    },
-
-    is_on_whatsapp_handler as any
+  registerTool(server, 'is_on_whatsapp', {
+    description: 'Check whether one or more phone numbers have WhatsApp accounts. Useful before sending a message to a new contact.',
+    inputSchema: isOnWhatsAppInputSchema,
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
+  }, is_on_whatsapp_handler
   );
 
   // ── get_profile_picture ───────────────────────────────────────
 
-  const get_profile_picture_handler = async ({ target }: { target: string }) => {
+  const getProfilePictureInputSchema = {
+    target: z.string().max(200).describe('Phone number, contact name, group name, or JID')
+  };
+
+  const get_profile_picture_handler = async ({ target }: ToolInput<typeof getProfilePictureInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('get_profile_picture');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -225,28 +225,31 @@ export function registerContactTools (
     }
   };
 
-  server.registerTool(
-    'get_profile_picture',
-    {
-      description: "Get the profile picture URL for a contact or group. Returns the direct image URL from WhatsApp's CDN.",
-      inputSchema: {
-        target: z.string().max(200).describe('Phone number, contact name, group name, or JID')
-      },
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
-    },
-
-    get_profile_picture_handler as any
-  );
+  registerTool(server, 'get_profile_picture', {
+    description: "Get the profile picture URL for a contact or group. Returns the direct image URL from WhatsApp's CDN.",
+    inputSchema: getProfilePictureInputSchema,
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
+  }, get_profile_picture_handler);
 
   // ── sync_contact_names ───────────────────────────────────────
+
+  const syncContactNamesInputSchema = {
+    contacts: z
+      .array(z.string().max(200))
+      .max(50)
+      .optional()
+      .describe('Optional JIDs or phone numbers to sync; omit to sync all chats that have no display name yet'),
+    force: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('If true, re-fetch and update stored names even when a non-JID name is already present')
+  };
 
   const sync_contact_names_handler = async ({
     contacts: contactInputs,
     force = false
-  }: {
-    contacts?: string[];
-    force?: boolean;
-  }) => {
+  }: ToolInput<typeof syncContactNamesInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('sync_contact_names');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -370,32 +373,27 @@ export function registerContactTools (
     return { content: [{ type: 'text', text: lines.join('\n') }] };
   };
 
-  server.registerTool(
-    'sync_contact_names',
-    {
-      description:
-        'Fetch WhatsApp profile names and store them locally for chats that still show as raw JIDs. Syncs all such contacts, or specific JIDs/phone numbers. Use force to refresh names even when a push name is already stored. Does not override custom names from set_contact_name.',
-      inputSchema: {
-        contacts: z
-          .array(z.string().max(200))
-          .max(50)
-          .optional()
-          .describe('Optional JIDs or phone numbers to sync; omit to sync all chats that have no display name yet'),
-        force: z
-          .boolean()
-          .optional()
-          .default(false)
-          .describe('If true, re-fetch and update stored names even when a non-JID name is already present')
-      },
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
-    },
-
-    sync_contact_names_handler as any
-  );
+  registerTool(server, 'sync_contact_names', {
+    description:
+      'Fetch WhatsApp profile names and store them locally for chats that still show as raw JIDs. Syncs all such contacts, or specific JIDs/phone numbers. Use force to refresh names even when a push name is already stored. Does not override custom names from set_contact_name.',
+    inputSchema: syncContactNamesInputSchema,
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
+  }, sync_contact_names_handler);
 
   // ── set_contact_name ─────────────────────────────────────────
 
-  const set_contact_name_handler = async ({ jid, name }: { jid: string; name: string }) => {
+  const setContactNameInputSchema = {
+    jid: z
+      .string()
+      .max(200)
+      .describe('JID (e.g. 123@s.whatsapp.net, 456@lid, 789@g.us) or phone number in E.164 format'),
+    name: z
+      .string()
+      .max(100)
+      .describe('Display name to show, or empty string to remove the custom name')
+  };
+
+  const set_contact_name_handler = async ({ jid, name }: ToolInput<typeof setContactNameInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('set_contact_name');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -436,29 +434,15 @@ export function registerContactTools (
     };
   };
 
-  server.registerTool(
-    'set_contact_name',
-    {
-      description:
-        'Set a custom display name for a contact or group JID (stored locally). Overrides push names in list_chats, search, and catch_up. Use an empty name to clear.',
-      inputSchema: {
-        jid: z
-          .string()
-          .max(200)
-          .describe('JID (e.g. 123@s.whatsapp.net, 456@lid, 789@g.us) or phone number in E.164 format'),
-        name: z
-          .string()
-          .max(100)
-          .describe('Display name to show, or empty string to remove the custom name')
-      },
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
-    },
-
-    set_contact_name_handler as any
-  );
+  registerTool(server, 'set_contact_name', {
+    description:
+      'Set a custom display name for a contact or group JID (stored locally). Overrides push names in list_chats, search, and catch_up. Use an empty name to clear.',
+    inputSchema: setContactNameInputSchema,
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+  }, set_contact_name_handler);
 }
 
-function notConnected () {
+function notConnected (): McpResult {
   return {
     content: [{ type: 'text', text: 'WhatsApp not connected. Use the authenticate tool first.' }],
     isError: true

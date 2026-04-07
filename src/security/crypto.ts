@@ -6,7 +6,7 @@
  * Values are prefixed with "enc:" so plaintext and encrypted
  * values can coexist during migration.
  *
- * Key derivation: scrypt (N=2^17, r=8, p=1) with a fixed application salt.
+ * Key derivation: scrypt (N=2^14, r=8, p=1) with a fixed application salt.
  * Using a fixed salt is intentional — this is deterministic key derivation
  * from a passphrase, not password storage. scrypt's memory-hardness makes
  * brute-force of the passphrase expensive even with a known salt.

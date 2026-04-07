@@ -8,15 +8,15 @@ description: |
   Send messages, search chats, approval workflows, and intelligent
   activity summaries — all with fuzzy contact name matching.
 
-  36 tools: disconnect, authenticate, get_connection_status,
+  33 tools: disconnect, authenticate, get_connection_status,
   send_message, send_file, download_media, list_chats, list_messages,
-  search_messages, get_poll_results, list_polls, search_contacts, catch_up, mark_messages_read,
+  search_messages, search_contacts, catch_up, mark_messages_read,
   export_chat_data, request_approval, check_approvals,
   create_group, get_group_info, get_joined_groups, get_group_invite_link,
   join_group, leave_group, update_group_participants, set_group_name,
   set_group_topic, send_reaction, edit_message, delete_message,
-  create_poll, get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name, sync_contact_names,
-  wait_for_message.
+  get_user_info, is_on_whatsapp, get_profile_picture,
+  sync_contact_names, set_contact_name, wait_for_message.
 
   Uses whatsmeow-node for native WhatsApp protocol. Pairing-code
   authentication works in any terminal. All data stored locally
@@ -190,7 +190,7 @@ tools:
         desc: The chat name, phone, or JID (optional)
 
   - name: list_chats
-    description: List conversations with previews, unread counts, total messages, and last-hour message counts
+    description: List conversations sorted by recent activity
     arguments:
       - name: filter
         type: string
@@ -248,26 +248,6 @@ tools:
       - name: include_context
         type: boolean
         desc: Include surrounding messages for context (default false)
-
-  - name: get_poll_results
-    description: Get poll results including vote counts and voter breakdown (by message id or short name)
-    arguments:
-      - name: poll_message_id
-        type: string
-        desc: Message ID of the poll creation message (omit if using short_name)
-      - name: short_name
-        type: string
-        desc: Short name from create_poll for this chat (omit if using poll_message_id)
-      - name: chat
-        type: string
-        desc: Chat name, phone number, or JID where the poll was sent
-
-  - name: list_polls
-    description: List polls registered with a short name in a chat
-    arguments:
-      - name: chat
-        type: string
-        desc: Chat name, phone number, or JID
 
   - name: search_contacts
     description: Search contacts and groups by name or phone number
@@ -443,44 +423,12 @@ tools:
         type: string
         desc: Message ID to delete
 
-  - name: create_poll
-    description: Send a poll with a question and 2–12 answer options to a chat
-    arguments:
-      - name: to
-        type: string
-        desc: Recipient — contact name, group name, phone number, or JID
-      - name: question
-        type: string
-        desc: Poll question
-      - name: options
-        type: array
-        desc: Answer options (2–12 items)
-      - name: allow_multiple
-        type: boolean
-        desc: Allow multiple selections (default false)
-      - name: short_name
-        type: string
-        desc: Optional label for this poll in this chat (letters, digits, _, -) for get_poll_results
-
   - name: get_user_info
     description: Get WhatsApp profile info for one or more phone numbers
     arguments:
       - name: phones
         type: array
         desc: Phone numbers in E.164 format
-      - name: save_names
-        type: boolean
-        desc: If true, store retrieved profile names in the local chat database
-
-  - name: sync_contact_names
-    description: Fetch WhatsApp profile names and store them for chats that still show as raw JIDs
-    arguments:
-      - name: contacts
-        type: array
-        desc: Optional JIDs or phone numbers to sync; omit to sync all unnamed chats
-      - name: force
-        type: boolean
-        desc: Re-fetch names even when a non-JID name is already stored
 
   - name: is_on_whatsapp
     description: Check whether phone numbers have WhatsApp accounts
@@ -496,15 +444,25 @@ tools:
         type: string
         desc: Phone number, contact name, group name, or JID
 
+  - name: sync_contact_names
+    description: Fetch WhatsApp profile names and store them locally for chats that still show as raw JIDs. Syncs all such contacts, or specific JIDs/phone numbers. Does not override custom names from set_contact_name.
+    arguments:
+      - name: contacts
+        type: array
+        desc: Optional JIDs or phone numbers to sync; omit to sync all chats with no display name yet
+      - name: force
+        type: boolean
+        desc: Re-fetch and update stored names even when a non-JID name is already present
+
   - name: set_contact_name
-    description: Set a local custom display name for a JID or phone number (overrides push names in lists and search)
+    description: Set a custom display name for a contact or group JID (stored locally). Overrides push names in list_chats, search, and catch_up. Use an empty name to clear.
     arguments:
       - name: jid
         type: string
-        desc: WhatsApp JID or E.164 phone number
+        desc: "JID (e.g. 123@s.whatsapp.net, 456@lid, 789@g.us) or phone number in E.164 format"
       - name: name
         type: string
-        desc: Display name to store, or empty to clear
+        desc: Display name to show, or empty string to remove the custom name
 
   - name: wait_for_message
     description: Block until an incoming WhatsApp message arrives, then return it. Use during interactive tests or workflows — tell the user to send a message, call this tool, and the AI receives the message automatically without the user typing in Cursor.

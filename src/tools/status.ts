@@ -7,6 +7,7 @@ import type { PermissionManager } from '../security/permissions.js';
 import type { MessageStore } from '../whatsapp/store.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
 import { formatTimestamp } from '../utils/timezone.js';
+import { registerTool, type McpResult } from '../utils/mcp-types.js';
 
 export function registerStatusTools (
   server: McpServer,
@@ -14,10 +15,10 @@ export function registerStatusTools (
   store: MessageStore,
   permissions: PermissionManager
 ): void {
-  const get_connection_status_handler = () => {
+  const get_connection_status_handler = (): McpResult => {
     const toolCheck = permissions.isToolEnabled('get_connection_status');
     if (!toolCheck.allowed) {
-      return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
     }
     const connected = waClient.isConnected();
     const hasSession = waClient.hasSession;
@@ -80,14 +81,9 @@ export function registerStatusTools (
     return { content: [{ type: 'text', text }] };
   };
 
-  server.registerTool(
-    'get_connection_status',
-    {
-      description: 'Check WhatsApp connection state, authenticated user info, and database statistics including chat count, message count, and last sync time.',
-      inputSchema: {},
-      annotations: { readOnlyHint: true, idempotentHint: true }
-    },
-
-    get_connection_status_handler as any
-  );
+  registerTool(server, 'get_connection_status', {
+    description: 'Check WhatsApp connection state, authenticated user info, and database statistics including chat count, message count, and last sync time.',
+    inputSchema: {},
+    annotations: { readOnlyHint: true, idempotentHint: true }
+  }, get_connection_status_handler);
 }

@@ -14,11 +14,7 @@ import type { MessageStore } from '../whatsapp/store.js';
 import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { formatTimestamp } from '../utils/timezone.js';
-
-interface TextContent {
-  type: 'text';
-  text: string;
-}
+import { registerTool } from '../utils/mcp-types.js';
 
 interface MessageWithContext {
   id: string;
@@ -67,26 +63,22 @@ export function registerMessagingTools (
 ): void {
   // ── send_message ─────────────────────────────────────────────
 
-  server.registerTool(
-    'send_message',
-    {
-      description: "Send a WhatsApp message. Supports fuzzy matching on contact or group names — you don't need the exact name or phone number. If multiple matches are found, returns candidates for disambiguation.",
-      inputSchema: {
-        to: z
-          .string()
-          .max(200)
-          .describe('Recipient: contact name, group name, phone number (e.g. +1234567890), or JID'),
-        message: z
-          .string()
-          .max(LIMITS.MAX_MESSAGE_LENGTH)
-          .describe(`The message text to send (max ${LIMITS.MAX_MESSAGE_LENGTH} chars)`)
-      }
-    },
-
-    (async ({ to, message }: { to: string; message: string }) => {
+  registerTool(server, 'send_message', {
+    description: "Send a WhatsApp message. Supports fuzzy matching on contact or group names — you don't need the exact name or phone number. If multiple matches are found, returns candidates for disambiguation.",
+    inputSchema: {
+      to: z
+        .string()
+        .max(200)
+        .describe('Recipient: contact name, group name, phone number (e.g. +1234567890), or JID'),
+      message: z
+        .string()
+        .max(LIMITS.MAX_MESSAGE_LENGTH)
+        .describe(`The message text to send (max ${LIMITS.MAX_MESSAGE_LENGTH} chars)`)
+    }
+  }, async ({ to, message }) => {
       const toolCheck = permissions.isToolEnabled('send_message');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
       if (!waClient.isConnected()) {
         return {
@@ -165,69 +157,56 @@ export function registerMessagingTools (
           isError: true
         };
       }
-    }) as any
-  );
+  });
 
   // ── list_messages ────────────────────────────────────────────
 
-  server.registerTool(
-    'list_messages',
-    {
-      description: 'Get messages from a specific WhatsApp chat. Supports date range filtering. Returns messages in chronological order with sender info. Use fuzzy name matching to find the chat.',
-      inputSchema: {
-        chat: z
-          .string()
-          .max(200)
-          .describe('Chat to read: contact name, group name, phone number, or JID'),
-        limit: z
-          .number()
-          .default(50)
-          .describe('Maximum messages to return (default 50, max 200)')
-          .optional(),
-        page: z.number().default(0).describe('Page number for pagination (default 0)').optional(),
-        before: z
-          .string()
-          .describe('Only messages before this date/time (ISO 8601 or natural like "2026-03-28")')
-          .optional(),
-        after: z
-          .string()
-          .describe('Only messages after this date/time (ISO 8601 or natural like "2026-03-01")')
-          .optional(),
-        include_context: z
-          .boolean()
-          .default(false)
-          .describe('Include surrounding messages for each result for conversational context')
-          .optional(),
-        context_messages: z
-          .number()
-          .default(2)
-          .describe(
-            'Number of messages to include before and after each result when include_context is true'
-          )
-          .optional()
-      }
-    },
-
-    (async ({
-      chat,
-      limit = 50,
-      page = 0,
-      before,
-      after,
-      include_context = false,
-      context_messages = 2
-    }: {
-      chat: string;
-      limit?: number;
-      page?: number;
-      before?: string;
-      after?: string;
-      include_context?: boolean;
-      context_messages?: number;
-    }) => {
+  registerTool(server, 'list_messages', {
+    description: 'Get messages from a specific WhatsApp chat. Supports date range filtering. Returns messages in chronological order with sender info. Use fuzzy name matching to find the chat.',
+    inputSchema: {
+      chat: z
+        .string()
+        .max(200)
+        .describe('Chat to read: contact name, group name, phone number, or JID'),
+      limit: z
+        .number()
+        .default(50)
+        .describe('Maximum messages to return (default 50, max 200)')
+        .optional(),
+      page: z.number().default(0).describe('Page number for pagination (default 0)').optional(),
+      before: z
+        .string()
+        .describe('Only messages before this date/time (ISO 8601 or natural like "2026-03-28")')
+        .optional(),
+      after: z
+        .string()
+        .describe('Only messages after this date/time (ISO 8601 or natural like "2026-03-01")')
+        .optional(),
+      include_context: z
+        .boolean()
+        .default(false)
+        .describe('Include surrounding messages for each result for conversational context')
+        .optional(),
+      context_messages: z
+        .number()
+        .default(2)
+        .describe(
+          'Number of messages to include before and after each result when include_context is true'
+        )
+        .optional()
+    }
+  }, async ({
+    chat,
+    limit = 50,
+    page = 0,
+    before,
+    after,
+    include_context = false,
+    context_messages = 2
+  }) => {
       const toolCheck = permissions.isToolEnabled('list_messages');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       const chats = store.getAllChatsForMatching();
@@ -325,45 +304,40 @@ export function registerMessagingTools (
           }
         ]
       };
-    }) as any
-  );
+  });
 
   // ── search_messages ──────────────────────────────────────────
 
-  server.registerTool(
-    'search_messages',
-    {
-      description: 'Full-text search across all WhatsApp messages using SQLite FTS5. Supports keywords, phrases, and boolean operators (AND, OR, NOT). Optionally scope the search to a specific chat.',
-      inputSchema: {
-        query: z
-          .string()
-          .max(LIMITS.MAX_SEARCH_QUERY_LENGTH)
-          .describe('Search query — keywords, "exact phrase", or boolean (word1 AND word2)'),
-        chat: z
-          .string()
-          .max(200)
-          .describe('Optional: scope search to a specific chat (name, number, or JID)')
-          .optional(),
-        limit: z.number().default(20).describe('Maximum results to return (default 20)').optional(),
-        page: z.number().default(0).describe('Page number for pagination (default 0)').optional(),
-        include_context: z
-          .boolean()
-          .default(false)
-          .describe('Include surrounding messages for conversational context')
-          .optional()
-      }
-    },
-
-    (async ({
-      query,
-      chat,
-      limit = 20,
-      page = 0,
-      include_context = false
-    }: any) => {
+  registerTool(server, 'search_messages', {
+    description: 'Full-text search across all WhatsApp messages using SQLite FTS5. Supports keywords, phrases, and boolean operators (AND, OR, NOT). Optionally scope the search to a specific chat.',
+    inputSchema: {
+      query: z
+        .string()
+        .max(LIMITS.MAX_SEARCH_QUERY_LENGTH)
+        .describe('Search query — keywords, "exact phrase", or boolean (word1 AND word2)'),
+      chat: z
+        .string()
+        .max(200)
+        .describe('Optional: scope search to a specific chat (name, number, or JID)')
+        .optional(),
+      limit: z.number().default(20).describe('Maximum results to return (default 20)').optional(),
+      page: z.number().default(0).describe('Page number for pagination (default 0)').optional(),
+      include_context: z
+        .boolean()
+        .default(false)
+        .describe('Include surrounding messages for conversational context')
+        .optional()
+    }
+  }, async ({
+    query,
+    chat,
+    limit = 20,
+    page = 0,
+    include_context = false
+  }) => {
       const toolCheck = permissions.isToolEnabled('search_messages');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       let chatJid: string | null = null;
@@ -462,8 +436,11 @@ export function registerMessagingTools (
           }
         ]
       };
-    }) as any
-  );
+  });
+
+  // ── Poll tools (disabled — ephemeral container / gateway limitation) ──
+  // See POLL_LIMITATIONS.md for details.
+  /*
 
   // ── get_poll_results ─────────────────────────────────────────
 
@@ -511,7 +488,7 @@ export function registerMessagingTools (
     }) => {
       const toolCheck = permissions.isToolEnabled('get_poll_results');
       if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
       }
 
       const chats = store.getAllChatsForMatching();
@@ -614,10 +591,20 @@ export function registerMessagingTools (
         }
       }
 
-      // Build output
+      // Build output with limitation notice
       const totalVotes = votes.length;
       let output = `Poll: ${question}\n\n`;
-      output += `Total votes: ${totalVotes}\n\n`;
+      output += `Total votes: ${totalVotes}\n`;
+      
+      // Add server start time context if there are votes
+      if (totalVotes > 0) {
+        const earliestVote = votes.reduce((min, v) => v.timestamp < min ? v.timestamp : min, votes[0].timestamp);
+        const latestVote = votes.reduce((max, v) => v.timestamp > max ? v.timestamp : max, votes[0].timestamp);
+        output += `Votes received: ${formatTimestamp(earliestVote)} to ${formatTimestamp(latestVote)}\n\n`;
+      } else {
+        output += '\n';
+      }
+      
       output += 'Results:\n';
 
       for (const opt of options) {
@@ -639,6 +626,14 @@ export function registerMessagingTools (
         }
       }
 
+      // Add limitation notice at the end
+      output += '\n';
+      output += '----------------------------------------\n';
+      output += 'Note: This shows votes received by this server.\n';
+      output += 'WhatsApp may not sync all votes to secondary devices.\n';
+      output += 'For complete results, check the poll in WhatsApp.\n';
+      output += '----------------------------------------\n';
+
       audit.log('get_poll_results', 'read', { pollId: effectivePollId, totalVotes });
 
       return {
@@ -648,6 +643,114 @@ export function registerMessagingTools (
             text: output
           }
         ]
+      };
+    }) as any
+  );
+
+  // ── debug_poll_votes ─────────────────────────────────────────
+
+  server.registerTool(
+    'debug_poll_votes',
+    {
+      description:
+        'Debug tool: Check poll vote storage and recent poll-related messages. Use for troubleshooting missing votes.',
+      inputSchema: {
+        poll_message_id: z.string().optional().describe('Specific poll message ID to debug'),
+        short_name: z.string().optional().describe('Short name of poll to debug'),
+        chat: z.string().optional().describe('Chat to scope debug to')
+      }
+    },
+
+    (async ({ poll_message_id, short_name, chat }: {
+      poll_message_id?: string;
+      short_name?: string;
+      chat?: string;
+    }) => {
+      const toolCheck = permissions.isToolEnabled('debug_poll_votes');
+      if (!toolCheck.allowed) {
+        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+      }
+
+      let output = '🔍 Poll Vote Debug Report\n\n';
+
+      // If chat is provided, resolve it
+      let resolvedJid: string | null = null;
+      if (chat) {
+        const chats = store.getAllChatsForMatching();
+        const { resolved, error } = resolveRecipient(chat, chats);
+        if (resolved) {
+          resolvedJid = resolved;
+          output += `Chat: ${chat} → ${resolvedJid}\n\n`;
+        } else {
+          output += `Chat: ${chat} → NOT FOUND (${error})\n\n`;
+        }
+      }
+
+      // Resolve poll message ID
+      let effectivePollId: string | null = poll_message_id || null;
+      if (short_name && resolvedJid) {
+        const id = store.getPollMessageIdByShortName(resolvedJid, short_name);
+        if (id) {
+          effectivePollId = id;
+          output += `Short name "${short_name}" → Poll ID: ${id}\n\n`;
+        } else {
+          output += `Short name "${short_name}" → NOT FOUND in this chat\n\n`;
+        }
+      }
+
+      // Get poll message if ID is known
+      if (effectivePollId && resolvedJid) {
+        const pollMsg = store
+          .listMessages({ chatJid: resolvedJid, limit: 200, offset: 0 })
+          .find((m) => m.id === effectivePollId);
+
+        if (pollMsg) {
+          output += '📊 Poll Message:\n';
+          output += `  ID: ${pollMsg.id}\n`;
+          output += `  Body: ${pollMsg.body?.substring(0, 200)}\n`;
+          output += `  Timestamp: ${formatTimestamp(pollMsg.timestamp)}\n\n`;
+        } else {
+          output += '❌ Poll message not found in database\n\n';
+        }
+
+        // Get stored votes
+        const votes = store.getPollVotes(effectivePollId, resolvedJid);
+        output += `🗳️  Stored Votes: ${votes.length}\n`;
+        
+        if (votes.length > 0) {
+          output += '\nVote Details:\n';
+          for (const vote of votes) {
+            output += `  - Voter: ${vote.voter_name || vote.voter_jid}\n`;
+            output += `    Option: ${vote.vote_option}\n`;
+            output += `    Time: ${formatTimestamp(vote.timestamp)}\n`;
+          }
+        } else {
+          output += '  (No votes stored in database)\n';
+        }
+        output += '\n';
+      }
+
+      // Check all polls in resolved chat
+      if (resolvedJid) {
+        const allPolls = store.listPollShortNamesForChat(resolvedJid);
+        output += `📋 All Registered Polls in ${resolvedJid}: ${allPolls.length}\n`;
+        for (const poll of allPolls) {
+          const voteCount = store.getPollVotes(poll.poll_message_id, resolvedJid).length;
+          output += `  - ${poll.short_name} → ${poll.poll_message_id} (${voteCount} votes)\n`;
+        }
+        output += '\n';
+      }
+
+      output += '💡 Tip: Check container logs for [WA-POLL] messages to see if votes are arriving\n';
+      output += '   Run: docker compose logs -f whatsapp-mcp-docker | Select-String "WA-POLL"\n\n';
+      
+      output += '⚠️  Known Limitation:\n';
+      output += '   WhatsApp may not forward poll vote updates to secondary devices.\n';
+      output += '   This server can only show votes it actually receives in real-time.\n';
+      output += '   For accurate poll results, check directly in the WhatsApp app.\n';
+
+      return {
+        content: [{ type: 'text', text: output }]
       };
     }) as any
   );
@@ -717,4 +820,5 @@ export function registerMessagingTools (
       };
     }) as any
   );
+  */
 }

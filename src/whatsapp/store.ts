@@ -83,7 +83,7 @@ export interface ContactDevice {
 }
 
 export class MessageStore {
-  db: Database.Database | null;
+  private db: Database.Database | null;
   private dbPath: string;
   private _purgeTimer: NodeJS.Timeout | null = null;
 
@@ -1921,6 +1921,13 @@ WHERE 1=1
 
     console.error(`[STORE] Chat repair complete: ${repaired} chats repaired out of ${scanned} scanned`);
     return { repaired, scanned };
+  }
+
+  public getMediaRawJson (messageId: string): { media_raw_json: string | null; media_type: string | null; chat_jid: string } | undefined {
+    if (!this.db) {return undefined;}
+    return this.db
+      .prepare('SELECT media_raw_json, media_type, chat_jid FROM messages WHERE id = ?')
+      .get(messageId) as { media_raw_json: string | null; media_type: string | null; chat_jid: string } | undefined;
   }
 
   public close (): void {

@@ -12,6 +12,7 @@ import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { resolveRecipient } from '../utils/fuzzy-match.js';
 import { LIMITS } from '../security/permissions.js';
+import { registerTool, type ToolInput, type McpResult } from '../utils/mcp-types.js';
 
 const TZ = process.env.TZ || 'UTC';
 
@@ -30,11 +31,6 @@ function formatDateTime (ms: number): string {
   });
 }
 
-interface ApprovalResult {
-  content: { type: 'text'; text: string }[];
-  isError?: boolean;
-}
-
 export function registerApprovalTools (
   server: McpServer,
   waClient: WhatsAppClient,
@@ -44,17 +40,31 @@ export function registerApprovalTools (
 ): void {
   // ── request_approval ─────────────────────────────────────────
 
+  const requestApprovalInputSchema = {
+    to: z.string().max(200).describe('Recipient: contact name, phone number, or JID'),
+    action: z
+      .string()
+      .max(LIMITS.MAX_APPROVAL_ACTION_LENGTH)
+      .describe('What needs approval (e.g. "Deploy to production", "Delete user account")'),
+    details: z
+      .string()
+      .max(LIMITS.MAX_APPROVAL_DETAILS_LENGTH)
+      .describe('Context and details about the action'),
+    timeout: z
+      .number()
+      .min(10)
+      .max(3600)
+      .default(300)
+      .describe('Timeout in seconds before the request expires (10–3600, default 300)')
+      .optional()
+  };
+
   const requestApprovalHandler = async ({
     to,
     action,
     details,
     timeout = 300
-  }: {
-    to: string;
-    action: string;
-    details: string;
-    timeout?: number;
-  }): Promise<ApprovalResult> => {
+  }: ToolInput<typeof requestApprovalInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('request_approval');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -140,41 +150,24 @@ export function registerApprovalTools (
     }
   };
 
-  server.registerTool(
-    'request_approval',
-    {
-      description: 'Send an approval request to a WhatsApp contact. The recipient can reply APPROVE/YES or DENY/NO. Returns a request ID for tracking status with check_approvals. Use this when an action needs human confirmation before proceeding.',
-      inputSchema: {
-        to: z.string().max(200).describe('Recipient: contact name, phone number, or JID'),
-        action: z
-          .string()
-          .max(LIMITS.MAX_APPROVAL_ACTION_LENGTH)
-          .describe('What needs approval (e.g. "Deploy to production", "Delete user account")'),
-        details: z
-          .string()
-          .max(LIMITS.MAX_APPROVAL_DETAILS_LENGTH)
-          .describe('Context and details about the action'),
-        timeout: z
-          .number()
-          .min(10)
-          .max(3600)
-          .default(300)
-          .describe('Timeout in seconds before the request expires (10–3600, default 300)')
-          .optional()
-      },
-      annotations: { openWorldHint: true, readOnlyHint: false }
-    },
-
-    requestApprovalHandler as any
-  );
+  registerTool(server, 'request_approval', {
+    description: 'Send an approval request to a WhatsApp contact. The recipient can reply APPROVE/YES or DENY/NO. Returns a request ID for tracking status with check_approvals. Use this when an action needs human confirmation before proceeding.',
+    inputSchema: requestApprovalInputSchema,
+    annotations: { openWorldHint: true, readOnlyHint: false }
+  }, requestApprovalHandler);
 
   // ── check_approvals ──────────────────────────────────────────
 
+  const checkApprovalsInputSchema = {
+    request_id: z
+      .string()
+      .describe('Specific approval request ID to check (omit to list all pending)')
+      .optional()
+  };
+
   const checkApprovalsHandler = async ({
     request_id
-  }: {
-    request_id?: string;
-  }): Promise<ApprovalResult> => {
+  }: ToolInput<typeof checkApprovalsInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('check_approvals');
     if (!toolCheck.allowed) {
       return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
@@ -239,19 +232,9 @@ export function registerApprovalTools (
     };
   };
 
-  server.registerTool(
-    'check_approvals',
-    {
-      description: 'Check the status of approval requests. Provide a request ID to check a specific approval, or omit it to list all pending approvals with their status and remaining time.',
-      inputSchema: {
-        request_id: z
-          .string()
-          .describe('Specific approval request ID to check (omit to list all pending)')
-          .optional()
-      },
-      annotations: { readOnlyHint: true }
-    },
-
-    checkApprovalsHandler as any
-  );
+  registerTool(server, 'check_approvals', {
+    description: 'Check the status of approval requests. Provide a request ID to check a specific approval, or omit it to list all pending approvals with their status and remaining time.',
+    inputSchema: checkApprovalsInputSchema,
+    annotations: { readOnlyHint: true }
+  }, checkApprovalsHandler);
 }

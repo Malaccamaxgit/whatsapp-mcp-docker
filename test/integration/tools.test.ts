@@ -174,7 +174,9 @@ describe('MCP Tools (integration)', () => {
     });
   });
 
-  describe('get_poll_results and list_polls', () => {
+  // Skipped: get_poll_results / list_polls are intentionally disabled
+  // (ephemeral container / gateway limitation). See POLL_LIMITATIONS.md.
+  describe.skip('get_poll_results and list_polls', () => {
     it('resolves results by poll_message_id', async () => {
       const result = await ctx.client.callTool({
         name: 'get_poll_results',
