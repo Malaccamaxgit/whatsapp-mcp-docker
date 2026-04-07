@@ -17,6 +17,7 @@ import type { AuditLogger } from '../security/audit.js';
 import type { PermissionManager } from '../security/permissions.js';
 import { getJidTypeInfo } from '../utils/jid-utils.js';
 import { registerTool, type McpResult } from '../utils/mcp-types.js';
+import { withToolInfoErrorHint } from './tool-info.js';
 
 interface GroupParticipant {
   jid: string;
@@ -131,7 +132,10 @@ export function registerGroupTools (
       try {
         const jid = await resolveGroupJid(group, store, waClient);
         if (!jid) {
-          return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
+          return {
+            content: [{ type: 'text', text: withToolInfoErrorHint(`Group not found: "${group}"`, 'get_group_info') }],
+            isError: true
+          };
         }
 
         const info = await waClient.getGroupInfo(jid) as GroupInfo;
@@ -224,7 +228,10 @@ export function registerGroupTools (
       try {
         const jid = await resolveGroupJid(group, store, waClient);
         if (!jid) {
-          return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
+          return {
+            content: [{ type: 'text', text: withToolInfoErrorHint(`Group not found: "${group}"`, 'leave_group') }],
+            isError: true
+          };
         }
 
         const link = await waClient.getGroupInviteLink(jid) as string;

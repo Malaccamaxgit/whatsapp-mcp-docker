@@ -33,7 +33,7 @@ This server runs inside a Docker container managed by [Docker MCP Toolkit](https
 
 ## Features
 
-- **33 MCP Tools** — Full WhatsApp control: messaging, media, search, contacts, groups, message actions, approvals, status, live interaction, and session management
+- **34 MCP Tools** — Full WhatsApp control: messaging, media, search, contacts, groups, message actions, approvals, status, live interaction, session management, and layered tool documentation
 - **Fuzzy Name Matching** — Say "John" or "book club" and the server finds the right chat via Levenshtein distance
 - **Media Support** — Download received media and send images, videos, audio, and documents
 - **Full-Text Search** — SQLite FTS5 indexes all messages with keyword, phrase, and boolean operators
@@ -91,7 +91,7 @@ docker mcp client connect cursor --profile default
 
 **That's it!** You're now connected to WhatsApp. The image (`malaccamax/whatsapp-mcp-docker:latest`) is pulled automatically from Docker Hub on first use — no build step required.
 
-> **Note:** After connecting, you must restart or reload your MCP client before the WhatsApp tools appear (see Step 5 in the Full Setup below for client-specific instructions). Running `docker mcp tools ls` in the terminal shows only 8 MCP Toolkit meta-tools — the 32 WhatsApp tools appear inside your client after the gateway starts the container on first use.
+> **Note:** After connecting, you must restart or reload your MCP client before the WhatsApp tools appear (see Step 5 in the Full Setup below for client-specific instructions). Running `docker mcp tools ls` in the terminal shows only 8 MCP Toolkit meta-tools — the 34 WhatsApp tools appear inside your client after the gateway starts the container on first use.
 >
 > **Important:** In some MCP sessions, you may need to explicitly activate the profile before tools are available. If you get `Error: Tool 'get_connection_status' not found in current session`, run:
 > ```bash
@@ -200,7 +200,7 @@ docker mcp catalog create my-custom-mcp-servers \
   --server file://./whatsapp-mcp-docker-server.yaml
 ```
 
-In Docker Desktop, go to **MCP Toolkit → Catalog** — the **WhatsApp MCP** server now appears under your custom catalog with all 36 tools, configuration options, and secrets.
+In Docker Desktop, go to **MCP Toolkit → Catalog** — the **WhatsApp MCP** server now appears under your custom catalog with all 34 tools, configuration options, and secrets.
 
 > **Tip:** To update the catalog after code changes, re-run the same command — it replaces the existing entry. To add more servers later, use multiple `--server` flags.
 
@@ -227,7 +227,7 @@ docker mcp profile server add <your-profile> \
 2. Select an existing profile (or create a new one).
 3. In the **Servers** section, click **+** and add the server.
 
-All options register the server with `longLived: true` (persistent container), `secrets` (encryption key from OS Keychain), and all 36 tools.
+All options register the server with `longLived: true` (persistent container), `secrets` (encryption key from OS Keychain), and all 34 tools.
 
 **After adding, apply the recommended configuration:**
 
@@ -285,7 +285,7 @@ This automatically writes the MCP Gateway entry to your client's config file. **
 | **VS Code** | Reload the window or restart the MCP extension |
 | **Goose / Gemini CLI** | Restart the session |
 
-> **Why doesn't `docker mcp tools ls` show my 36 tools?** That command shows only the 8 MCP Toolkit meta-tools (e.g. `mcp-add`, `mcp-find`). The 35 WhatsApp tools appear inside your MCP client after the gateway starts the `whatsapp-mcp-docker` container on the first tool call. They are not visible from the terminal.
+> **Why doesn't `docker mcp tools ls` show my 34 tools?** That command shows only the 8 MCP Toolkit meta-tools (e.g. `mcp-add`, `mcp-find`). The 34 WhatsApp tools appear inside your MCP client after the gateway starts the `whatsapp-mcp-docker` container on the first tool call. They are not visible from the terminal.
 
 To connect **manually** instead, add the MCP Gateway entry directly to your client's config file. Ready-made snippets for every supported client are in [`examples/client-configs.md`](./examples/client-configs.md). Each client stores its config in a different location — consult your client's documentation for the exact path. The entry format is:
 
@@ -339,7 +339,7 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 
 ---
 
-## Available Tools (31)
+## Available Tools (34)
 
 ### Authentication & Status
 
@@ -424,6 +424,12 @@ The session persists across container restarts in the `whatsapp-sessions` Docker
 |------|-------------|
 | `wait_for_message` | Block until an incoming message arrives — use during interactive tests so the AI detects phone messages automatically without user prompting |
 
+**Tool Documentation**
+
+| Tool | Description |
+|------|-------------|
+| `get_tool_info` | Get structured docs for any tool (usage, examples, response format, errors, related tools, pitfalls) |
+
 ---
 
 ## Example Usage
@@ -480,7 +486,8 @@ whatsapp-mcp-docker/
 │   │   ├── groups.ts         # create_group, get_group_info, get_joined_groups, get_group_invite_link, join_group, leave_group, update_group_participants, set_group_name, set_group_topic
 │   │   ├── reactions.ts      # send_reaction, edit_message, delete_message
 │   │   ├── contacts.ts       # get_user_info, is_on_whatsapp, get_profile_picture, set_contact_name, sync_contact_names
-│   │   └── wait.ts           # wait_for_message
+│   │   ├── wait.ts           # wait_for_message
+│   │   └── tool-info.ts      # get_tool_info + layered documentation helpers
 │   ├── security/
 │   │   ├── audit.ts          # SQLite audit logging
 │   │   ├── crypto.ts         # AES-256-GCM field-level encryption
@@ -491,7 +498,7 @@ whatsapp-mcp-docker/
 │       └── phone.ts          # E.164 validation + JID conversion
 ├── docs/
 │   ├── README.md             # Documentation index
-│   ├── API.md                # Full MCP tool API reference (all 36 tools)
+│   ├── API.md                # Full MCP tool API reference (all 34 tools)
 │   ├── TROUBLESHOOTING.md    # Symptom → cause → fix guide
 │   ├── architecture/
 │   │   └── OVERVIEW.md       # Architecture overview
@@ -773,7 +780,7 @@ docker volume ls | findstr whatsapp
 
 ## Documentation
 
-- [docs/API.md](./docs/API.md) — Full MCP tool API reference (all 36 tools)
+- [docs/API.md](./docs/API.md) — Full MCP tool API reference (all 34 tools)
 - [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) — Symptom → cause → fix guide
 - [docs/guides/DEVELOPER.md](./docs/guides/DEVELOPER.md) — Build, test, and deploy procedures
 - [docs/architecture/OVERVIEW.md](./docs/architecture/OVERVIEW.md) — Architecture overview

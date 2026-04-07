@@ -27,6 +27,7 @@ import { registerGroupTools } from './tools/groups.js';
 import { registerReactionTools } from './tools/reactions.js';
 import { registerContactTools } from './tools/contacts.js';
 import { registerWaitTools } from './tools/wait.js';
+import { registerToolInfoTool, withToolInfoHint } from './tools/tool-info.js';
 import type { WhatsAppClient } from './whatsapp/client.js';
 
 export interface CreateServerOptions {
@@ -76,6 +77,21 @@ export function createServer ({
     version
   });
 
+  const registerToolWithHint = mcpServer.registerTool.bind(mcpServer);
+  mcpServer.registerTool = ((name: string, config: Record<string, unknown>, handler: unknown) => {
+    if (
+      config &&
+      typeof config === 'object' &&
+      typeof config.description === 'string'
+    ) {
+      config = {
+        ...config,
+        description: withToolInfoHint(name, config.description)
+      };
+    }
+    return registerToolWithHint(name, config as any, handler as any);
+  }) as typeof mcpServer.registerTool;
+
   // Handle optional MCP protocol methods that the Docker MCP Gateway probes during
   // initialization. Without these handlers the SDK returns -32601 "Method not found",
   // which causes the gateway to mark the connection as closing and reject all
@@ -99,6 +115,7 @@ export function createServer ({
   registerReactionTools(mcpServer, waClient, resolvedStore, resolvedPermissions, resolvedAudit);
   registerContactTools(mcpServer, waClient, resolvedStore, resolvedPermissions, resolvedAudit);
   registerWaitTools(mcpServer, waClient, resolvedStore, resolvedPermissions, resolvedAudit);
+  registerToolInfoTool(mcpServer, resolvedPermissions);
 
   return {
     mcpServer,

@@ -15,6 +15,7 @@ import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { formatTimestamp } from '../utils/timezone.js';
 import { registerTool } from '../utils/mcp-types.js';
+import { withToolInfoErrorHint } from './tool-info.js';
 
 interface MessageWithContext {
   id: string;
@@ -113,7 +114,7 @@ export function registerMessagingTools (
         // Current workaround: users must manually use JID format (e.g., "33680940027@s.whatsapp.net").
         // See: docs/bugs/BUG-self-account-messages-not-received.md for related issues.
         return {
-          content: [{ type: 'text', text: error ?? `Could not resolve recipient "${to}".` }],
+          content: [{ type: 'text', text: withToolInfoErrorHint(error ?? `Could not resolve recipient "${to}".`, 'send_message') }],
           isError: true
         };
       }
@@ -220,7 +221,10 @@ export function registerMessagingTools (
         };
       }
       if (!resolved) {
-        return { content: [{ type: 'text', text: error ?? 'Could not resolve chat' }], isError: true };
+        return {
+          content: [{ type: 'text', text: withToolInfoErrorHint(error ?? 'Could not resolve chat', 'list_messages') }],
+          isError: true
+        };
       }
       const readCheck = permissions.canReadFrom(resolved);
       if (!readCheck.allowed) {
@@ -355,7 +359,10 @@ export function registerMessagingTools (
         return {
           content: [{
             type: 'text',
-            text: 'When ALLOWED_CONTACTS is set, provide "chat" for search_messages so access policy can be enforced.'
+            text: withToolInfoErrorHint(
+              'When ALLOWED_CONTACTS is set, provide "chat" for search_messages so access policy can be enforced.',
+              'search_messages'
+            )
           }],
           isError: true
         };

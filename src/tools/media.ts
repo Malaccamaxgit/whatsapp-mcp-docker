@@ -19,6 +19,7 @@ import {
   verifyMagicBytes,
   checkMediaQuota
 } from '../security/file-guard.js';
+import { withToolInfoErrorHint } from './tool-info.js';
 
 export function registerMediaTools (
   server: McpServer,
@@ -90,7 +91,13 @@ export function registerMediaTools (
             };
           }
           if (!resolved) {
-            return { content: [{ type: 'text', text: error ?? `Could not resolve chat "${chat}".` }], isError: true };
+            return {
+              content: [{
+                type: 'text',
+                text: withToolInfoErrorHint(error ?? `Could not resolve chat "${chat}".`, 'download_media')
+              }],
+              isError: true
+            };
           }
           expectedChatJid = resolved;
           const readCheck = permissions.canReadFrom(expectedChatJid);
@@ -260,7 +267,10 @@ export function registerMediaTools (
       }
       if (!resolved) {
         return {
-          content: [{ type: 'text', text: error || `Could not resolve recipient "${to}".` }],
+          content: [{
+            type: 'text',
+            text: withToolInfoErrorHint(error || `Could not resolve recipient "${to}".`, 'send_file')
+          }],
           isError: true
         };
       }

@@ -14,6 +14,7 @@ import { resolveRecipient } from '../utils/fuzzy-match.js';
 import { toJid } from '../utils/phone.js';
 import { LIMITS } from '../security/permissions.js';
 import { registerTool, type ToolInput, type McpResult } from '../utils/mcp-types.js';
+import { withToolInfoErrorHint } from './tool-info.js';
 
 function notConnected (): McpResult {
   return {
@@ -27,6 +28,13 @@ function resolveJid (target: string, store: MessageStore): string | null {
   const chats = store.getAllChatsForMatching();
   const { resolved } = resolveRecipient(target, chats);
   return resolved || (target.match(/^\+?\d{7,15}$/) ? toJid(target) : null);
+}
+
+function formatDeleteMessageError (errorMsg: string): string {
+  if (/\berror\s*479\b/i.test(errorMsg)) {
+    return 'WhatsApp rejected the delete request (error 479). The message may be too old, or it may not have been sent by this account.';
+  }
+  return errorMsg;
 }
 
 export function registerReactionTools (
@@ -66,7 +74,10 @@ export function registerReactionTools (
     try {
       const resolvedJid = resolveJid(chat, store);
       if (!resolvedJid) {
-        return { content: [{ type: 'text', text: `Chat not found: "${chat}"` }], isError: true };
+        return {
+          content: [{ type: 'text', text: withToolInfoErrorHint(`Chat not found: "${chat}"`, 'send_reaction') }],
+          isError: true
+        };
       }
 
       const storedMessage = store.getMessageById(message_id);
@@ -142,7 +153,10 @@ export function registerReactionTools (
     try {
       const jid = resolveJid(chat, store);
       if (!jid) {
-        return { content: [{ type: 'text', text: `Chat not found: "${chat}"` }], isError: true };
+        return {
+          content: [{ type: 'text', text: withToolInfoErrorHint(`Chat not found: "${chat}"`, 'edit_message') }],
+          isError: true
+        };
       }
 
       await waClient.editMessage(jid, message_id, new_text);
@@ -186,7 +200,10 @@ export function registerReactionTools (
     try {
       const resolvedJid = resolveJid(chat, store);
       if (!resolvedJid) {
-        return { content: [{ type: 'text', text: `Chat not found: "${chat}"` }], isError: true };
+        return {
+          content: [{ type: 'text', text: withToolInfoErrorHint(`Chat not found: "${chat}"`, 'delete_message') }],
+          isError: true
+        };
       }
       const storedMessage = store.getMessageById(message_id);
       const storedMessageChatJid = storedMessage?.chat_jid || null;
@@ -208,7 +225,8 @@ export function registerReactionTools (
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err || '');
       audit.log('delete_message', 'failed', { error: errorMsg }, false);
-      return { content: [{ type: 'text', text: `Failed to delete message: ${errorMsg}` }], isError: true };
+      const userFacingError = formatDeleteMessageError(errorMsg);
+      return { content: [{ type: 'text', text: `Failed to delete message: ${userFacingError}` }], isError: true };
     }
   };
 
@@ -265,7 +283,10 @@ export function registerReactionTools (
     try {
       const jid = resolveJid(to, store);
       if (!jid) {
-        return { content: [{ type: 'text', text: `Chat not found: "${to}"` }], isError: true };
+        return {
+          content: [{ type: 'text', text: withToolInfoErrorHint(`Chat not found: "${to}"`, 'create_poll') }],
+          isError: true
+        };
       }
 
       const result = await waClient.createPoll(jid, question, options, allow_multiple ?? false);

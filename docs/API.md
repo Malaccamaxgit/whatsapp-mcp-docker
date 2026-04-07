@@ -2,12 +2,12 @@
 layout: default
 title: API Reference
 nav_order: 2
-description: "Complete API documentation for all 33 MCP tools — parameters, return types, and examples."
+description: "Complete API documentation for all 34 MCP tools — parameters, return types, and examples."
 ---
 
 # WhatsApp MCP Server API Reference
 
-> **API documentation for all 33 MCP tools**
+> **API documentation for all 34 MCP tools**
 
 ## Table of Contents
 
@@ -21,6 +21,7 @@ description: "Complete API documentation for all 33 MCP tools — parameters, re
 8. [Message Actions](#message-actions)
 9. [Contact Info](#contact-info)
 10. [Workflow](#workflow)
+11. [Tool Documentation](#tool-documentation)
 
 ---
 
@@ -1017,6 +1018,38 @@ wait_for_message({ timeout: 60, from_phone: "+15145551234" })
 **Notes:**
 - Returns `isError: true` with a descriptive message if the timeout expires with no match
 - `readOnlyHint: true` — does not send anything; only observes incoming messages
+
+---
+
+## Tool Documentation
+
+### `get_tool_info`
+
+Get detailed documentation for any WhatsApp MCP tool on demand. This is the meta-tool used by the layered documentation approach.
+
+**Parameters:**
+```typescript
+{
+  tool_name: string;  // Tool name, e.g. "send_message", "download_media"
+}
+```
+
+**Returns:**
+```typescript
+{
+  content: [{ type: 'text'; text: string }];  // Structured docs: usage, examples, response, errors, related tools, pitfalls
+  isError?: boolean;
+}
+```
+
+**Example:**
+```javascript
+get_tool_info({ tool_name: "download_media" })
+```
+
+**Notes:**
+- Returns `isError: true` if the tool name is unknown.
+- Most tool descriptions now include a direct hint to call this tool.
 
 ---
 

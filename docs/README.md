@@ -20,7 +20,7 @@
 |----------|-------------|
 | [../README.md](../README.md) | Features, installation, quick start |
 | [../CHANGELOG.md](../CHANGELOG.md) | Release history |
-| [API.md](API.md) | Full MCP tool API reference (all 33 tools) |
+| [API.md](API.md) | Full MCP tool API reference (all 34 tools) |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Symptom → cause → fix guide |
 | [../PRIVACY.md](../PRIVACY.md) | Privacy policy and data handling |
 | [interactive-phone-tests.html](interactive-phone-tests.html) | Interactive manual test checklist |

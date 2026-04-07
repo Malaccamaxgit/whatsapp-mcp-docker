@@ -238,6 +238,20 @@ describe('Message Action Tools (integration)', () => {
       assert.match(result.content[0].text, /cannot revoke/);
       ctx.waClient.resetBehaviors();
     });
+
+    it('translates error 479 into a clearer user message', async () => {
+      ctx.waClient.setBehavior('revokeMessage', () => {
+        throw new Error('server returned error 479');
+      });
+      const result = await ctx.client.callTool({
+        name: 'delete_message',
+        arguments: { chat: CHAT_JID, message_id: MSG_ID }
+      });
+      assert.ok(result.isError);
+      assert.match(result.content[0].text, /WhatsApp rejected the delete request/i);
+      assert.match(result.content[0].text, /error 479/i);
+      ctx.waClient.resetBehaviors();
+    });
   });
 
   // ── create_poll ─────────────────────────────────────────────────────────────

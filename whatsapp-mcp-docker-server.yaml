@@ -8,7 +8,7 @@ description: |
   Send messages, search chats, approval workflows, and intelligent
   activity summaries — all with fuzzy contact name matching.
 
-  33 tools: disconnect, authenticate, get_connection_status,
+  34 tools: disconnect, authenticate, get_connection_status,
   send_message, send_file, download_media, list_chats, list_messages,
   search_messages, search_contacts, catch_up, mark_messages_read,
   export_chat_data, request_approval, check_approvals,
@@ -16,7 +16,7 @@ description: |
   join_group, leave_group, update_group_participants, set_group_name,
   set_group_topic, send_reaction, edit_message, delete_message,
   get_user_info, is_on_whatsapp, get_profile_picture,
-  sync_contact_names, set_contact_name, wait_for_message.
+  sync_contact_names, set_contact_name, wait_for_message, get_tool_info.
 
   Uses whatsmeow-node for native WhatsApp protocol. Pairing-code
   authentication works in any terminal. All data stored locally
@@ -130,11 +130,11 @@ config:
 
 tools:
   - name: disconnect
-    description: Log out and disconnect from WhatsApp, clearing the session
+    description: "Log out and disconnect from WhatsApp, clearing the session. Use get_tool_info({tool_name: 'disconnect'}) for examples, errors, and response format."
     arguments: []
 
   - name: authenticate
-    description: Link device to WhatsApp via 8-digit pairing code (QR fallback); optionally waits and polls until linked
+    description: "Link device to WhatsApp via 8-digit pairing code (QR fallback); optionally waits and polls until linked. Use get_tool_info({tool_name: 'authenticate'}) for examples, errors, and response format."
     arguments:
       - name: phoneNumber
         type: string
@@ -150,11 +150,11 @@ tools:
         desc: Poll interval seconds (2–60); omit to use profile auth_poll_interval_sec
 
   - name: get_connection_status
-    description: Check connection state and database statistics
+    description: "Check connection state and database statistics. Use get_tool_info({tool_name: 'get_connection_status'}) for examples, errors, and response format."
     arguments: []
 
   - name: send_message
-    description: Send a message with fuzzy contact/group name matching
+    description: "Send a message with fuzzy contact/group name matching. Use get_tool_info({tool_name: 'send_message'}) for examples, errors, and response format."
     arguments:
       - name: to
         type: string
@@ -164,7 +164,7 @@ tools:
         desc: Message text to send
 
   - name: send_file
-    description: Send image, video, audio, or document via WhatsApp
+    description: "Send image, video, audio, or document via WhatsApp. Use get_tool_info({tool_name: 'send_file'}) for examples, errors, and response format."
     arguments:
       - name: to
         type: string
@@ -180,7 +180,7 @@ tools:
         desc: Optional caption
 
   - name: download_media
-    description: Download media from a message to persistent storage
+    description: "Download media from a message to persistent storage. Use get_tool_info({tool_name: 'download_media'}) for examples, errors, and response format."
     arguments:
       - name: message_id
         type: string
@@ -190,7 +190,7 @@ tools:
         desc: The chat name, phone, or JID (optional)
 
   - name: list_chats
-    description: List conversations sorted by recent activity
+    description: "List conversations sorted by recent activity. Use get_tool_info({tool_name: 'list_chats'}) for examples, errors, and response format."
     arguments:
       - name: filter
         type: string
@@ -206,7 +206,7 @@ tools:
         desc: Page number for pagination (default 0)
 
   - name: list_messages
-    description: Get messages from a chat with date range filtering
+    description: "Get messages from a chat with date range filtering. Use get_tool_info({tool_name: 'list_messages'}) for examples, errors, and response format."
     arguments:
       - name: chat
         type: string
@@ -231,7 +231,7 @@ tools:
         desc: Number of context messages on each side (default 2)
 
   - name: search_messages
-    description: Full-text search across all messages (FTS5)
+    description: "Full-text search across all messages (FTS5). Use get_tool_info({tool_name: 'search_messages'}) for examples, errors, and response format."
     arguments:
       - name: query
         type: string
@@ -250,7 +250,7 @@ tools:
         desc: Include surrounding messages for context (default false)
 
   - name: search_contacts
-    description: Search contacts and groups by name or phone number
+    description: "Search contacts and groups by name or phone number. Use get_tool_info({tool_name: 'search_contacts'}) for examples, errors, and response format."
     arguments:
       - name: query
         type: string
@@ -263,14 +263,14 @@ tools:
         desc: Max results (default 20)
 
   - name: catch_up
-    description: Intelligent summary of recent activity with timestamps, time-ago, calendar hints, and response status
+    description: "Intelligent summary of recent activity with timestamps, time-ago, calendar hints, and response status. Use get_tool_info({tool_name: 'catch_up'}) for examples, errors, and response format."
     arguments:
       - name: since
         type: string
         desc: "Time window: 1h, 4h, today, 24h, this_week"
 
   - name: mark_messages_read
-    description: Mark messages as read in a chat
+    description: "Mark messages as read in a chat. Use get_tool_info({tool_name: 'mark_messages_read'}) for examples, errors, and response format."
     arguments:
       - name: chat
         type: string
@@ -280,7 +280,7 @@ tools:
         desc: Specific message IDs
 
   - name: export_chat_data
-    description: Export complete chat history for a contact or group (JSON or CSV)
+    description: "Export complete chat history for a contact or group (JSON or CSV). Use get_tool_info({tool_name: 'export_chat_data'}) for examples, errors, and response format."
     arguments:
       - name: jid
         type: string
@@ -290,7 +290,7 @@ tools:
         desc: "Export format: json or csv (default: json)"
 
   - name: request_approval
-    description: Send approval request via WhatsApp
+    description: "Send approval request via WhatsApp. Use get_tool_info({tool_name: 'request_approval'}) for examples, errors, and response format."
     arguments:
       - name: to
         type: string
@@ -306,14 +306,14 @@ tools:
         desc: Timeout in seconds (default 300)
 
   - name: check_approvals
-    description: Check approval status or list all pending
+    description: "Check approval status or list all pending. Use get_tool_info({tool_name: 'check_approvals'}) for examples, errors, and response format."
     arguments:
       - name: request_id
         type: string
         desc: Specific request ID (omit to list all pending)
 
   - name: create_group
-    description: Create a new WhatsApp group with the given name and participants
+    description: "Create a new WhatsApp group with the given name and participants. Use get_tool_info({tool_name: 'create_group'}) for examples, errors, and response format."
     arguments:
       - name: name
         type: string
@@ -323,39 +323,39 @@ tools:
         desc: Phone numbers (E.164) or JIDs to add as participants
 
   - name: get_group_info
-    description: Get detailed info about a group — participants, admins, settings
+    description: "Get detailed info about a group — participants, admins, settings. Use get_tool_info({tool_name: 'get_group_info'}) for examples, errors, and response format."
     arguments:
       - name: group
         type: string
         desc: Group name (fuzzy match) or JID ending in @g.us
 
   - name: get_joined_groups
-    description: List all groups this account is a member of
+    description: "List all groups this account is a member of. Use get_tool_info({tool_name: 'get_joined_groups'}) for examples, errors, and response format."
     arguments: []
 
   - name: get_group_invite_link
-    description: Get the invite link for a group (requires admin)
+    description: "Get the invite link for a group (requires admin). Use get_tool_info({tool_name: 'get_group_invite_link'}) for examples, errors, and response format."
     arguments:
       - name: group
         type: string
         desc: Group name (fuzzy match) or JID ending in @g.us
 
   - name: join_group
-    description: Join a WhatsApp group using an invite link or code
+    description: "Join a WhatsApp group using an invite link or code. Use get_tool_info({tool_name: 'join_group'}) for examples, errors, and response format."
     arguments:
       - name: link
         type: string
         desc: Full invite URL or just the invite code
 
   - name: leave_group
-    description: Leave a WhatsApp group permanently
+    description: "Leave a WhatsApp group permanently. Use get_tool_info({tool_name: 'leave_group'}) for examples, errors, and response format."
     arguments:
       - name: group
         type: string
         desc: Group name (fuzzy match) or JID ending in @g.us
 
   - name: update_group_participants
-    description: Add, remove, promote, or demote participants in a group (requires admin)
+    description: "Add, remove, promote, or demote participants in a group (requires admin). Use get_tool_info({tool_name: 'update_group_participants'}) for examples, errors, and response format."
     arguments:
       - name: group
         type: string
@@ -368,7 +368,7 @@ tools:
         desc: Phone numbers (E.164) or JIDs of participants
 
   - name: set_group_name
-    description: Change the name of a WhatsApp group (requires admin)
+    description: "Change the name of a WhatsApp group (requires admin). Use get_tool_info({tool_name: 'set_group_name'}) for examples, errors, and response format."
     arguments:
       - name: group
         type: string
@@ -378,7 +378,7 @@ tools:
         desc: New group name
 
   - name: set_group_topic
-    description: Set or clear the description/topic of a group (requires admin)
+    description: "Set or clear the description/topic of a group (requires admin). Use get_tool_info({tool_name: 'set_group_topic'}) for examples, errors, and response format."
     arguments:
       - name: group
         type: string
@@ -388,7 +388,7 @@ tools:
         desc: New description (empty string to clear)
 
   - name: send_reaction
-    description: React to a message with an emoji, or remove an existing reaction
+    description: "React to a message with an emoji, or remove an existing reaction. Use get_tool_info({tool_name: 'send_reaction'}) for examples, errors, and response format."
     arguments:
       - name: chat
         type: string
@@ -401,7 +401,7 @@ tools:
         desc: Emoji to react with, or empty string to remove
 
   - name: edit_message
-    description: Edit a previously sent message (own messages only, within ~15 minutes)
+    description: "Edit a previously sent message (own messages only, within ~15 minutes). Use get_tool_info({tool_name: 'edit_message'}) for examples, errors, and response format."
     arguments:
       - name: chat
         type: string
@@ -414,7 +414,7 @@ tools:
         desc: Replacement message text
 
   - name: delete_message
-    description: Delete a sent message for everyone in the chat (revoke)
+    description: "Delete a sent message for everyone in the chat (revoke). Use get_tool_info({tool_name: 'delete_message'}) for examples, errors, and response format."
     arguments:
       - name: chat
         type: string
@@ -424,28 +424,28 @@ tools:
         desc: Message ID to delete
 
   - name: get_user_info
-    description: Get WhatsApp profile info for one or more phone numbers
+    description: "Get WhatsApp profile info for one or more phone numbers. Use get_tool_info({tool_name: 'get_user_info'}) for examples, errors, and response format."
     arguments:
       - name: phones
         type: array
         desc: Phone numbers in E.164 format
 
   - name: is_on_whatsapp
-    description: Check whether phone numbers have WhatsApp accounts
+    description: "Check whether phone numbers have WhatsApp accounts. Use get_tool_info({tool_name: 'is_on_whatsapp'}) for examples, errors, and response format."
     arguments:
       - name: phones
         type: array
         desc: Phone numbers to check in E.164 format
 
   - name: get_profile_picture
-    description: Get the profile picture URL for a contact or group
+    description: "Get the profile picture URL for a contact or group. Use get_tool_info({tool_name: 'get_profile_picture'}) for examples, errors, and response format."
     arguments:
       - name: target
         type: string
         desc: Phone number, contact name, group name, or JID
 
   - name: sync_contact_names
-    description: Fetch WhatsApp profile names and store them locally for chats that still show as raw JIDs. Syncs all such contacts, or specific JIDs/phone numbers. Does not override custom names from set_contact_name.
+    description: "Fetch WhatsApp profile names and store them locally for chats that still show as raw JIDs. Syncs all such contacts, or specific JIDs/phone numbers. Does not override custom names from set_contact_name. Use get_tool_info({tool_name: 'sync_contact_names'}) for examples, errors, and response format."
     arguments:
       - name: contacts
         type: array
@@ -455,7 +455,7 @@ tools:
         desc: Re-fetch and update stored names even when a non-JID name is already present
 
   - name: set_contact_name
-    description: Set a custom display name for a contact or group JID (stored locally). Overrides push names in list_chats, search, and catch_up. Use an empty name to clear.
+    description: "Set a custom display name for a contact or group JID (stored locally). Overrides push names in list_chats, search, and catch_up. Use an empty name to clear. Use get_tool_info({tool_name: 'set_contact_name'}) for examples, errors, and response format."
     arguments:
       - name: jid
         type: string
@@ -465,7 +465,7 @@ tools:
         desc: Display name to show, or empty string to remove the custom name
 
   - name: wait_for_message
-    description: Block until an incoming WhatsApp message arrives, then return it. Use during interactive tests or workflows — tell the user to send a message, call this tool, and the AI receives the message automatically without the user typing in Cursor.
+    description: "Block until an incoming WhatsApp message arrives, then return it. Use during interactive tests or workflows — tell the user to send a message, call this tool, and the AI receives the message automatically without the user typing in Cursor. Use get_tool_info({tool_name: 'wait_for_message'}) for examples, errors, and response format."
     arguments:
       - name: timeout
         type: number
@@ -476,3 +476,10 @@ tools:
       - name: from_phone
         type: string
         desc: Only match messages from this sender phone number or JID. Omit for any sender.
+
+  - name: get_tool_info
+    description: "Get detailed help for a WhatsApp MCP tool (usage examples, response format, error codes, pitfalls, and related tools). Use get_tool_info({tool_name: 'get_tool_info'}) for examples, errors, and response format."
+    arguments:
+      - name: tool_name
+        type: string
+        desc: Name of the tool to get documentation for (e.g. download_media, send_message)

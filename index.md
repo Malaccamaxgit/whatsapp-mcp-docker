@@ -9,7 +9,7 @@ permalink: /
 # WhatsApp MCP Server
 {: .fs-9 }
 
-Docker-based WhatsApp integration for AI agents — 33 tools for messaging, groups, media, approvals, and intelligent activity summaries.
+Docker-based WhatsApp integration for AI agents — 34 tools for messaging, groups, media, approvals, intelligent activity summaries, and on-demand tool documentation.
 {: .fs-6 .fw-300 }
 
 [Get Started](#quick-start){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
@@ -27,19 +27,20 @@ Docker-based WhatsApp integration for AI agents — 33 tools for messaging, grou
 
 ## What It Does
 
-**WhatsApp MCP Server** lets AI agents (Cursor, Claude Code, VS Code, and any MCP client) control WhatsApp through 33 structured tools — all running in a secure, isolated Docker container managed by [Docker MCP Toolkit](https://docs.docker.com/ai/mcp-catalog-and-toolkit/).
+**WhatsApp MCP Server** lets AI agents (Cursor, Claude Code, VS Code, and any MCP client) control WhatsApp through 34 structured tools — all running in a secure, isolated Docker container managed by [Docker MCP Toolkit](https://docs.docker.com/ai/mcp-catalog-and-toolkit/).
 
 | Category | Tools |
 |----------|-------|
-| **Messaging** | `send_message`, `list_messages`, `search_messages`, `get_poll_results` |
+| **Messaging** | `send_message`, `list_messages`, `search_messages` |
 | **Chats** | `list_chats`, `search_contacts`, `catch_up`, `mark_messages_read`, `export_chat_data` |
 | **Groups** | `create_group`, `get_group_info`, `get_joined_groups`, `join_group`, `leave_group`, `update_group_participants`, `set_group_name`, `set_group_topic`, `get_group_invite_link` |
-| **Message Actions** | `send_reaction`, `edit_message`, `delete_message`, `create_poll` |
+| **Message Actions** | `send_reaction`, `edit_message`, `delete_message` |
 | **Media** | `send_file`, `download_media` |
 | **Contacts** | `get_user_info`, `is_on_whatsapp`, `get_profile_picture` |
 | **Approvals** | `request_approval`, `check_approvals` |
 | **Auth & Status** | `authenticate`, `disconnect`, `get_connection_status` |
 | **Workflow** | `wait_for_message` |
+| **Tool Documentation** | `get_tool_info` |
 
 ---
 
