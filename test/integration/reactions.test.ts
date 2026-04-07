@@ -81,6 +81,23 @@ describe('Message Action Tools (integration)', () => {
       assert.equal(result.isError, undefined);
     });
 
+    it('uses the message stored chat JID when chat resolution disagrees', async () => {
+      let sentJid: string | null = null;
+      ctx.waClient.setBehavior('sendReaction', (jid: unknown) => {
+        sentJid = String(jid);
+        return { id: 'reaction_mismatch_test' };
+      });
+
+      const result = await ctx.client.callTool({
+        name: 'send_reaction',
+        arguments: { chat: GROUP_JID, message_id: MSG_ID, emoji: '✅' }
+      });
+
+      assert.equal(result.isError, undefined);
+      assert.equal(sentJid, CHAT_JID);
+      ctx.waClient.resetBehaviors();
+    });
+
     it('returns error when not connected', async () => {
       (ctx.waClient as WhatsAppClient & { _connected: boolean; _probeVerified: boolean })._connected = false;
       (ctx.waClient as WhatsAppClient & { _probeVerified: boolean })._probeVerified = false;
@@ -201,8 +218,10 @@ describe('Message Action Tools (integration)', () => {
   });
 
   // ── create_poll ─────────────────────────────────────────────────────────────
+  // Skipped: create_poll is intentionally disabled (ephemeral container /
+  // gateway limitation). See POLL_LIMITATIONS.md.
 
-  describe('create_poll', () => {
+  describe.skip('create_poll', () => {
     it('sends a poll to a 1:1 chat', async () => {
       const result = await ctx.client.callTool({
         name: 'create_poll',

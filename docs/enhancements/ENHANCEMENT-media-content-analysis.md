@@ -2,7 +2,8 @@
 
 **Status: PROPOSED**  
 **Priority: High**  
-**Created: 2026-04-06**
+**Created: 2026-04-06**  
+**Scheduling:** Standalone enhancement — not part of the completed Enhancement & Bug sequence (see `.cursor/plans/archive/enhancement_and_bug_sequence_a6f9922d.plan.md`; shipped work lives in `docs/enhancements/archived/`).
 
 ---
 

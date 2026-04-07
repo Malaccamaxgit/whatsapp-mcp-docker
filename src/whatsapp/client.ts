@@ -943,18 +943,82 @@ export class WhatsAppClient {
 
       this.messageStore.addMessage(msg);
 
+      // Gated behind DEBUG_MESSAGE_LOG=true to avoid unbounded plaintext writes in production.
+      // Useful for poll vote analysis during local development only.
+      if (process.env.DEBUG_MESSAGE_LOG === 'true') {
+        const writeLogPromise = (async () => {
+          try {
+            const allMessageLog = {
+              timestamp: new Date().toISOString(),
+              msgId: msg.id,
+              chatJid: msg.chatJid,
+              senderJid: msg.senderJid,
+              body: msg.body,
+              hasPollUpdate: !!rawMessage?.pollUpdateMessage,
+              hasProtocolPollUpdate: !!rawMessage?.protocolMessage?.pollUpdateMessage,
+              hasReaction: !!rawMessage?.reactionMessage,
+              rawMessageKeys: rawMessage ? Object.keys(rawMessage).filter(k => k.includes('poll') || k.includes('Poll') || k.includes('Reaction')) : [],
+              rawMessageFull: rawMessage ? Object.keys(rawMessage) : []
+            };
+            await writeFile('/data/sessions/message-log.jsonl', JSON.stringify(allMessageLog) + '\n', { flag: 'a' });
+          } catch (err) {
+            console.error('[DEBUG] Failed to write message log:', (err as Error).message);
+          }
+        })();
+        writeLogPromise.catch((err) => console.error('[DEBUG] Log promise error:', err));
+      }
+
+      // Enhanced Poll Vote Tracking with detailed logging
+      const hasPollUpdate = !!(rawMessage?.pollUpdateMessage || rawMessage?.protocolMessage?.pollUpdateMessage);
+      if (hasPollUpdate) {
+        console.error('[WA-POLL] 🗳️  Poll update message detected!');
+        console.error('[WA-POLL] Message details:', {
+          id: msg.id,
+          chatJid: msg.chatJid,
+          senderJid: msg.senderJid,
+          senderName: msg.senderName,
+          timestamp: msg.timestamp,
+          body: msg.body?.substring(0, 100)
+        });
+      }
+
       // Store poll vote if this is a poll update message
       if (rawMessage?.pollUpdateMessage || rawMessage?.protocolMessage?.pollUpdateMessage) {
         const pollUpdate = rawMessage.pollUpdateMessage || rawMessage.protocolMessage?.pollUpdateMessage;
+        
+        console.error('[WA-POLL] Poll update structure:', {
+          hasPollCreationKey: !!pollUpdate?.pollCreationMessageKey,
+          pollCreationKeyId: pollUpdate?.pollCreationMessageKey?.id,
+          hasVote: !!pollUpdate?.vote,
+          selectedOption: pollUpdate?.vote?.selectedOption,
+          selectedOptions: pollUpdate?.vote?.selectedOptions,
+          voteType: pollUpdate?.vote?.selectedOptions ? 'array' : (pollUpdate?.vote?.selectedOption ? 'single' : 'none')
+        });
+
         if (pollUpdate?.pollCreationMessageKey?.id) {
+          const voteOptions = pollUpdate.vote?.selectedOptions || (pollUpdate.vote?.selectedOption ? [pollUpdate.vote.selectedOption] : []);
+          
+          console.error('[WA-POLL] ✅ Vote captured:', {
+            pollId: pollUpdate.pollCreationMessageKey.id,
+            voter: msg.senderJid,
+            voterName: msg.senderName,
+            options: voteOptions,
+            chatJid: msg.chatJid,
+            timestamp: msg.timestamp
+          });
+
           this.messageStore.addPollVote({
             pollMessageId: pollUpdate.pollCreationMessageKey.id,
             voterJid: msg.senderJid || '',
             voterName: msg.senderName || null,
-            voteOptions: pollUpdate.vote?.selectedOptions || (pollUpdate.vote?.selectedOption ? [pollUpdate.vote.selectedOption] : []),
+            voteOptions: voteOptions,
             timestamp: msg.timestamp,
             chatJid: msg.chatJid || ''
           });
+
+          console.error('[WA-POLL] 💾 Vote stored in database successfully');
+        } else {
+          console.error('[WA-POLL] ❌ Vote NOT stored - missing pollCreationMessageKey.id');
         }
       }
 
@@ -1299,13 +1363,13 @@ export class WhatsAppClient {
 
   async generateQrImage (data: string): Promise<string> {
     const buf = await QRCode.toBuffer(data, {
-      width: 200,
-      margin: 22,
+      width: 400,
+      margin: 44,
       color: {
-        dark: '#ffffffff',
-        light: '#000000ff',
+        dark: '#000000ff',
+        light: '#ffffffff',
       },
-      errorCorrectionLevel: 'M'
+      errorCorrectionLevel: 'H'
     });
     return buf.toString('base64');
   }
@@ -1607,9 +1671,7 @@ export class WhatsAppClient {
       throw new Error('WhatsApp not connected.');
     }
 
-    const dbMsg = this.messageStore.db!
-      .prepare('SELECT media_raw_json, media_type, chat_jid FROM messages WHERE id = ?')
-      .get(messageId) as MediaDbRow | undefined;
+    const dbMsg = this.messageStore.getMediaRawJson(messageId) as MediaDbRow | undefined;
 
     if (!dbMsg?.media_raw_json) {
       throw new Error(

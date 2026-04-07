@@ -91,6 +91,7 @@ describe('MCP Tools (integration)', () => {
       assert.ok(
         text.includes('John Smith') || text.includes('Jane Doe') || text.includes('Engineering')
       );
+      assert.ok(text.includes('messages'), 'list_chats should include per-chat message counts');
     });
 
     it('filters chats by name', async () => {
@@ -173,7 +174,9 @@ describe('MCP Tools (integration)', () => {
     });
   });
 
-  describe('get_poll_results and list_polls', () => {
+  // Skipped: get_poll_results / list_polls are intentionally disabled
+  // (ephemeral container / gateway limitation). See POLL_LIMITATIONS.md.
+  describe.skip('get_poll_results and list_polls', () => {
     it('resolves results by poll_message_id', async () => {
       const result = await ctx.client.callTool({
         name: 'get_poll_results',
@@ -235,6 +238,30 @@ describe('MCP Tools (integration)', () => {
       });
       const text = result.content[0].text;
       assert.ok(text.includes('John') || text.includes('15145551234'));
+    });
+
+    it('deduplicates contacts with both @lid and @s.whatsapp.net chats', async () => {
+      const lid   = '44612043436101@lid';
+      const phone = '33680940027@s.whatsapp.net';
+      const name  = 'Unified Test Contact';
+      ctx.store.upsertChat(lid,   name, false, 7000, 'from lid');
+      ctx.store.upsertChat(phone, name, false, 7100, 'from phone');
+      ctx.store.upsertContactMapping(lid, phone, '+33680940027', name);
+
+      const result = await ctx.client.callTool({
+        name: 'search_contacts',
+        arguments: { query: 'Unified Test Contact' }
+      });
+      assert.equal(result.isError, undefined);
+      const text = result.content[0].text;
+
+      // Count result-row lines (lines starting with "  - Unified Test Contact")
+      // The header line also contains the name but does not start with "  -"
+      const resultRows = text.split('\n').filter((line) => line.startsWith('  - Unified Test Contact'));
+      assert.equal(resultRows.length, 1, `Expected 1 result row for unified contact, got ${resultRows.length}:\n${text}`);
+
+      // And the phone JID should NOT appear as a separate row — only the unified @lid should
+      assert.ok(!text.includes('33680940027@s.whatsapp.net'), 'phone JID should not appear as separate row after unification');
     });
 
     it('includes unread_count, last_message_at, and last_message_preview in output', async () => {

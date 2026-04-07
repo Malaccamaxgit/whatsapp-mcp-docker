@@ -20,6 +20,9 @@ type ChatRow = {
   last_message_at: number | null;
   last_message_preview: string | null;
   updated_at: number;
+  /** Present when loaded via listChatsWithStats / getAllChatsUnified */
+  message_count?: number;
+  messages_last_hour?: number;
 };
 
 type MessageRow = {
@@ -80,7 +83,7 @@ export interface ContactDevice {
 }
 
 export class MessageStore {
-  db: Database.Database | null;
+  private db: Database.Database | null;
   private dbPath: string;
   private _purgeTimer: NodeJS.Timeout | null = null;
 
@@ -100,7 +103,10 @@ export class MessageStore {
   private _upsertPollShortName!: Database.Statement;
   private _getPollMessageIdByShortName!: Database.Statement;
   private _listPollShortNamesForChat!: Database.Statement;
-  
+  private _setCustomContactName!: Database.Statement;
+  private _getCustomContactName!: Database.Statement;
+  private _deleteCustomContactName!: Database.Statement;
+
   // Multi-device prepared statements
   private _getContactByPhone!: Database.Statement;
   private _createContact!: Database.Statement;
@@ -225,6 +231,24 @@ export class MessageStore {
       console.error('[STORE] polls (short names) table ready');
     } catch (error: unknown) {
       console.error('[STORE] polls migration note:', (error as Error).message);
+    }
+
+    // User-assigned display names (per JID, including @lid)
+    try {
+      this.db!.exec(`
+        CREATE TABLE IF NOT EXISTS custom_contact_names (
+          jid TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          created_at INTEGER DEFAULT (unixepoch()),
+          updated_at INTEGER DEFAULT (unixepoch())
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_custom_contact_names_name
+        ON custom_contact_names(name);
+      `);
+      console.error('[STORE] custom_contact_names table ready');
+    } catch (error: unknown) {
+      console.error('[STORE] custom_contact_names migration note:', (error as Error).message);
     }
 
     // Drop FTS triggers — we manage FTS from application code so that
@@ -408,6 +432,22 @@ export class MessageStore {
       ORDER BY created_at DESC
     `);
 
+    this._setCustomContactName = this.db!.prepare(`
+      INSERT INTO custom_contact_names (jid, name, updated_at)
+      VALUES (?, ?, unixepoch())
+      ON CONFLICT(jid) DO UPDATE SET
+        name = excluded.name,
+        updated_at = unixepoch()
+    `);
+
+    this._getCustomContactName = this.db!.prepare(`
+      SELECT name FROM custom_contact_names WHERE jid = ?
+    `);
+
+    this._deleteCustomContactName = this.db!.prepare(`
+      DELETE FROM custom_contact_names WHERE jid = ?
+    `);
+
     // Contact mapping prepared statements
     this._upsertContactMapping = this.db!.prepare(`
       INSERT INTO contact_mappings (lid_jid, phone_jid, phone_number, contact_name, updated_at)
@@ -525,8 +565,9 @@ export class MessageStore {
     const params: (string | number)[] = [];
 
     if (filter) {
-      sql += ' AND name LIKE ?';
-      params.push(`%${filter}%`);
+      sql += ' AND (name LIKE ? OR jid IN (SELECT jid FROM custom_contact_names WHERE name LIKE ?))';
+      const like = `%${filter}%`;
+      params.push(like, like);
     }
     if (groupsOnly) {
       sql += ' AND is_group = 1';
@@ -538,12 +579,145 @@ export class MessageStore {
     return this._decryptRows(this.db!.prepare(sql).all(...params)) as ChatRow[];
   }
 
+  /**
+   * Chats with per-chat message totals and count in the last hour (wall clock).
+   * Same filters as {@link listChats}; pagination via limit/offset.
+   */
+  public listChatsWithStats ({
+    filter,
+    groupsOnly,
+    limit = 20,
+    offset = 0
+  }: { filter?: string; groupsOnly?: boolean; limit?: number; offset?: number } = {}): ChatRow[] {
+    return this._queryChatsWithStats({ filter, groupsOnly, limit, offset });
+  }
+
+  /**
+   * Shared query for chat rows with message_count / messages_last_hour aggregates.
+   */
+  private _queryChatsWithStats ({
+    filter,
+    groupsOnly,
+    limit,
+    offset
+  }: {
+    filter?: string;
+    groupsOnly?: boolean;
+    limit?: number;
+    offset?: number;
+  }): ChatRow[] {
+    const oneHourAgo = Math.floor(Date.now() / 1000) - 3600;
+
+    let sql = `
+SELECT
+  c.jid,
+  c.name,
+  c.is_group,
+  c.unread_count,
+  c.last_message_at,
+  c.last_message_preview,
+  c.updated_at,
+  COUNT(m.id) AS message_count,
+  COALESCE(SUM(CASE WHEN m.timestamp > ? THEN 1 ELSE 0 END), 0) AS messages_last_hour
+FROM chats c
+LEFT JOIN messages m ON m.chat_jid = c.jid
+WHERE 1=1
+`;
+    const params: (string | number)[] = [oneHourAgo];
+
+    if (filter) {
+      sql += ' AND (c.name LIKE ? OR c.jid IN (SELECT jid FROM custom_contact_names WHERE name LIKE ?))';
+      const like = `%${filter}%`;
+      params.push(like, like);
+    }
+    if (groupsOnly) {
+      sql += ' AND c.is_group = 1';
+    }
+
+    sql += ' GROUP BY c.jid ORDER BY c.last_message_at DESC NULLS LAST';
+    if (limit !== undefined) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset ?? 0);
+    }
+
+    return this._decryptRows(this.db!.prepare(sql).all(...params)) as ChatRow[];
+  }
+
   public getChatByJid (jid: string): ChatRow | null {
     return this._decryptRow(this.db!.prepare('SELECT * FROM chats WHERE jid = ?').get(jid)) as ChatRow | null;
   }
 
+  /**
+   * Other JIDs that may share a custom name with this one (e.g. LID ↔ phone JID mapping).
+   */
+  private _alternateJidsForCustomLookup (jid: string): string[] {
+    const out: string[] = [];
+    if (jid.endsWith('@lid')) {
+      const m = this.getContactMappingByLid(jid);
+      if (m?.phone_jid) {out.push(m.phone_jid);}
+    } else if (jid.endsWith('@s.whatsapp.net')) {
+      const m = this.getContactMappingByPhoneJid(jid);
+      if (m?.lid_jid) {out.push(m.lid_jid);}
+    }
+    return out;
+  }
+
+  /**
+   * Raw user-assigned name for this JID only (no alias lookup).
+   */
+  public getCustomContactName (jid: string): string | null {
+    const row = this._getCustomContactName.get(jid) as { name: string } | undefined;
+    return row?.name ?? null;
+  }
+
+  /**
+   * Set or clear a custom display name for a JID (stored locally; overrides chat/push names in UI).
+   * Pass an empty or whitespace-only string to remove the custom name.
+   */
+  public setCustomContactName (jid: string, name: string): void {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      this._deleteCustomContactName.run(jid);
+      return;
+    }
+    this._setCustomContactName.run(jid, trimmed);
+  }
+
+  /**
+   * Display name: custom name (this JID or mapped alternate) > stored chat name > JID.
+   */
+  public getDisplayNameForJid (jid: string): string {
+    let custom = this.getCustomContactName(jid);
+    if (custom) {return custom;}
+    for (const alt of this._alternateJidsForCustomLookup(jid)) {
+      custom = this.getCustomContactName(alt);
+      if (custom) {return custom;}
+    }
+    const chat = this.getChatByJid(jid);
+    if (chat?.name && chat.name !== jid) {return chat.name;}
+    return jid;
+  }
+
   public getAllChatsForMatching (): { jid: string; name: string | null; unread_count?: number; last_message_at?: number | null; last_message_preview?: string | null; is_group?: number }[] {
-    return this.db!.prepare('SELECT jid, name, unread_count, last_message_at, last_message_preview, is_group FROM chats ORDER BY last_message_at DESC').all() as { jid: string; name: string | null; unread_count?: number; last_message_at?: number | null; last_message_preview?: string | null; is_group?: number }[];
+    const rows = this.db!.prepare('SELECT jid, name, unread_count, last_message_at, last_message_preview, is_group FROM chats ORDER BY last_message_at DESC').all() as { jid: string; name: string | null; unread_count?: number; last_message_at?: number | null; last_message_preview?: string | null; is_group?: number }[];
+    return rows.map((row) => ({
+      ...row,
+      name: this.getDisplayNameForJid(row.jid)
+    }));
+  }
+
+  /**
+   * Same as getAllChatsForMatching but deduplicates JIDs using the multi-device
+   * and legacy contact_mappings unification logic (same merge used by list_chats).
+   * A contact that has both an @lid and an @s.whatsapp.net chat row is collapsed
+   * into a single entry, with display names resolved via getDisplayNameForJid.
+   */
+  public getAllChatsUnifiedForMatching (): { jid: string; name: string | null; unread_count?: number; last_message_at?: number | null; last_message_preview?: string | null; is_group?: number }[] {
+    const unified = this.getAllChatsUnified({ limit: 10_000 });
+    return unified.map((row) => ({
+      ...row,
+      name: this.getDisplayNameForJid(row.jid)
+    }));
   }
 
   public incrementUnread (chatJid: string): void {
@@ -731,20 +905,7 @@ export class MessageStore {
       }
     }
 
-    // Get all chats
-    let sql = 'SELECT * FROM chats WHERE 1=1';
-    const params: (string | number)[] = [];
-
-    if (filter) {
-      sql += ' AND name LIKE ?';
-      params.push(`%${filter}%`);
-    }
-    if (groupsOnly) {
-      sql += ' AND is_group = 1';
-    }
-
-    sql += ' ORDER BY last_message_at DESC';
-    const allChats = this._decryptRows(this.db!.prepare(sql).all(...params)) as ChatRow[];
+    const allChats = this._queryChatsWithStats({ filter, groupsOnly });
 
     // Merge duplicates using mappings
     const unifiedMap = new Map<string, ChatRow>();
@@ -776,7 +937,9 @@ export class MessageStore {
           last_message_preview: chat.last_message_at && (!existing.last_message_at || chat.last_message_at > existing.last_message_at)
             ? chat.last_message_preview
             : existing.last_message_preview,
-          updated_at: Math.max(existing.updated_at, chat.updated_at)
+          updated_at: Math.max(existing.updated_at, chat.updated_at),
+          message_count: (existing.message_count ?? 0) + (chat.message_count ?? 0),
+          messages_last_hour: (existing.messages_last_hour ?? 0) + (chat.messages_last_hour ?? 0)
         };
         unifiedMap.set(unifiedJid, merged);
       }
@@ -1079,6 +1242,12 @@ export class MessageStore {
         .all(...params)
         .reverse() as MessageRow[]
     );
+  }
+
+  public getMessageById (messageId: string): MessageRow | null {
+    return this._decryptRow(
+      this.db!.prepare('SELECT * FROM messages WHERE id = ?').get(messageId)
+    ) as MessageRow | null;
   }
 
   public getMessageContext (messageId: string, contextBefore = 3, contextAfter = 3): { before: MessageRow[]; message: MessageRow | null; after: MessageRow[] } | null {
@@ -1440,8 +1609,19 @@ export class MessageStore {
     ) as (MessageRow & { chat_name: string | null }) | null;
   }
 
-  public updateChatName (jid: string, name: string | null): void {
+  /**
+   * Update stored chat display name from WhatsApp (push/profile).
+   * @param force - If true, overwrite DM names even when already set (used by sync_contact_names).
+   */
+  public updateChatName (jid: string, name: string | null, options?: { force?: boolean }): void {
     if (!name) {return;}
+    if (options?.force) {
+      // DMs only — never overwrite group subjects via this path (groups use resolveGroupName / group tools).
+      this.db!
+        .prepare('UPDATE chats SET name = ? WHERE jid = ? AND (is_group = 0 OR is_group IS NULL)')
+        .run(name, jid);
+      return;
+    }
     // Group names resolved from WhatsApp are authoritative — always overwrite.
     // DM names: only set when unset (null) or still equal to the JID placeholder.
     this.db!
@@ -1741,6 +1921,13 @@ export class MessageStore {
 
     console.error(`[STORE] Chat repair complete: ${repaired} chats repaired out of ${scanned} scanned`);
     return { repaired, scanned };
+  }
+
+  public getMediaRawJson (messageId: string): { media_raw_json: string | null; media_type: string | null; chat_jid: string } | undefined {
+    if (!this.db) {return undefined;}
+    return this.db
+      .prepare('SELECT media_raw_json, media_type, chat_jid FROM messages WHERE id = ?')
+      .get(messageId) as { media_raw_json: string | null; media_type: string | null; chat_jid: string } | undefined;
   }
 
   public close (): void {

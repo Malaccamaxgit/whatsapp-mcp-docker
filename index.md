@@ -9,7 +9,7 @@ permalink: /
 # WhatsApp MCP Server
 {: .fs-9 }
 
-Docker-based WhatsApp integration for AI agents — 34 tools for messaging, groups, media, approvals, and intelligent activity summaries.
+Docker-based WhatsApp integration for AI agents — 33 tools for messaging, groups, media, approvals, and intelligent activity summaries.
 {: .fs-6 .fw-300 }
 
 [Get Started](#quick-start){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }

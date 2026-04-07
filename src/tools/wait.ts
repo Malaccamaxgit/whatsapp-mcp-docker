@@ -11,6 +11,7 @@ import type { MessageStore } from '../whatsapp/store.js';
 import type { WhatsAppClient, StoredMessage } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import { formatTimestamp } from '../utils/timezone.js';
+import { registerTool, type ToolInput, type McpResult } from '../utils/mcp-types.js';
 
 interface MessageWaiter {
   filter: (msg: StoredMessage) => boolean;
@@ -24,7 +25,29 @@ export function registerWaitTools (
   permissions: PermissionManager,
   audit: AuditLogger
 ): void {
-  const wait_for_message_handler = async ({ timeout, chat, from_phone }: { timeout: number; chat?: string; from_phone?: string }) => {
+  const waitForMessageInputSchema = {
+    timeout: z
+      .number()
+      .int()
+      .min(1)
+      .max(300)
+      .default(60)
+      .describe('Seconds to wait for a message before timing out (1–300, default 60)'),
+    chat: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        'Only match messages from this chat (contact name, phone number, or JID). Omit to match any chat.'
+      ),
+    from_phone: z
+      .string()
+      .max(50)
+      .optional()
+      .describe('Only match messages from this sender phone number or JID. Omit to match any sender.')
+  };
+
+  const wait_for_message_handler = async ({ timeout, chat, from_phone }: ToolInput<typeof waitForMessageInputSchema>): Promise<McpResult> => {
     const toolCheck = permissions.isToolEnabled('wait_for_message');
     if (!toolCheck.allowed) {
       return {
@@ -217,44 +240,19 @@ export function registerWaitTools (
     };
   };
 
-  server.registerTool(
-    'wait_for_message',
-    {
-      description: [
-        'Block until an incoming WhatsApp message arrives, then return it.',
-        'Use during interactive tests or workflows: tell the user to send a message, call this tool,',
-        'and the AI receives the message automatically without the user typing in Cursor.',
-        'Optional filters scope the wait to a specific chat or sender.'
-      ].join(' '),
-      inputSchema: {
-        timeout: z
-          .number()
-          .int()
-          .min(1)
-          .max(300)
-          .default(60)
-          .describe('Seconds to wait for a message before timing out (1–300, default 60)'),
-        chat: z
-          .string()
-          .max(200)
-          .optional()
-          .describe(
-            'Only match messages from this chat (contact name, phone number, or JID). Omit to match any chat.'
-          ),
-        from_phone: z
-          .string()
-          .max(50)
-          .optional()
-          .describe('Only match messages from this sender phone number or JID. Omit to match any sender.')
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false
-      }
-    },
-
-    wait_for_message_handler as any
-  );
+  registerTool(server, 'wait_for_message', {
+    description: [
+      'Block until an incoming WhatsApp message arrives, then return it.',
+      'Use during interactive tests or workflows: tell the user to send a message, call this tool,',
+      'and the AI receives the message automatically without the user typing in Cursor.',
+      'Optional filters scope the wait to a specific chat or sender.'
+    ].join(' '),
+    inputSchema: waitForMessageInputSchema,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false
+    }
+  }, wait_for_message_handler);
 }

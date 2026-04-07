@@ -279,6 +279,46 @@ describe('JID Unification', () => {
     });
   });
 
+  describe('getAllChatsUnifiedForMatching', () => {
+    it('collapses @lid and @s.whatsapp.net rows for the same contact into one entry', () => {
+      const lid   = '44612043436101@lid';
+      const phone = '33680940027@s.whatsapp.net';
+      const name  = 'Séverine Godet';
+      store.upsertContactMapping(lid, phone, '+33680940027', name);
+      const now = Math.floor(Date.now() / 1000);
+      store.upsertChat(lid,   name, false, now - 100, 'from lid');
+      store.upsertChat(phone, name, false, now,       'from phone');
+
+      const results = store.getAllChatsUnifiedForMatching();
+      const matches = results.filter((c) => c.name === name);
+      assert.equal(matches.length, 1, 'duplicate pair should collapse to one entry');
+      assert.equal(matches[0].jid, lid, 'unified JID should prefer @lid');
+    });
+
+    it('applies getDisplayNameForJid so custom names are reflected', () => {
+      const jid = '99999999@s.whatsapp.net';
+      const now = Math.floor(Date.now() / 1000);
+      store.upsertChat(jid, 'Raw Push Name', false, now, 'msg');
+      store.setCustomContactName(jid, 'My Custom Name');
+
+      const results = store.getAllChatsUnifiedForMatching();
+      const row = results.find((c) => c.jid === jid);
+      assert.ok(row, 'chat row should be present');
+      assert.equal(row!.name, 'My Custom Name');
+    });
+
+    it('preserves group chats without merging', () => {
+      const groupJid = '120363099999@g.us';
+      const now = Math.floor(Date.now() / 1000);
+      store.upsertChat(groupJid, 'Test Group', true, now, 'hi');
+
+      const results = store.getAllChatsUnifiedForMatching();
+      const group = results.find((c) => c.jid === groupJid);
+      assert.ok(group, 'group should be present');
+      assert.equal(group!.is_group, 1);
+    });
+  });
+
   describe('Integration with Messages', () => {
     it('should handle messages with different JID formats', () => {
       const lidJid = '44612043436101@lid';
@@ -321,6 +361,8 @@ describe('JID Unification', () => {
 
       assert.ok(chat !== null);
       assert.equal(chat?.jid, lidJid);
+      assert.equal(chat?.message_count, 2);
+      assert.equal(chat?.messages_last_hour, 2);
 
       const messages1 = store.listMessages({ chatJid: phoneJid, limit: 10 });
       const messages2 = store.listMessages({ chatJid: lidJid, limit: 10 });

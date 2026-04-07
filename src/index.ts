@@ -2,7 +2,7 @@
  * WhatsApp MCP Server
  *
  * Entry point — wires the WhatsApp client, SQLite store, security layer,
- * and 15 MCP tools together. Runs on stdio transport for Docker MCP Toolkit.
+ * and 33 MCP tools together. Runs on stdio transport for Docker MCP Toolkit.
  *
  * Tools: disconnect, authenticate, get_connection_status,
  *        send_message, send_file, download_media,

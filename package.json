@@ -18,6 +18,7 @@
     "test:auth": "npm run _guard && tsx test/e2e/setup-auth.ts --interactive",
     "test:e2e": "npm run _guard && tsx --test test/e2e/live.test.ts",
     "test:bench": "npm run _guard && tsx --test test/benchmarks/performance.test.ts",
+    "test:coverage": "npm run _guard && c8 --reporter=text --reporter=lcov --all --src=src -- tsx --test $(find test/unit test/integration -name '*.test.ts' -o -name '*.test.js')",
     "docker:test": "docker compose --profile test build tester-container && docker compose --profile test run --rm tester-container",
     "docker:test:auth": "docker compose run --rm tester-container npm run test:auth",
     "docker:test:e2e": "docker compose run --rm tester-container npm run test:e2e",
@@ -50,6 +51,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "c8": "^10.1.3",
     "@eslint/js": "^9.0.0",
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.0.0",

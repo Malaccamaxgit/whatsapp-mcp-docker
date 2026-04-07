@@ -16,16 +16,7 @@ import type { WhatsAppClient } from '../whatsapp/client.js';
 import type { AuditLogger } from '../security/audit.js';
 import type { PermissionManager } from '../security/permissions.js';
 import { getJidTypeInfo } from '../utils/jid-utils.js';
-
-interface TextContent {
-  type: 'text';
-  text: string;
-}
-
-interface McpResult {
-  content: TextContent[];
-  isError?: boolean;
-}
+import { registerTool, type McpResult } from '../utils/mcp-types.js';
 
 interface GroupParticipant {
   jid: string;
@@ -83,24 +74,20 @@ export function registerGroupTools (
 
   // ── create_group ──────────────────────────────────────────────
 
-  server.registerTool(
-    'create_group',
-    {
-      description: 'Create a new WhatsApp group with the given name and participant phone numbers or JIDs. Returns the new group JID and invite link.',
-      inputSchema: {
-        name: z.string().min(1).max(100).describe('Group name (1–100 characters)'),
-        participants: PhoneArraySchema(1, 256).describe('Phone numbers (E.164) or JIDs of participants to add')
-      }
-    },
-
-    (async ({ name, participants }: { name: string; participants: string[] }) => {
+  registerTool(server, 'create_group', {
+    description: 'Create a new WhatsApp group with the given name and participant phone numbers or JIDs. Returns the new group JID and invite link.',
+    inputSchema: {
+      name: z.string().min(1).max(100).describe('Group name (1–100 characters)'),
+      participants: PhoneArraySchema(1, 256).describe('Phone numbers (E.164) or JIDs of participants to add')
+    }
+  }, async ({ name, participants }) => {
       const disabled = disabledResult('create_group');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
       if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
       }
 
       try {
@@ -127,21 +114,16 @@ export function registerGroupTools (
         audit.log('create_group', 'failed', { name, error: errorMsg }, false);
         return { content: [{ type: 'text', text: `Failed to create group: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 
   // ── get_group_info ────────────────────────────────────────────
 
-  server.registerTool(
-    'get_group_info',
-    {
-      description: 'Get detailed information about a WhatsApp group: name, description, participants, admin list, and settings.',
-      inputSchema: {
-        group: z.string().max(200).describe('Group name (fuzzy match) or group JID ending in @g.us')
-      }
-    },
-
-    (async ({ group }: { group: string }) => {
+  registerTool(server, 'get_group_info', {
+    description: 'Get detailed information about a WhatsApp group: name, description, participants, admin list, and settings.',
+    inputSchema: {
+      group: z.string().max(200).describe('Group name (fuzzy match) or group JID ending in @g.us')
+    }
+  }, async ({ group }) => {
       const disabled = disabledResult('get_group_info');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
@@ -185,19 +167,14 @@ export function registerGroupTools (
         const errorMsg = err instanceof Error ? err.message : String(err || '');
         return { content: [{ type: 'text', text: `Failed to get group info: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 
   // ── get_joined_groups ─────────────────────────────────────────
 
-  server.registerTool(
-    'get_joined_groups',
-    {
-      description: 'List all WhatsApp groups this account is a member of, with participant counts and admin status.',
-      inputSchema: {}
-    },
-
-    (async () => {
+  registerTool(server, 'get_joined_groups', {
+    description: 'List all WhatsApp groups this account is a member of, with participant counts and admin status.',
+    inputSchema: {}
+  }, async () => {
       const disabled = disabledResult('get_joined_groups');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
@@ -230,21 +207,16 @@ export function registerGroupTools (
         const errorMsg = err instanceof Error ? err.message : String(err || '');
         return { content: [{ type: 'text', text: `Failed to list groups: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 
   // ── get_group_invite_link ─────────────────────────────────────
 
-  server.registerTool(
-    'get_group_invite_link',
-    {
-      description: 'Get the invite link for a WhatsApp group. Anyone with the link can join. Requires admin privileges.',
-      inputSchema: {
-        group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us')
-      }
-    },
-
-    (async ({ group }: { group: string }) => {
+  registerTool(server, 'get_group_invite_link', {
+    description: 'Get the invite link for a WhatsApp group. Anyone with the link can join. Requires admin privileges.',
+    inputSchema: {
+      group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us')
+    }
+  }, async ({ group }) => {
       const disabled = disabledResult('get_group_invite_link');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
@@ -267,31 +239,26 @@ export function registerGroupTools (
         const errorMsg = err instanceof Error ? err.message : String(err || '');
         return { content: [{ type: 'text', text: `Failed to get invite link: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 
   // ── join_group ────────────────────────────────────────────────
 
-  server.registerTool(
-    'join_group',
-    {
-      description: 'Join a WhatsApp group using an invite link (https://chat.whatsapp.com/...) or an invite code.',
-      inputSchema: {
-        link: z
-          .string()
-          .max(300)
-          .describe('Full invite URL (https://chat.whatsapp.com/CODE) or just the invite code')
-      }
-    },
-
-    (async ({ link }: { link: string }) => {
+  registerTool(server, 'join_group', {
+    description: 'Join a WhatsApp group using an invite link (https://chat.whatsapp.com/...) or an invite code.',
+    inputSchema: {
+      link: z
+        .string()
+        .max(300)
+        .describe('Full invite URL (https://chat.whatsapp.com/CODE) or just the invite code')
+    }
+  }, async ({ link }) => {
       const disabled = disabledResult('join_group');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
       if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
       }
 
       try {
@@ -319,21 +286,16 @@ export function registerGroupTools (
         audit.log('join_group', 'failed', { error: errorMsg }, false);
         return { content: [{ type: 'text', text: `Failed to join group: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 
   // ── leave_group ───────────────────────────────────────────────
 
-  server.registerTool(
-    'leave_group',
-    {
-      description: 'Leave a WhatsApp group. This action is permanent — you will need an invite to rejoin.',
-      inputSchema: {
-        group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us')
-      }
-    },
-
-    (async ({ group }: { group: string }) => {
+  registerTool(server, 'leave_group', {
+    description: 'Leave a WhatsApp group. This action is permanent — you will need an invite to rejoin.',
+    inputSchema: {
+      group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us')
+    }
+  }, async ({ group }) => {
       const disabled = disabledResult('leave_group');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
@@ -352,32 +314,27 @@ export function registerGroupTools (
         audit.log('leave_group', 'failed', { error: errorMsg }, false);
         return { content: [{ type: 'text', text: `Failed to leave group: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 
   // ── update_group_participants ─────────────────────────────────
 
-  server.registerTool(
-    'update_group_participants',
-    {
-      description: 'Add, remove, promote to admin, or demote participants in a WhatsApp group. Requires admin privileges for most actions.',
-      inputSchema: {
-        group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us'),
-        action: z
-          .enum(['add', 'remove', 'promote', 'demote'])
-          .describe('Action to perform on the participants'),
-        participants: PhoneArraySchema(1, 50).describe('Phone numbers (E.164) or JIDs of participants')
-      }
-    },
-
-    (async ({ group, action, participants }: { group: string; action: string; participants: string[] }) => {
+  registerTool(server, 'update_group_participants', {
+    description: 'Add, remove, promote to admin, or demote participants in a WhatsApp group. Requires admin privileges for most actions.',
+    inputSchema: {
+      group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us'),
+      action: z
+        .enum(['add', 'remove', 'promote', 'demote'])
+        .describe('Action to perform on the participants'),
+      participants: PhoneArraySchema(1, 50).describe('Phone numbers (E.164) or JIDs of participants')
+    }
+  }, async ({ group, action, participants }) => {
       const disabled = disabledResult('update_group_participants');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
 
       const rateCheck = permissions.checkRateLimit();
       if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error }], isError: true };
+        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
       }
 
       try {
@@ -404,22 +361,17 @@ export function registerGroupTools (
         audit.log('update_group_participants', 'failed', { error: errorMsg }, false);
         return { content: [{ type: 'text', text: `Failed to update participants: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 
   // ── set_group_name ────────────────────────────────────────────
 
-  server.registerTool(
-    'set_group_name',
-    {
-      description: 'Change the name of a WhatsApp group. Requires admin privileges.',
-      inputSchema: {
-        group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us'),
-        name: z.string().min(1).max(100).describe('New group name')
-      }
-    },
-
-    (async ({ group, name }: { group: string; name: string }) => {
+  registerTool(server, 'set_group_name', {
+    description: 'Change the name of a WhatsApp group. Requires admin privileges.',
+    inputSchema: {
+      group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us'),
+      name: z.string().min(1).max(100).describe('New group name')
+    }
+  }, async ({ group, name }) => {
       const disabled = disabledResult('set_group_name');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
@@ -437,22 +389,17 @@ export function registerGroupTools (
         const errorMsg = err instanceof Error ? err.message : String(err || '');
         return { content: [{ type: 'text', text: `Failed to set group name: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 
   // ── set_group_topic ───────────────────────────────────────────
 
-  server.registerTool(
-    'set_group_topic',
-    {
-      description: 'Set or update the description/topic of a WhatsApp group. Requires admin privileges.',
-      inputSchema: {
-        group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us'),
-        topic: z.string().max(512).describe('New group description (max 512 characters, empty string to clear)')
-      }
-    },
-
-    (async ({ group, topic }: { group: string; topic: string }) => {
+  registerTool(server, 'set_group_topic', {
+    description: 'Set or update the description/topic of a WhatsApp group. Requires admin privileges.',
+    inputSchema: {
+      group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us'),
+      topic: z.string().max(512).describe('New group description (max 512 characters, empty string to clear)')
+    }
+  }, async ({ group, topic }) => {
       const disabled = disabledResult('set_group_topic');
       if (disabled) {return disabled;}
       if (!waClient.isConnected()) {return notConnected();}
@@ -474,8 +421,7 @@ export function registerGroupTools (
         const errorMsg = err instanceof Error ? err.message : String(err || '');
         return { content: [{ type: 'text', text: `Failed to set group topic: ${errorMsg}` }], isError: true };
       }
-    }) as any
-  );
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
