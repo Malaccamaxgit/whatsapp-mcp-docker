@@ -60,7 +60,7 @@ docker compose --profile test build tester-container
 docker compose --profile test run --rm tester-container
 
 # Run a specific test file
-docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/unit/crypto.test.ts
 
 # Lint
 docker compose --profile test run --rm tester-container npx eslint src/

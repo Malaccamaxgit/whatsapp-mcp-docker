@@ -915,13 +915,13 @@ docker compose --profile test build tester-container
 docker compose --profile test run --rm tester-container
 
 # Run a specific test file
-docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/unit/crypto.test.ts
 
 # One-time WhatsApp auth for e2e tests
-docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts
+docker compose --profile test run --rm tester-container npx tsx test/e2e/setup-auth.ts
 
 # Run e2e tests with live session
-docker compose --profile test run --rm tester-container node --test test/e2e/live.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/e2e/live.test.ts
 ```
 
 | Layer | What's covered |

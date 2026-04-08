@@ -70,10 +70,10 @@ Fast, isolated tests with no external dependencies:
 
 ```bash
 # Run unit tests only
-docker compose --profile test run --rm tester-container node --test test/unit/*.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/unit/*.test.ts
 
 # Run a specific test file
-docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/unit/crypto.test.ts
 ```
 
 ### Integration Tests
@@ -81,7 +81,7 @@ docker compose --profile test run --rm tester-container node --test test/unit/cr
 Tests the full MCP tool chain with a mock WhatsApp client:
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/integration/*.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/integration/*.test.ts
 ```
 
 ### E2E Tests
@@ -90,10 +90,10 @@ docker compose --profile test run --rm tester-container node --test test/integra
 
 ```bash
 # One-time auth setup
-docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts
+docker compose --profile test run --rm tester-container npx tsx test/e2e/setup-auth.ts
 
 # Run live tests (uses .test-data/ for session persistence)
-docker compose --profile test run --rm tester-container node --test test/e2e/live.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/e2e/live.test.ts
 ```
 
 ### Benchmarks
@@ -101,7 +101,7 @@ docker compose --profile test run --rm tester-container node --test test/e2e/liv
 Performance regression testing:
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/benchmarks/performance.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/benchmarks/performance.test.ts
 ```
 
 ### All Tests
@@ -321,7 +321,7 @@ docker compose --profile test run --rm tester-container npx prettier --check src
 ### Running Benchmarks
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/benchmarks/performance.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/benchmarks/performance.test.ts
 ```
 
 **Output:**
@@ -425,7 +425,7 @@ docker compose --profile test build tester-container
 
 **Fix:**
 ```bash
-docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts
+docker compose --profile test run --rm tester-container npx tsx test/e2e/setup-auth.ts
 ```
 
 ### Tests Timeout

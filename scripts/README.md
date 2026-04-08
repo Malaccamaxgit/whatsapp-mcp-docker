@@ -114,25 +114,25 @@ The test container copies source files during the Docker build process. Without 
 ### Unit Tests Only
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/unit/*.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/unit/*.test.ts
 ```
 
 ### Integration Tests Only
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/integration/*.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/integration/*.test.ts
 ```
 
 ### Single Test File
 
 ```bash
-docker compose run --rm tester-container node --test test/unit/crypto.test.ts
+docker compose run --rm tester-container npx tsx --test test/unit/crypto.test.ts
 ```
 
 ### Tests Matching Pattern
 
 ```bash
-docker compose run --rm tester-container node --test test/unit/*.test.js
+docker compose run --rm tester-container npx tsx --test test/unit/*.test.ts
 ```
 
 ## 🔧 Troubleshooting

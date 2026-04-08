@@ -24,7 +24,7 @@ docker compose --profile test build tester-container
 docker compose --profile test run --rm tester-container
 
 # Run a specific test file
-docker compose --profile test run --rm tester-container node --test test/unit/crypto.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/unit/crypto.test.ts
 
 # Lint (inside the test container)
 docker compose --profile test run --rm tester-container npx eslint src/
@@ -149,8 +149,8 @@ docker mcp client connect cursor --profile <your-profile>
 | `start` | `node dist/index.js` | Server start (compiled JS) |
 | `dev` | `tsx --watch src/index.ts` | Development with auto-reload (TypeScript) |
 | docker:test | docker compose --profile test build tester-container && docker compose --profile test run --rm tester-container | Unit + integration tests in Docker |
-| docker:test:auth | docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts | One-time WhatsApp auth for e2e |
-| docker:test:e2e | docker compose --profile test run --rm tester-container node --test test/e2e/live.test.ts | E2E tests with live session |
+| docker:test:auth | docker compose --profile test run --rm tester-container npx tsx test/e2e/setup-auth.ts | One-time WhatsApp auth for e2e |
+| docker:test:e2e | docker compose --profile test run --rm tester-container npx tsx --test test/e2e/live.test.ts | E2E tests with live session |
 
 ---
 
@@ -316,7 +316,7 @@ docker compose --profile test run --rm tester-container
 Pure function and module tests. No network, no WhatsApp.
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/unit/*.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/unit/*.test.ts
 ```
 
 Tests: `phone.ts`, `fuzzy-match.ts`, `crypto.ts`, `file-guard.ts`, `permissions.ts`, `audit.ts`, `store.ts`, **`timezone.ts`**.
@@ -333,7 +333,7 @@ Tests: `phone.ts`, `fuzzy-match.ts`, `crypto.ts`, `file-guard.ts`, `permissions.
 MCP protocol-level tests. Uses a mock WhatsApp client connected to the real MCP server via in-memory transport. Tests input validation, permission checks, fuzzy matching, and response formatting.
 
 ```bash
-docker compose --profile test run --rm tester-container node --test test/integration/*.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/integration/*.test.ts
 ```
 
 ### Layer 3: E2E Tests
@@ -342,10 +342,10 @@ Tests against a real WhatsApp session. Authenticate once; the session persists i
 
 ```bash
 # One-time setup — authenticate and save session to .test-data/
-docker compose --profile test run --rm tester-container node test/e2e/setup-auth.ts
+docker compose --profile test run --rm tester-container npx tsx test/e2e/setup-auth.ts
 
 # Run live tests (read-only, no messages sent)
-docker compose --profile test run --rm tester-container node --test test/e2e/live.test.ts
+docker compose --profile test run --rm tester-container npx tsx --test test/e2e/live.test.ts
 ```
 
 Re-authenticate after ~20 days (WhatsApp session expiry).
