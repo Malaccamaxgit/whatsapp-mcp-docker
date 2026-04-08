@@ -58,7 +58,7 @@ COPY test/ ./test/
 COPY eslint.config.js .prettierrc ./
 
 RUN mkdir -p /data/store /data/audit .test-data && \
-    chown -R node:node /data .test-data
+    chown -R node:node /data .test-data node_modules package*.json
 
 ENV NODE_ENV=test \
     STORE_PATH=/data/store \

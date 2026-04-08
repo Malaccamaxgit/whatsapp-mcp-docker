@@ -45,7 +45,7 @@
   "dependencies": {
     "@whatsmeow-node/whatsmeow-node": "^0.5.3",
     "@whatsmeow-node/linux-x64-musl": "^0.5.3",
-    "@modelcontextprotocol/sdk": "^1.28.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.24.0",
     "better-sqlite3": "^11.0.0",
     "qrcode": "^1.5.4"
@@ -66,5 +66,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "overrides": {
+    "@hono/node-server": "^1.19.13",
+    "hono": "^4.12.12"
   }
 }
