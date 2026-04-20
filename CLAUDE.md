@@ -1,8 +1,7 @@
 # whatsapp-mcp-docker — TypeScript Project Reference
 
 **Migration Status:** Complete (2026-04-03)  
-**Source files:** 26 `.ts` files in `src/` (100% TypeScript)  
-**Test files:** 16 `.ts` files in `test/`
+**Codebase:** 100% TypeScript
 
 ---
 
@@ -207,14 +206,6 @@ docker compose --profile test run --rm tester-container npm run lint
 
 ---
 
-## Historical Documents
-
-- `docs/archive/README.md` — Archived migration-era document index
-- `JS-to-TS-Migration-Plan.md` — Migration plan (historical record)
-- `docs/DOCUMENTATION-UPDATE-PLAN.md` — Post-migration docs cleanup plan (historical record)
-
----
-
 ## MCP Client Usage
 
 All 33 tools available via MCP. Key categories:
@@ -233,5 +224,11 @@ All 33 tools available via MCP. Key categories:
 
 ---
 
-**AI Authors:** Qwen3-Coder-Next • MiniMax-M2.7 • Qwen3.5 • Nemotron-3-Super  
-**Director:** Benjamin Alloul — [Benjamin.Alloul@gmail.com](mailto:Benjamin.Alloul@gmail.com)
+## Related Documents
+
+- `~/.claude/CLAUDE.md` — Global working style rules (95% confidence rule, PowerShell preferences)
+- `.claude/memory/MEMORY.md` — Project-specific context and decisions
+
+---
+
+**Maintained by:** Benjamin Alloul — [Benjamin.Alloul@gmail.com](mailto:Benjamin.Alloul@gmail.com)
