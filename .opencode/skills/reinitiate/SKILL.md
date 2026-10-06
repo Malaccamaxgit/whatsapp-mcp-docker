@@ -5,17 +5,17 @@ description: Full teardown, then a fresh build and Docker MCP Toolkit registrati
 
 # Reinitiate: Cleanup, Build, and Docker MCP Toolkit Deploy
 
-End to end reset. Same outcome as the `cleanup` skill followed by the deploy
-sequence in the `docker-ops` skill.
+This skill resets the project end to end. The result is the same as the `cleanup`
+skill followed by the deploy sequence in the `docker-ops` skill.
 
 ## Before starting
 
 Tell the user:
 
-- MCP tools may stop during cleanup. When finished, they must restart the
+- MCP tools may stop during cleanup. After cleanup, the user must restart the
   opencode service.
-- All WhatsApp session, message, and audit data in the named volumes is removed.
-  They will need to authenticate again.
+- Cleanup removes all WhatsApp session, message, and audit data in the named
+  volumes. The user must authenticate again.
 
 ## Step 0: discover the profile and catalog names
 
@@ -24,13 +24,15 @@ docker mcp profile ls
 docker mcp catalog ls
 ```
 
-- Profile: use the profile that hosts opencode, which is `common_core`.
-- Catalog: use the custom catalog for this project. It must not be
-  `mcp/docker-mcp-catalog:latest`, which is Docker's official catalog.
+- The profile comes from `docker mcp profile ls`. Use the profile that hosts
+  opencode. The default is `common_core`.
+- The catalog comes from `docker mcp catalog ls`. Use the custom catalog for this
+  project. Do not use `mcp/docker-mcp-catalog:latest`, which is Docker's official
+  catalog.
 
 ## Phase A: cleanup (full teardown)
 
-Preferred, run the script from the repository root:
+Preferred: run the script from the repository root.
 
 ```powershell
 cd <repo-root>
@@ -43,18 +45,18 @@ chmod +x scripts/cleanup.sh
 ./scripts/cleanup.sh --force --profile common_core --catalog my-catalog
 ```
 
-If the script is unavailable, run the steps in the `cleanup` skill in order:
-profile server remove, secret rm, `docker compose down -v`, `docker rmi`,
+If the script is absent, run the steps in the `cleanup` skill in order: profile
+server remove, secret rm, `docker compose down -v`, `docker rmi`,
 `docker image prune -f`, catalog remove. Ignore benign errors for resources that
 are already absent.
 
 ## Phase B: build
 
-From the repository root, the directory that holds `docker-compose.yml` and
-`whatsapp-mcp-docker-server.yaml`:
+Run from the repository root. This directory holds `docker-compose.yml` and
+`whatsapp-mcp-docker-server.yaml`.
 
-Critical: always use `--no-cache`. BuildKit layer caching can cache the
-TypeScript compile even when source files change.
+Always use `--no-cache`. BuildKit layer caching can cache the TypeScript compile
+even when a source file changes.
 
 ```bash
 docker compose build --no-cache
@@ -63,21 +65,21 @@ docker compose build --no-cache
 Do not run `docker compose up -d` when the MCP Gateway manages the server. Build
 only.
 
-The compose file tags `malaccamax/whatsapp-mcp-docker:latest`, matching
-`whatsapp-mcp-docker-server.yaml`, so the Gateway uses this image after redeploy.
+The compose file tags `malaccamax/whatsapp-mcp-docker:latest`. This tag matches
+`whatsapp-mcp-docker-server.yaml`. The Gateway uses this image after the redeploy.
 
 ## Phase C: encryption secret (new key)
 
-Set a new key after cleanup, because cleanup removes the old secret.
+Set a new key after cleanup. Cleanup removes the old secret.
 
-Recommended, with Python to avoid `require()` escaping issues on Windows:
+Recommended: use Python. This avoids `require()` escaping issues on Windows.
 
 ```powershell
 $key = docker run --rm python:3-alpine python3 -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"
 docker mcp secret set "whatsapp-mcp-docker.data_encryption_key=$key"
 ```
 
-Or with Node.js:
+Or use Node.js:
 
 ```powershell
 $key = docker run --rm node:22-alpine node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
@@ -94,8 +96,8 @@ Verify with `docker mcp secret ls`.
 
 ## Phase D: catalog, profile, and configuration
 
-Run from the repository root, so `file://./whatsapp-mcp-docker-server.yaml`
-resolves.
+Run from the repository root. The `file://./whatsapp-mcp-docker-server.yaml` path
+resolves from there.
 
 PowerShell, with backticks for line continuation:
 
@@ -125,15 +127,16 @@ Re-running `docker mcp catalog create` with the same name replaces the entry.
 
 opencode does not use `docker mcp client connect`. It starts the Gateway itself
 through the `MCP_DOCKER` entry in `~/.config/opencode/opencode.jsonc`, on profile
-`common_core`. After the registration changes, restart the opencode service so
-it reconnects.
+`common_core`. After the registration changes, restart the opencode service so it
+reconnects.
 
 ## Aftercare
 
 1. Restart the opencode service.
-2. Run `authenticate` with an E.164 phone number, or ask the agent to.
-3. If tools are missing, run `docker mcp profile activate common_core`, or check
-   the profile server list.
+2. Run `authenticate` with an E.164 phone number. The user can also ask the agent
+   to run it.
+3. If tools are missing, run `docker mcp profile activate common_core`. Also
+   check the profile server list.
 
 ## Checklist
 

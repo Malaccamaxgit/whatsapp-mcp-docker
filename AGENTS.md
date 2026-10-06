@@ -1,7 +1,8 @@
 # whatsapp-mcp-docker: TypeScript Project Reference
 
-TypeScript MCP server for the Docker MCP Toolkit. It sends messages, searches
-chats, runs approval workflows, and supports remote agent control.
+This project is a TypeScript MCP server for the Docker MCP Toolkit. The server
+sends messages, searches chats, runs approval workflows, and supports remote
+agent control.
 
 **Migration status:** Complete (2026-04-03). The codebase is 100 percent
 TypeScript.
@@ -24,50 +25,56 @@ TypeScript.
 
 ## Docker-First Development
 
-This project has Linux-only dependencies, for example
-`@whatsmeow-node/linux-x64-musl`. They fail on Windows and macOS.
+This project has Linux-only dependencies. One example is
+`@whatsmeow-node/linux-x64-musl`. These dependencies fail on Windows and macOS.
 
 - **Never run `npm test` on the host.** It exits 1.
 - Run every development, test, lint, and format command inside `tester-container`.
-- Edit `package.json` by hand and rebuild, instead of running `npm install` on
-  the host. Host and container platforms differ.
+- Edit `package.json` by hand. Then rebuild the image.
+- Do not run `npm install` on the host. The host platform and the container
+  platform differ.
 - Do not install eslint, prettier, or other dev tools globally on the host.
 
-Allowed on the host: `docker compose` commands, `node scripts/*.js`
-diagnostics, git operations, read-only `npx` tools, and file editing.
+The host allows these commands:
+
+- `docker compose` commands
+- `node scripts/*.js` diagnostics
+- git operations
+- read-only `npx` tools
+- file editing
 
 ### Always build with `--no-cache`
 
-BuildKit can cache the TypeScript compile step even when source files change.
-A cached build serves stale `dist/` output and produces confusing failures. Use
+BuildKit can cache the TypeScript compile step even when a source file changes.
+A cached build serves stale `dist/` output. The failure is confusing. Use
 `--no-cache` for every build.
 
 The test container copies source files at build time. Rebuild it after you
-change any `.ts`, `.test.ts`, or `package.json` file, or the tests run stale
-code.
+change a `.ts` file, a `.test.ts` file, or `package.json`. If you do not
+rebuild, the tests run stale code.
 
 ---
 
 ## Docker MCP Gateway Rules
 
-The Docker MCP Toolkit Gateway manages the `whatsapp-mcp-docker` container when
-the server is registered in a profile with `longLived: true`.
+The Docker MCP Toolkit Gateway manages the `whatsapp-mcp-docker` container. It
+does this when the server is registered in a profile with `longLived: true`.
 
 - Use MCP tools through the Gateway. Do not bypass it with `docker run`,
   `docker exec`, or `docker compose up`.
 - **Never stop a Gateway-managed container with `docker stop` or
-  `docker compose down`.** That kills the Gateway stdio process, and every MCP
-  tool then fails with EOF errors.
-- To restart the server, remove it from the profile and add it again.
+  `docker compose down`.** That command kills the Gateway stdio process. Every
+  MCP tool then fails with EOF errors.
+- To restart the server, remove it from the profile. Then add it again.
 - After a code rebuild, rebuild the image only. The Gateway uses the new image
   on its next container restart.
 
 opencode reaches the Gateway by running the Gateway itself. The global opencode
-config starts `docker mcp gateway run --profile common_core`, so opencode does
+config starts `docker mcp gateway run --profile common_core`. So opencode does
 not use the `docker mcp client connect` flow.
 
-Recovery after an accidental Gateway stop: restart the opencode service, then
-call `authenticate` again.
+If you stop the Gateway by accident, restart the opencode service. Then call
+`authenticate` again.
 
 ---
 
@@ -130,7 +137,7 @@ src/
 - `esModuleInterop: true`, `allowSyntheticDefaultImports: true`
 - `outDir: ./dist`
 
-`tsconfig.test.json` extends the main config, includes `test/`, and keeps the
+`tsconfig.test.json` extends the main config. It includes `test/` and keeps the
 same strict settings with `noEmit: true`. Because `noEmit` is set, `node --test`
 cannot run `.ts` tests. Use `tsx`.
 
@@ -197,7 +204,7 @@ let fh: import('node:fs/promises').FileHandle;
 ## Tool Registration API
 
 Use the typed wrapper `registerTool` from `src/utils/mcp-types.ts`. It removes
-the `as any` casts that the raw SDK call would need at every handler.
+the `as any` casts that the raw SDK call needs at every handler.
 
 ```typescript
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -223,7 +230,7 @@ export function registerExampleTools (server: McpServer): void {
 
 Notes:
 
-- `src/server.ts` wraps `mcpServer.registerTool` and appends a tool-info hint to
+- `src/server.ts` wraps `mcpServer.registerTool`. It appends a tool-info hint to
   every description. Do not add the hint by hand.
 - Log to `stderr`, never `stdout`. `stdout` carries the MCP stdio transport.
 - `src/tools/messaging.ts`, `src/tools/chats.ts`, and `src/tools/media.ts` still
@@ -242,8 +249,8 @@ Notes:
 6. Add tests in `test/integration/tools.test.ts`.
 7. Update the tool table in `README.md`.
 
-Call `permissions.checkRateLimit()` for outbound actions, and log every action
-with `audit.log(toolName, action, details)`.
+Call `permissions.checkRateLimit()` for outbound actions. Log every action with
+`audit.log(toolName, action, details)`.
 
 ---
 
@@ -258,7 +265,8 @@ with `audit.log(toolName, action, details)`.
 
 ## Import Path Convention
 
-ESM imports keep the `.js` extension. TypeScript `NodeNext` resolves to `.ts`.
+ESM imports keep the `.js` extension. TypeScript `NodeNext` resolves the path to
+`.ts`.
 
 ```typescript
 import { foo } from './utils/foo.js';
@@ -296,7 +304,7 @@ This repository uses GPG-signed commits with Kleopatra.
 
 1. Stage changes with `git add .`.
 2. Commit with `git commit -m "message"`.
-3. Kleopatra prompts for the passphrase. Enter it in the Kleopatra window.
+3. Kleopatra asks for the passphrase. Enter it in the Kleopatra window.
 
 Rules:
 
@@ -314,7 +322,7 @@ Verify the commit with `git log --oneline -1`.
 
 ## MCP Client Usage
 
-All tools are exposed over MCP. Categories:
+The server exposes all tools over MCP. The categories follow.
 
 | Category | Tools |
 |----------|-------|

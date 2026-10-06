@@ -5,13 +5,13 @@ description: Run unit, integration, or E2E tests for the WhatsApp MCP Docker pro
 
 # Run Tests: WhatsApp MCP Docker
 
-All tests run inside `tester-container`. Never use `npm test` on the host. It
-exits 1 because the Linux-only binary is missing, and the `_guard` script blocks
+Run all tests inside `tester-container`. Never run `npm test` on the host. It
+exits 1 because the Linux-only binary is missing. The `_guard` script also blocks
 the run unless `NODE_ENV=test`.
 
 ## Build the test container first
 
-Required before the first run, and after code changes:
+Required before the first run and after code changes:
 
 ```bash
 docker compose --profile test build tester-container
@@ -46,7 +46,7 @@ docker compose --profile test run --rm tester-container npm run test:auth
 docker compose --profile test run --rm tester-container npm run test:e2e
 ```
 
-Re-authenticate after about 20 days, when the WhatsApp session expires.
+Re-authenticate after about 20 days. The WhatsApp session expires at that point.
 
 ## Lint and format (inside the container)
 
@@ -65,7 +65,7 @@ docker compose --profile test run --rm tester-container npm run format:check
 
 ## Notes
 
-- `npm run test:*` scripts use `tsx`. Do not run tests with `node --test`, which
+- The `npm run test:*` scripts use `tsx`. Do not run tests with `node --test`. It
   cannot resolve `.ts` files because `tsconfig.test.json` sets `noEmit: true`.
-- Rebuild the test container after you change any `.ts`, `.test.ts`, or
-  `package.json` file.
+- Rebuild the test container after you change a `.ts` file, a `.test.ts` file, or
+  `package.json`.

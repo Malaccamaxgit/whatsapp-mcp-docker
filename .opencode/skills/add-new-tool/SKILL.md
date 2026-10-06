@@ -5,7 +5,12 @@ description: Add a new MCP tool to the WhatsApp MCP Docker server. Covers creati
 
 # Add a New MCP Tool
 
-Four steps: tool file, then `server.ts`, then the server YAML, then the README.
+The change touches four files. Do them in this order:
+
+1. The tool file.
+2. `src/server.ts`.
+3. The server YAML.
+4. `README.md`.
 
 ## Step 1: create or extend a tool file in `src/tools/`
 
@@ -56,7 +61,7 @@ export function registerExampleTools (
 
 Key patterns:
 
-- Always call `permissions.checkRateLimit()` for outbound actions.
+- Call `permissions.checkRateLimit()` for outbound actions.
 - Log every action with `audit.log(toolName, action, details)`.
 - Use Zod schemas for all parameters.
 - Log to `stderr`, never `stdout`. `stdout` carries the MCP stdio transport.
@@ -69,8 +74,8 @@ import { registerExampleTools } from './tools/example.js';
 registerExampleTools(mcpServer, waClient, resolvedStore, resolvedPermissions, resolvedAudit);
 ```
 
-Match the argument order used by the neighbouring `registerXTools` calls. Some
-functions take fewer arguments, for example `registerStatusTools` takes no audit
+Match the argument order of the neighbouring `registerXTools` calls. Some
+functions take fewer arguments. For example, `registerStatusTools` takes no audit
 logger.
 
 ## Step 3: add to `whatsapp-mcp-docker-server.yaml`
@@ -84,9 +89,8 @@ logger.
         desc: "What this parameter is for"
 ```
 
-The description convention ends with the `get_tool_info` hint. `server.ts`
-appends a hint automatically, so keep the YAML line consistent with the other
-entries.
+The description ends with the `get_tool_info` hint. `server.ts` appends a hint
+automatically. Keep the YAML line consistent with the other entries.
 
 ## Step 4: update the `README.md` tool table
 

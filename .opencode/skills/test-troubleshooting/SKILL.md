@@ -7,7 +7,7 @@ description: Troubleshoot Docker test container build and test execution issues 
 
 ## Common issues and solutions
 
-### Issue 1: test container uses a cached build (files not updated)
+### Issue 1: the test container uses a cached build (files not updated)
 
 Symptoms:
 
@@ -22,8 +22,9 @@ Example error:
 Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/app/src/utils/timezone.ts'
 ```
 
-Root cause: the Docker build cache does not detect some file changes when a file
-was added after a layer was cached, or a modification time did not change.
+Root cause: the Docker build cache does not detect some file changes. This
+happens when you add a file after a layer is cached, or when a modification time
+does not change.
 
 Solution, in order of preference:
 
@@ -45,7 +46,7 @@ docker compose --profile test build --no-cache tester-container
 ```
 
 Prevention: check the build output for the `COPY src/` layer. If it says
-`CACHED`, the container has old files. After adding files, remove the image and
+`CACHED`, the container has old files. After you add files, remove the image and
 rebuild.
 
 ### Issue 2: tests work with `npm run test:unit` but fail with `node --test`
@@ -62,9 +63,9 @@ docker compose run --rm tester-container node --test test/unit/timezone.test.ts
 
 Error: `Cannot find module '/app/src/utils/phone.ts'`.
 
-Root cause: `npm run test:*` uses `tsx`, which resolves `.ts` files directly.
-`node --test` expects compiled output, and `tsconfig.test.json` sets
-`noEmit: true`, so no compiled test output exists.
+Root cause: `npm run test:*` uses `tsx`. `tsx` resolves `.ts` files directly.
+`node --test` expects compiled output. `tsconfig.test.json` sets `noEmit: true`,
+so no compiled test output exists.
 
 Solution: always use `tsx` for tests.
 
@@ -77,7 +78,7 @@ docker compose run --rm tester-container npx tsx --test test/unit/*.test.ts
 docker compose run --rm tester-container node --test test/unit/timezone.test.ts
 ```
 
-### Issue 3: file exists on the host but not in the container
+### Issue 3: the file exists on the host but not in the container
 
 Symptoms:
 
@@ -86,8 +87,8 @@ ls src/utils/timezone.ts                                   # exists on host
 docker compose run --rm tester-container ls src/utils/timezone.ts   # missing
 ```
 
-Root cause: the `COPY` ran before the file was created, the build cache was
-reused, or the file is in `.dockerignore`.
+Root cause: the `COPY` ran before the file existed, the build cache was reused,
+or the file is in `.dockerignore`.
 
 Diagnosis:
 
@@ -106,7 +107,7 @@ docker compose --profile test build tester-container
 docker compose run --rm tester-container ls -la src/utils/timezone.*
 ```
 
-### Issue 4: test passes on the host but fails in the container
+### Issue 4: the test passes on the host but fails in the container
 
 Root cause: a different environment, for example `TZ`, `NODE_ENV`, file
 permissions, or the Node.js version.
@@ -119,10 +120,10 @@ docker compose run --rm tester-container node --version
 docker compose run --rm tester-container ls -la test/unit/
 ```
 
-Solution: set `TZ` in `docker-compose.yml`, and use `USER node` in the
-Dockerfile so files are not owned by root.
+Solution: set `TZ` in `docker-compose.yml`. Use `USER node` in the Dockerfile so
+files are not owned by root.
 
-### Issue 5: tests cached but the code changed
+### Issue 5: tests are cached but the code changed
 
 Symptoms: you changed test assertions, but the old behavior still passes.
 
@@ -159,16 +160,16 @@ docker compose run --rm tester-container env | grep -E "TZ|NODE"
 
 ## Best practices
 
-1. Always rebuild after adding files.
+1. Always rebuild after you add files.
 2. Use npm scripts, not direct `node` commands.
 3. Verify files in the container after a build.
 4. Clear caches when tests behave strangely.
 
 ## Container writes and host pollution
 
-The tester-container copies source at build time. It does not bind-mount the
-repo by default. A tool that writes files (`eslint --fix`, `prettier --write`)
-changes the container copy, and the change is lost when the container exits.
+The tester-container copies source at build time. It does not bind-mount the repo
+by default. A tool that writes files (`eslint --fix`, `prettier --write`) changes
+the container copy. The change is lost when the container exits.
 
 To persist fixes to the host, bind-mount the source over the image copies:
 
@@ -182,8 +183,8 @@ docker compose --profile test run --rm \
 
 PowerShell: use backticks for the line continuation.
 
-To verify a command that installs dependencies, for example the CI step
-`npm install --include=dev`, copy the repo into a throwaway container instead of
+To verify a command that installs dependencies (for example the CI step
+`npm install --include=dev`), copy the repo into a throwaway container instead of
 bind-mounting. This keeps Linux `node_modules` off the host:
 
 ```bash
@@ -191,7 +192,7 @@ docker run --rm -v "${PWD}:/src:ro" node:20 sh -c "mkdir -p /w && (cd /src && ta
 ```
 
 On glibc this install step succeeds. npm skips the musl-only dependency
-`@whatsmeow-node/linux-x64-musl` instead of failing.
+`@whatsmeow-node/linux-x64-musl`.
 
 ## When to use this skill
 
@@ -199,4 +200,4 @@ On glibc this install step succeeds. npm skips the musl-only dependency
 - Build output shows `CACHED` for all layers.
 - Files exist on the host but not in the container.
 - Tests work with npm scripts but fail with direct `node` commands.
-- Test behavior differs between host and container.
+- Test behavior differs between the host and the container.

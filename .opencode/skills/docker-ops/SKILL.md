@@ -7,13 +7,13 @@ description: Docker operations for the WhatsApp MCP Docker project. Rebuild afte
 
 ## Never stop a Gateway-managed container with `docker stop`
 
-The MCP Gateway (Docker MCP Toolkit) manages the `whatsapp-mcp-docker` container
-when the server is registered in a profile with `longLived: true`. If you stop
-that container externally with `docker stop` or `docker compose down`, the
-Gateway stdio process dies, and all MCP tools stop working with EOF errors. A
-restart of the opencode service is required to recover.
+The MCP Gateway (Docker MCP Toolkit) manages the `whatsapp-mcp-docker` container.
+It does this when the server is registered in a profile with `longLived: true`.
+If you stop that container with `docker stop` or `docker compose down`, the
+Gateway stdio process dies. All MCP tools stop working with EOF errors. Restart
+the opencode service to recover.
 
-Prohibited while the Gateway is active:
+Do not run these commands while the Gateway is active:
 
 ```bash
 docker stop <gateway-container-name>   # kills the Gateway stdio process
@@ -39,15 +39,15 @@ Recovery after an accidental stop:
 If the Gateway is active, rebuild the image only. Do not run `docker compose up`.
 The Gateway picks up the new image on the next container restart.
 
-Critical: always build with `--no-cache`. BuildKit layer caching can cache the
-`npx tsc` step even when `COPY src/` changes, and a cached `dist/` produces bugs
-such as `getContact is not a function`.
+Always build with `--no-cache`. BuildKit layer caching can cache the `npx tsc`
+step even when `COPY src/` changes. A cached `dist/` produces bugs such as
+`getContact is not a function`.
 
 ```bash
 docker compose build --no-cache
 ```
 
-If you are not using the MCP Gateway (standalone mode only):
+If you do not use the MCP Gateway (standalone mode only):
 
 ```bash
 docker compose up -d --build --no-cache
@@ -68,8 +68,8 @@ docker compose down -v
 docker compose up -d --build
 ```
 
-To reset only the session without wiping messages, delete the session file
-inside the `whatsapp-sessions` volume.
+To reset only the session, delete the session file inside the `whatsapp-sessions`
+volume. This step keeps the messages.
 
 ## MCP Toolkit: register or update
 
@@ -80,11 +80,12 @@ docker mcp profile ls
 docker mcp catalog ls
 ```
 
-- Profile: use the profile that hosts opencode. The global opencode config runs
-  the Gateway with `--profile common_core`, so use `common_core` unless the user
-  says otherwise.
-- Catalog: use the custom catalog for this project, for example `my-catalog`. Do
-  not remove `mcp/docker-mcp-catalog:latest`, which is Docker's official catalog.
+- The profile comes from `docker mcp profile ls`. Use the profile that hosts
+  opencode. The global opencode config runs the Gateway with
+  `--profile common_core`. Use `common_core` unless the user says otherwise.
+- The catalog comes from `docker mcp catalog ls`. Use the custom catalog for this
+  project. One example is `my-catalog`. Do not remove
+  `mcp/docker-mcp-catalog:latest`, which is Docker's official catalog.
 
 ### First-time setup
 
@@ -153,28 +154,27 @@ Expected: `whatsapp-sessions`, `whatsapp-audit`.
 
 A removed `overrides` block does nothing until the lockfile is re-resolved.
 `npm install --package-lock-only` against an existing lockfile reports "up to
-date" and applies nothing.
+date". It applies nothing.
 
 To force a fresh resolve:
 
 1. Delete `package-lock.json`.
-2. Run the resolve on musl (Alpine), because the direct dependency
+2. Run the resolve on musl (Alpine). The direct dependency
    `@whatsmeow-node/linux-x64-musl` needs musl libc.
 
 ```bash
 docker run --rm -v "${PWD}:/app" -w /app node:20-alpine npm install --package-lock-only
 ```
 
-On glibc (`node:20`) a fresh resolve fails with `EBADPLATFORM` and writes no
-lockfile. If that happens, restore it with `git checkout -- package-lock.json`
-and rerun with the Alpine image.
+On glibc (`node:20`) a fresh resolve fails with `EBADPLATFORM`. It writes no
+lockfile. If that happens, restore the file with `git checkout -- package-lock.json`.
+Then rerun with the Alpine image.
 
-A fresh resolve can move direct dependencies, not only the targeted transitive
-ones. Review the full lockfile diff before you commit.
+A fresh resolve can move direct dependencies. It does not move only the targeted
+transitive ones. Review the full lockfile diff before you commit.
 
 Verify the CI gate in the same image:
 
 ```bash
 docker run --rm -v "${PWD}:/app" -w /app node:20-alpine npm audit --package-lock-only --production --audit-level=moderate
 ```
-

@@ -5,41 +5,43 @@ description: Full teardown of the WhatsApp MCP Docker environment. Removes the s
 
 # WhatsApp MCP Docker: Full Cleanup
 
-## Context to gather first
+## Gather the context first
 
-Run these two commands first and record the output. They give the real profile
-and catalog names on this machine.
+Run these two commands. Record the output. They give the real profile and catalog
+names on this machine.
 
 ```powershell
 docker mcp profile ls
 docker mcp catalog ls
 ```
 
-- Profile name, from `docker mcp profile ls`. Use the profile that hosts
-  opencode, which is `common_core` by default.
-- Catalog name, from `docker mcp catalog ls`. Use the entry that is not
-  `mcp/docker-mcp-catalog:latest`, which is Docker's official catalog. Do not
-  remove that one.
+- The profile name comes from `docker mcp profile ls`. Use the profile that hosts
+  opencode. The default is `common_core`.
+- The catalog name comes from `docker mcp catalog ls`. Use the entry that is not
+  `mcp/docker-mcp-catalog:latest`. That entry is Docker's official catalog. Do not
+  remove it.
 
 ## Warn the user first
 
 Before any step, tell the user:
 
-> MCP tools will stop responding during cleanup. After I finish, you must
-> restart the opencode service. This also deletes all WhatsApp session, message,
-> and audit data in the named volumes, so you will need to authenticate again.
+> MCP tools stop responding during cleanup. After the cleanup, restart the
+> opencode service. Cleanup also deletes all WhatsApp session, message, and audit
+> data in the named volumes. You must authenticate again.
 
-Then confirm they want to proceed.
+Then ask for confirmation.
 
-## Cleanup steps, in this exact order
+## Cleanup steps
 
-### Step 1: remove from the MCP profile
+Run the steps in this exact order.
+
+### Step 1: remove the server from the MCP profile
 
 ```powershell
 docker mcp profile server remove <PROFILE> whatsapp-mcp-docker
 ```
 
-Ignore errors if `whatsapp-mcp-docker` was not registered.
+Ignore an error if `whatsapp-mcp-docker` is not registered.
 
 ### Step 2: remove the encryption secret
 
@@ -48,9 +50,9 @@ docker mcp secret rm whatsapp-mcp-docker.data_encryption_key
 docker mcp secret ls
 ```
 
-Ignore errors if the secret did not exist.
+Ignore an error if the secret does not exist.
 
-### Step 3: stop containers and remove named volumes
+### Step 3: stop containers and remove the named volumes
 
 Run from the project root.
 
@@ -58,8 +60,8 @@ Run from the project root.
 docker compose down -v --remove-orphans
 ```
 
-This removes the `whatsapp-mcp-docker` container, the `tester-container`
-container if running, and the `whatsapp-sessions` and `whatsapp-audit` volumes.
+This step removes the `whatsapp-mcp-docker` container, the `tester-container`
+container, and the `whatsapp-sessions` and `whatsapp-audit` volumes.
 
 ### Step 4: remove the Docker image
 
@@ -67,12 +69,12 @@ container if running, and the `whatsapp-sessions` and `whatsapp-audit` volumes.
 docker rmi malaccamax/whatsapp-mcp-docker:latest
 ```
 
-Ignore `No such image` errors.
+Ignore a `No such image` error.
 
-### Step 5: prune dangling build-cache layers
+### Step 5: prune the dangling build-cache layers
 
 The multi-stage Dockerfile creates intermediate `builder` and `test` stage
-layers that `compose down` does not remove.
+layers. `compose down` does not remove them.
 
 ```powershell
 docker image prune -f
@@ -84,7 +86,7 @@ docker image prune -f
 docker mcp catalog remove <CATALOG>:latest
 ```
 
-Use the catalog name found in the first step. Do not remove
+Use the catalog name from the first step. Do not remove
 `mcp/docker-mcp-catalog:latest`.
 
 ## Verification
@@ -102,15 +104,15 @@ Expected results:
 
 - `whatsapp-mcp-docker` is absent from the profile server list.
 - `whatsapp-mcp-docker.data_encryption_key` is absent from the secrets.
-- No whatsapp containers, volumes, or images.
+- No whatsapp containers, volumes, or images exist.
 - The custom catalog is absent.
 
-## Reminder to the user at the end
+## Reminder at the end
 
-> Cleanup complete. Restart the opencode service now. To reinstall, run the
-> `reinitiate` or `docker-ops` skill.
+> Cleanup is complete. Restart the opencode service now. To reinstall, run the
+> `reinitiate` skill or the `docker-ops` skill.
 
-## Shortcut: use the script instead
+## Shortcut: run the script
 
 ```powershell
 .\scripts\cleanup.ps1
