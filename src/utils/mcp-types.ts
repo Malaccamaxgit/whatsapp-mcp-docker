@@ -53,13 +53,13 @@ type RegisterToolConfig<T extends Record<string, z.ZodTypeAny>> = {
  * requires an index signature and the exact SDK CallToolResult type, so
  * bridging it with our simpler McpResult is done once here.
  */
-export function registerTool<T extends Record<string, z.ZodTypeAny>>(
+export function registerTool<T extends Record<string, z.ZodTypeAny>> (
   server: McpServer,
   name: string,
   config: RegisterToolConfig<T>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   handler: (args: ToolInput<T>) => McpResult | Promise<McpResult>
 ): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   server.registerTool(name, config as any, handler as any);
 }

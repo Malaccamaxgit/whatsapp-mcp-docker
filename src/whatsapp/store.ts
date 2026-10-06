@@ -842,7 +842,7 @@ WHERE 1=1
     // Get all legacy contact mappings
     const mappings = this.getAllContactMappings();
     const mappingLookup = new Map<string, ContactMapping>();
-    
+
     for (const mapping of mappings) {
       if (mapping.lid_jid) {mappingLookup.set(mapping.lid_jid, mapping);}
       if (mapping.phone_jid) {mappingLookup.set(mapping.phone_jid, mapping);}
@@ -909,7 +909,7 @@ WHERE 1=1
 
     // Merge duplicates using mappings
     const unifiedMap = new Map<string, ChatRow>();
-    
+
     for (const chat of allChats) {
       // Skip group chats - they don't have JID duplication issues
       if (chat.is_group) {
@@ -967,7 +967,7 @@ WHERE 1=1
     // Create new contact
     const result = this._createContact.run(phoneNumber, name || null);
     const contactId = result.lastInsertRowid as number;
-    
+
     return {
       id: contactId,
       phoneNumber,
@@ -1116,7 +1116,7 @@ WHERE 1=1
     contactsCreated: number;
     devicesMigrated: number;
     errors: string[];
-  } {
+    } {
     const results: { contactsCreated: number; devicesMigrated: number; errors: string[] } = { contactsCreated: 0, devicesMigrated: 0, errors: [] };
 
     // Get all existing mappings
@@ -1813,7 +1813,7 @@ WHERE 1=1
    */
   public migrateDuplicateChats (): { migrated: number; skipped: number } {
     console.error('[STORE] Starting JID unification migration...');
-    
+
     // Get all non-group chats
     const allChats = this.db!.prepare(`
       SELECT jid, name, last_message_at, unread_count, last_message_preview
@@ -1855,7 +1855,7 @@ WHERE 1=1
       // Extract phone number from phone JID
       for (const phoneChat of phoneChats) {
         const phoneNumber = phoneChat.jid.match(/^([0-9]+)@/)?.[1] || null;
-        
+
         if (!phoneNumber) {
           skipped++;
           continue;
@@ -1890,7 +1890,7 @@ WHERE 1=1
    */
   public repairMisroutedChats (): { repaired: number; scanned: number } {
     console.error('[STORE] Starting chat repair migration...');
-    
+
     // Find @lid JIDs that have is_group=0 but whose messages suggest they belong to a group
     // A @lid JID is typically a group participant, not a DM contact
     const lidChatsAsNonGroup = this.db!.prepare(`

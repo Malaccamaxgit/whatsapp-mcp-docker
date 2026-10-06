@@ -77,7 +77,7 @@ describe('Multi-Device Message Flow Integration', () => {
 
       // Should be unified into a single chat entry
       assert.equal(benjaminChats.length, 1);
-      
+
       // Should have the most recent message
       const chat = benjaminChats[0];
       assert.equal(chat.last_message_preview, 'Message from device 2');
@@ -136,7 +136,7 @@ describe('Multi-Device Message Flow Integration', () => {
       const lidJid = '999999@lid';
 
       const contact = store.getOrCreateContactByPhone(phoneNumber, 'Active User');
-      
+
       // Add device with old timestamp
       const oldTimestamp = Math.floor(Date.now() / 1000) - 3600;
       store.addDeviceLid(phoneNumber, lidJid, { lastSeen: oldTimestamp });
@@ -147,7 +147,7 @@ describe('Multi-Device Message Flow Integration', () => {
 
       const updated = store.getContactByJid(lidJid);
       assert.ok(updated !== null);
-      
+
       const device = updated?.devices.find((d) => d.lidJid === lidJid);
       assert.ok(device !== undefined);
       assert.ok(device?.lastSeen && device.lastSeen >= newTimestamp);
@@ -245,7 +245,7 @@ describe('Multi-Device Message Flow Integration', () => {
     it('should handle contact with no devices', () => {
       const phoneNumber = '+0000000000';
       const contact = store.getOrCreateContactByPhone(phoneNumber, 'No Devices');
-      
+
       assert.ok(contact.id > 0);
       assert.equal(contact.devices.length, 0);
       assert.equal(contact.phoneJids.length, 0);
@@ -256,7 +256,7 @@ describe('Multi-Device Message Flow Integration', () => {
       const lidJid = '111111@lid';
 
       store.getOrCreateContactByPhone(phoneNumber, 'Test');
-      
+
       // Add same device twice
       store.addDeviceLid(phoneNumber, lidJid, { isPrimary: false });
       store.addDeviceLid(phoneNumber, lidJid, { isPrimary: true });
@@ -264,7 +264,7 @@ describe('Multi-Device Message Flow Integration', () => {
       const contact = store.getContactByJid(lidJid);
       assert.ok(contact !== null);
       assert.equal(contact?.devices.length, 1);
-      
+
       // Second addition should have updated is_primary
       const device = contact?.devices[0];
       assert.equal(device?.isPrimary, true);

@@ -82,39 +82,39 @@ export function registerGroupTools (
       participants: PhoneArraySchema(1, 256).describe('Phone numbers (E.164) or JIDs of participants to add')
     }
   }, async ({ name, participants }) => {
-      const disabled = disabledResult('create_group');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('create_group');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      const rateCheck = permissions.checkRateLimit();
-      if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
-      }
+    const rateCheck = permissions.checkRateLimit();
+    if (!rateCheck.allowed) {
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
+    }
 
-      try {
-        const jids = participants.map((p) => (p.includes('@') ? p : toJid(p))).filter((j): j is string => j !== null);
-        const result = await waClient.createGroup(name, jids) as CreateGroupResult;
-        audit.log('create_group', 'created', { name, jid: result.jid, participants: jids.length });
-        return {
-          content: [
-            {
-              type: 'text',
-              text: [
-                `Group "${name}" created successfully.`,
-                `  JID: ${result.jid}`,
-                `  Participants: ${jids.length}`,
-                result.inviteLink ? `  Invite link: ${result.inviteLink}` : ''
-              ]
-                .filter(Boolean)
-                .join('\n')
-            }
-          ]
-        };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        audit.log('create_group', 'failed', { name, error: errorMsg }, false);
-        return { content: [{ type: 'text', text: `Failed to create group: ${errorMsg}` }], isError: true };
-      }
+    try {
+      const jids = participants.map((p) => (p.includes('@') ? p : toJid(p))).filter((j): j is string => j !== null);
+      const result = await waClient.createGroup(name, jids) as CreateGroupResult;
+      audit.log('create_group', 'created', { name, jid: result.jid, participants: jids.length });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: [
+              `Group "${name}" created successfully.`,
+              `  JID: ${result.jid}`,
+              `  Participants: ${jids.length}`,
+              result.inviteLink ? `  Invite link: ${result.inviteLink}` : ''
+            ]
+              .filter(Boolean)
+              .join('\n')
+          }
+        ]
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      audit.log('create_group', 'failed', { name, error: errorMsg }, false);
+      return { content: [{ type: 'text', text: `Failed to create group: ${errorMsg}` }], isError: true };
+    }
   });
 
   // ── get_group_info ────────────────────────────────────────────
@@ -125,52 +125,52 @@ export function registerGroupTools (
       group: z.string().max(200).describe('Group name (fuzzy match) or group JID ending in @g.us')
     }
   }, async ({ group }) => {
-      const disabled = disabledResult('get_group_info');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('get_group_info');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      try {
-        const jid = await resolveGroupJid(group, store, waClient);
-        if (!jid) {
-          return {
-            content: [{ type: 'text', text: withToolInfoErrorHint(`Group not found: "${group}"`, 'get_group_info') }],
-            isError: true
-          };
-        }
-
-        const info = await waClient.getGroupInfo(jid) as GroupInfo;
-        audit.log('get_group_info', 'read', { jid });
-
-        const admins = info.participants.filter((p) => p.isAdmin || p.isSuperAdmin).map((p) => p.jid);
-        const members = info.participants.map((p) => {
-          const jidType = getJidTypeInfo(p.jid);
-          const role = p.isSuperAdmin ? ' [owner]' : p.isAdmin ? ' [admin]' : '';
-          return `  - ${p.jid} ${jidType.shortLabel}${role}`;
-        });
-
+    try {
+      const jid = await resolveGroupJid(group, store, waClient);
+      if (!jid) {
         return {
-          content: [
-            {
-              type: 'text',
-              text: [
-                `Group: ${info.name || '(no name)'}`,
-                `JID: ${jid}`,
-                info.topic ? `Description: ${info.topic}` : '',
-                `Participants (${info.participants.length}):`,
-                ...members,
-                `Admins: ${admins.join(', ') || 'none'}`,
-                info.isLocked ? 'Settings: locked (only admins can change)' : '',
-                info.isAnnounce ? 'Mode: announce (only admins can send)' : ''
-              ]
-                .filter(Boolean)
-                .join('\n')
-            }
-          ]
+          content: [{ type: 'text', text: withToolInfoErrorHint(`Group not found: "${group}"`, 'get_group_info') }],
+          isError: true
         };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        return { content: [{ type: 'text', text: `Failed to get group info: ${errorMsg}` }], isError: true };
       }
+
+      const info = await waClient.getGroupInfo(jid) as GroupInfo;
+      audit.log('get_group_info', 'read', { jid });
+
+      const admins = info.participants.filter((p) => p.isAdmin || p.isSuperAdmin).map((p) => p.jid);
+      const members = info.participants.map((p) => {
+        const jidType = getJidTypeInfo(p.jid);
+        const role = p.isSuperAdmin ? ' [owner]' : p.isAdmin ? ' [admin]' : '';
+        return `  - ${p.jid} ${jidType.shortLabel}${role}`;
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: [
+              `Group: ${info.name || '(no name)'}`,
+              `JID: ${jid}`,
+              info.topic ? `Description: ${info.topic}` : '',
+              `Participants (${info.participants.length}):`,
+              ...members,
+              `Admins: ${admins.join(', ') || 'none'}`,
+              info.isLocked ? 'Settings: locked (only admins can change)' : '',
+              info.isAnnounce ? 'Mode: announce (only admins can send)' : ''
+            ]
+              .filter(Boolean)
+              .join('\n')
+          }
+        ]
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      return { content: [{ type: 'text', text: `Failed to get group info: ${errorMsg}` }], isError: true };
+    }
   });
 
   // ── get_joined_groups ─────────────────────────────────────────
@@ -179,38 +179,38 @@ export function registerGroupTools (
     description: 'List all WhatsApp groups this account is a member of, with participant counts and admin status.',
     inputSchema: {}
   }, async () => {
-      const disabled = disabledResult('get_joined_groups');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('get_joined_groups');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      try {
-        const groups = await waClient.getJoinedGroups() as JoinedGroup[];
-        audit.log('get_joined_groups', 'read', { count: groups.length });
+    try {
+      const groups = await waClient.getJoinedGroups() as JoinedGroup[];
+      audit.log('get_joined_groups', 'read', { count: groups.length });
 
-        if (groups.length === 0) {
-          return { content: [{ type: 'text', text: 'Not a member of any groups.' }] };
-        }
-
-        const lines = groups.map((g) => {
-          const adminMark = g.participants?.some((p) => (p.isAdmin || p.isSuperAdmin) && p.jid === waClient.jid) ? ' [admin]' : '';
-          const admins = g.participants
-            ?.filter((p) => p.isAdmin || p.isSuperAdmin)
-            .map((p) => {
-              const jidType = getJidTypeInfo(p.jid);
-              const role = p.isSuperAdmin ? ' [owner]' : p.isAdmin ? ' [admin]' : '';
-              return `${p.jid} ${jidType.shortLabel}${role}`;
-            });
-          const adminList = admins && admins.length > 0 ? `\n    Admins: ${admins.join(', ')}` : '';
-          return `  ${g.name || g.jid}${adminMark} — ${g.participants?.length ?? '?'} members — ${g.jid}${adminList}`;
-        });
-
-        return {
-          content: [{ type: 'text', text: `Joined groups (${groups.length}):\n${lines.join('\n')}` }]
-        };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        return { content: [{ type: 'text', text: `Failed to list groups: ${errorMsg}` }], isError: true };
+      if (groups.length === 0) {
+        return { content: [{ type: 'text', text: 'Not a member of any groups.' }] };
       }
+
+      const lines = groups.map((g) => {
+        const adminMark = g.participants?.some((p) => (p.isAdmin || p.isSuperAdmin) && p.jid === waClient.jid) ? ' [admin]' : '';
+        const admins = g.participants
+          ?.filter((p) => p.isAdmin || p.isSuperAdmin)
+          .map((p) => {
+            const jidType = getJidTypeInfo(p.jid);
+            const role = p.isSuperAdmin ? ' [owner]' : p.isAdmin ? ' [admin]' : '';
+            return `${p.jid} ${jidType.shortLabel}${role}`;
+          });
+        const adminList = admins && admins.length > 0 ? `\n    Admins: ${admins.join(', ')}` : '';
+        return `  ${g.name || g.jid}${adminMark} — ${g.participants?.length ?? '?'} members — ${g.jid}${adminList}`;
+      });
+
+      return {
+        content: [{ type: 'text', text: `Joined groups (${groups.length}):\n${lines.join('\n')}` }]
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      return { content: [{ type: 'text', text: `Failed to list groups: ${errorMsg}` }], isError: true };
+    }
   });
 
   // ── get_group_invite_link ─────────────────────────────────────
@@ -221,31 +221,31 @@ export function registerGroupTools (
       group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us')
     }
   }, async ({ group }) => {
-      const disabled = disabledResult('get_group_invite_link');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('get_group_invite_link');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      try {
-        const jid = await resolveGroupJid(group, store, waClient);
-        if (!jid) {
-          return {
-            content: [{ type: 'text', text: withToolInfoErrorHint(`Group not found: "${group}"`, 'leave_group') }],
-            isError: true
-          };
-        }
-
-        const link = await waClient.getGroupInviteLink(jid) as string;
-        audit.log('get_group_invite_link', 'read', { jid });
-        const fullLink = typeof link === 'string' && link.startsWith('https://')
-          ? link
-          : `https://chat.whatsapp.com/${link}`;
+    try {
+      const jid = await resolveGroupJid(group, store, waClient);
+      if (!jid) {
         return {
-          content: [{ type: 'text', text: `Invite link for ${jid}:\n${fullLink}` }]
+          content: [{ type: 'text', text: withToolInfoErrorHint(`Group not found: "${group}"`, 'leave_group') }],
+          isError: true
         };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        return { content: [{ type: 'text', text: `Failed to get invite link: ${errorMsg}` }], isError: true };
       }
+
+      const link = await waClient.getGroupInviteLink(jid) as string;
+      audit.log('get_group_invite_link', 'read', { jid });
+      const fullLink = typeof link === 'string' && link.startsWith('https://')
+        ? link
+        : `https://chat.whatsapp.com/${link}`;
+      return {
+        content: [{ type: 'text', text: `Invite link for ${jid}:\n${fullLink}` }]
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      return { content: [{ type: 'text', text: `Failed to get invite link: ${errorMsg}` }], isError: true };
+    }
   });
 
   // ── join_group ────────────────────────────────────────────────
@@ -259,40 +259,40 @@ export function registerGroupTools (
         .describe('Full invite URL (https://chat.whatsapp.com/CODE) or just the invite code')
     }
   }, async ({ link }) => {
-      const disabled = disabledResult('join_group');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('join_group');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      const rateCheck = permissions.checkRateLimit();
-      if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
-      }
+    const rateCheck = permissions.checkRateLimit();
+    if (!rateCheck.allowed) {
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
+    }
 
+    try {
+      let code: string;
       try {
-        let code: string;
-        try {
-          const url = new URL(link.trim());
-          if (url.hostname !== 'chat.whatsapp.com') {
-            return {
-              content: [{ type: 'text', text: 'Invalid WhatsApp group link: unrecognized host.' }],
-              isError: true
-            };
-          }
-          code = url.pathname.replace(/^\//, '').trim();
-        } catch {
-          // Not a full URL — treat as a raw invite code
-          code = link.trim();
+        const url = new URL(link.trim());
+        if (url.hostname !== 'chat.whatsapp.com') {
+          return {
+            content: [{ type: 'text', text: 'Invalid WhatsApp group link: unrecognized host.' }],
+            isError: true
+          };
         }
-        const result = await waClient.joinGroupWithLink(code) as JoinGroupResult;
-        audit.log('join_group', 'joined', { link: code, jid: result?.jid });
-        return {
-          content: [{ type: 'text', text: `Joined group successfully.\nJID: ${result?.jid || 'unknown'}` }]
-        };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        audit.log('join_group', 'failed', { error: errorMsg }, false);
-        return { content: [{ type: 'text', text: `Failed to join group: ${errorMsg}` }], isError: true };
+        code = url.pathname.replace(/^\//, '').trim();
+      } catch {
+        // Not a full URL — treat as a raw invite code
+        code = link.trim();
       }
+      const result = await waClient.joinGroupWithLink(code) as JoinGroupResult;
+      audit.log('join_group', 'joined', { link: code, jid: result?.jid });
+      return {
+        content: [{ type: 'text', text: `Joined group successfully.\nJID: ${result?.jid || 'unknown'}` }]
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      audit.log('join_group', 'failed', { error: errorMsg }, false);
+      return { content: [{ type: 'text', text: `Failed to join group: ${errorMsg}` }], isError: true };
+    }
   });
 
   // ── leave_group ───────────────────────────────────────────────
@@ -303,24 +303,24 @@ export function registerGroupTools (
       group: z.string().max(200).describe('Group name (fuzzy match) or JID ending in @g.us')
     }
   }, async ({ group }) => {
-      const disabled = disabledResult('leave_group');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('leave_group');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      try {
-        const jid = await resolveGroupJid(group, store, waClient);
-        if (!jid) {
-          return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
-        }
-
-        await waClient.leaveGroup(jid);
-        audit.log('leave_group', 'left', { jid });
-        return { content: [{ type: 'text', text: `Left group ${jid}.` }] };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        audit.log('leave_group', 'failed', { error: errorMsg }, false);
-        return { content: [{ type: 'text', text: `Failed to leave group: ${errorMsg}` }], isError: true };
+    try {
+      const jid = await resolveGroupJid(group, store, waClient);
+      if (!jid) {
+        return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
       }
+
+      await waClient.leaveGroup(jid);
+      audit.log('leave_group', 'left', { jid });
+      return { content: [{ type: 'text', text: `Left group ${jid}.` }] };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      audit.log('leave_group', 'failed', { error: errorMsg }, false);
+      return { content: [{ type: 'text', text: `Failed to leave group: ${errorMsg}` }], isError: true };
+    }
   });
 
   // ── update_group_participants ─────────────────────────────────
@@ -335,39 +335,39 @@ export function registerGroupTools (
       participants: PhoneArraySchema(1, 50).describe('Phone numbers (E.164) or JIDs of participants')
     }
   }, async ({ group, action, participants }) => {
-      const disabled = disabledResult('update_group_participants');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('update_group_participants');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      const rateCheck = permissions.checkRateLimit();
-      if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
+    const rateCheck = permissions.checkRateLimit();
+    if (!rateCheck.allowed) {
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
+    }
+
+    try {
+      const jid = await resolveGroupJid(group, store, waClient);
+      if (!jid) {
+        return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
       }
 
-      try {
-        const jid = await resolveGroupJid(group, store, waClient);
-        if (!jid) {
-          return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
-        }
+      const jids = participants.map((p) => (p.includes('@') ? p : toJid(p))).filter((j): j is string => j !== null);
+      const result = await waClient.updateGroupParticipants(jid, jids, action) as UpdateParticipantsResult[];
+      audit.log('update_group_participants', action, { jid, count: jids.length });
 
-        const jids = participants.map((p) => (p.includes('@') ? p : toJid(p))).filter((j): j is string => j !== null);
-        const result = await waClient.updateGroupParticipants(jid, jids, action) as UpdateParticipantsResult[];
-        audit.log('update_group_participants', action, { jid, count: jids.length });
-
-        const outcomes = result?.map((r) => `  - ${r.jid}: ${r.error || 'ok'}`).join('\n') || '';
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `${action} completed for ${jids.length} participant(s) in ${jid}.\n${outcomes}`.trim()
-            }
-          ]
-        };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        audit.log('update_group_participants', 'failed', { error: errorMsg }, false);
-        return { content: [{ type: 'text', text: `Failed to update participants: ${errorMsg}` }], isError: true };
-      }
+      const outcomes = result?.map((r) => `  - ${r.jid}: ${r.error || 'ok'}`).join('\n') || '';
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `${action} completed for ${jids.length} participant(s) in ${jid}.\n${outcomes}`.trim()
+          }
+        ]
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      audit.log('update_group_participants', 'failed', { error: errorMsg }, false);
+      return { content: [{ type: 'text', text: `Failed to update participants: ${errorMsg}` }], isError: true };
+    }
   });
 
   // ── set_group_name ────────────────────────────────────────────
@@ -379,23 +379,23 @@ export function registerGroupTools (
       name: z.string().min(1).max(100).describe('New group name')
     }
   }, async ({ group, name }) => {
-      const disabled = disabledResult('set_group_name');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('set_group_name');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      try {
-        const jid = await resolveGroupJid(group, store, waClient);
-        if (!jid) {
-          return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
-        }
-
-        await waClient.setGroupName(jid, name);
-        audit.log('set_group_name', 'updated', { jid, name });
-        return { content: [{ type: 'text', text: `Group name updated to "${name}".` }] };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        return { content: [{ type: 'text', text: `Failed to set group name: ${errorMsg}` }], isError: true };
+    try {
+      const jid = await resolveGroupJid(group, store, waClient);
+      if (!jid) {
+        return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
       }
+
+      await waClient.setGroupName(jid, name);
+      audit.log('set_group_name', 'updated', { jid, name });
+      return { content: [{ type: 'text', text: `Group name updated to "${name}".` }] };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      return { content: [{ type: 'text', text: `Failed to set group name: ${errorMsg}` }], isError: true };
+    }
   });
 
   // ── set_group_topic ───────────────────────────────────────────
@@ -407,27 +407,27 @@ export function registerGroupTools (
       topic: z.string().max(512).describe('New group description (max 512 characters, empty string to clear)')
     }
   }, async ({ group, topic }) => {
-      const disabled = disabledResult('set_group_topic');
-      if (disabled) {return disabled;}
-      if (!waClient.isConnected()) {return notConnected();}
+    const disabled = disabledResult('set_group_topic');
+    if (disabled) {return disabled;}
+    if (!waClient.isConnected()) {return notConnected();}
 
-      try {
-        const jid = await resolveGroupJid(group, store, waClient);
-        if (!jid) {
-          return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
-        }
-
-        await waClient.setGroupTopic(jid, topic);
-        audit.log('set_group_topic', 'updated', { jid });
-        return {
-          content: [
-            { type: 'text', text: topic ? 'Group description updated.' : 'Group description cleared.' }
-          ]
-        };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err || '');
-        return { content: [{ type: 'text', text: `Failed to set group topic: ${errorMsg}` }], isError: true };
+    try {
+      const jid = await resolveGroupJid(group, store, waClient);
+      if (!jid) {
+        return { content: [{ type: 'text', text: `Group not found: "${group}"` }], isError: true };
       }
+
+      await waClient.setGroupTopic(jid, topic);
+      audit.log('set_group_topic', 'updated', { jid });
+      return {
+        content: [
+          { type: 'text', text: topic ? 'Group description updated.' : 'Group description cleared.' }
+        ]
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err || '');
+      return { content: [{ type: 'text', text: `Failed to set group topic: ${errorMsg}` }], isError: true };
+    }
   });
 }
 

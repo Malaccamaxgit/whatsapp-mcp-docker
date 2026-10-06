@@ -59,7 +59,7 @@ describe('Multi-Device JID Mapping', () => {
       const updatedContact = store.getContactByJid(lidJid1);
       assert.ok(updatedContact !== null);
       assert.equal(updatedContact?.devices.length, 2);
-      
+
       const primaryDevice = updatedContact?.devices.find((d) => d.isPrimary);
       assert.ok(primaryDevice !== undefined);
       assert.equal(primaryDevice?.lidJid, lidJid1);
@@ -119,7 +119,7 @@ describe('Multi-Device JID Mapping', () => {
 
       const retrieved = store.getContactDevices(contact.id);
       assert.equal(retrieved.length, 3);
-      
+
       const lidJids = retrieved.map((d) => d.lidJid);
       for (const lid of devices) {
         assert.ok(lidJids.includes(lid));
@@ -140,7 +140,7 @@ describe('Multi-Device JID Mapping', () => {
 
       const contact = store.getContactByJid(primaryLid);
       assert.ok(contact !== null);
-      
+
       const primaryDevice = contact?.devices.find((d) => d.isPrimary);
       assert.ok(primaryDevice !== undefined);
       assert.equal(primaryDevice?.lidJid, primaryLid);
@@ -167,7 +167,7 @@ describe('Multi-Device JID Mapping', () => {
 
       const allJids = store.getAllJidsForContact(phoneNumber);
       assert.equal(allJids.length, lidJids.length + phoneJids.length);
-      
+
       for (const lid of lidJids) {
         assert.ok(allJids.includes(lid));
       }
@@ -269,7 +269,7 @@ describe('Multi-Device JID Mapping', () => {
 
       // Run migration - should not throw
       const result = store.migrateToMultiDevice();
-      
+
       // Should create contact with empty phone number
       assert.ok(result.contactsCreated >= 0);
     });

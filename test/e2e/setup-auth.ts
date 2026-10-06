@@ -76,8 +76,8 @@ function ask (question: string): Promise<string> {
 function printNonInteractiveInstructions (): void {
   console.error('✗ Authentication setup needs input but no interactive TTY is available.');
   console.error('');
-  console.error(`Either:`);
-  console.error(`  1) Run in an interactive terminal and pass --interactive`);
+  console.error('Either:');
+  console.error('  1) Run in an interactive terminal and pass --interactive');
   console.error(`  2) Provide phone number via env var ${PHONE_ENV_VAR}:`);
   console.error(
     `     docker compose --profile test run --rm -e ${PHONE_ENV_VAR}=+15145551234 tester-container npx tsx test/e2e/setup-auth.ts`

@@ -265,8 +265,8 @@ export function createMockWaClient (overrides: MockWaClientOverrides = {}): Mock
 
   let _connected = true;
   let _jid: string | null = '15145559999@s.whatsapp.net';
-  let _probeVerified = true;
-  let _probeLastError: string | null = null;
+  const _probeVerified = true;
+  const _probeLastError: string | null = null;
 
   const client = {
     // Internal state (matches real client)

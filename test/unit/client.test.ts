@@ -28,7 +28,7 @@ interface MockStoreState {
   responded: Array<{ id: string; approved: boolean; text: string | null }>;
 }
 
-function makeMockStore(
+function makeMockStore (
   pendingApprovals: Array<{ id: string; to_jid: string }> = [],
   jidMappingFn?: (jid: string) => { lidJid?: string; phoneJid?: string; phoneNumber?: string } | null
 ): { store: MessageStore; state: MockStoreState } {
@@ -40,12 +40,12 @@ function makeMockStore(
       state.responded.push({ id, approved, text });
       return true;
     },
-    getJidMapping: (jid: string) => jidMappingFn?.(jid) ?? null,
+    getJidMapping: (jid: string) => jidMappingFn?.(jid) ?? null
   } as unknown as MessageStore;
   return { store, state };
 }
 
-function makeClient(
+function makeClient (
   pendingApprovals: Array<{ id: string; to_jid: string }> = [],
   jidMappingFn?: (jid: string) => { lidJid?: string; phoneJid?: string; phoneNumber?: string } | null
 ) {

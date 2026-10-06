@@ -241,10 +241,10 @@ describe('MCP Tools (integration)', () => {
     });
 
     it('deduplicates contacts with both @lid and @s.whatsapp.net chats', async () => {
-      const lid   = '44612043436101@lid';
+      const lid = '44612043436101@lid';
       const phone = '33680940027@s.whatsapp.net';
-      const name  = 'Unified Test Contact';
-      ctx.store.upsertChat(lid,   name, false, 7000, 'from lid');
+      const name = 'Unified Test Contact';
+      ctx.store.upsertChat(lid, name, false, 7000, 'from lid');
       ctx.store.upsertChat(phone, name, false, 7100, 'from phone');
       ctx.store.upsertContactMapping(lid, phone, '+33680940027', name);
 
@@ -284,7 +284,7 @@ describe('MCP Tools (integration)', () => {
         arguments: { query: 'Test Contact' }
       });
       const text = result.content[0].text;
-      
+
       // Verify the new fields are present in the output
       assert.ok(text.includes('unread'), 'Output should include unread count indicator');
       assert.ok(text.includes('Last:'), 'Output should include last message timestamp');

@@ -56,7 +56,7 @@ export default [
       'no-new-func': 'error',
       'no-return-await': 'error',
       'require-await': 'off',
-      // Allow @typescript-eslint/no-explicit-any for server.registerTool handlers (per CLAUDE.md)
+      // Allow @typescript-eslint/no-explicit-any for server.registerTool handlers (per AGENTS.md)
       '@typescript-eslint/no-explicit-any': 'off',
       // Allow control character regex for file sanitization (intentionally blocking \\x00-\\x1F)
       'no-control-regex': 'off',
@@ -68,7 +68,7 @@ export default [
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_|^jid$|^phone$',
-        varsIgnorePattern: '^_|^err$|^expectedResponse$|^maliciousFilename$|^plaintext$|^e$|^createMockWaClient$|^WhatsAppClient$|^TextContent$|^MessageWithContext$'
+        varsIgnorePattern: '^_|^err$|^expectedResponse$|^maliciousFilename$|^plaintext$|^e$|^createMockWaClient$|^WhatsAppClient$|^TextContent$|^MessageWithContext$|^createPollInputSchema$|^createPollHandler$'
       }],
     },
   },

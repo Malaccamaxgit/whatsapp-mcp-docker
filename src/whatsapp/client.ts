@@ -954,9 +954,9 @@ export class WhatsAppClient {
               chatJid: msg.chatJid,
               senderJid: msg.senderJid,
               body: msg.body,
-              hasPollUpdate: !!rawMessage?.pollUpdateMessage,
-              hasProtocolPollUpdate: !!rawMessage?.protocolMessage?.pollUpdateMessage,
-              hasReaction: !!rawMessage?.reactionMessage,
+              hasPollUpdate: Boolean(rawMessage?.pollUpdateMessage),
+              hasProtocolPollUpdate: Boolean(rawMessage?.protocolMessage?.pollUpdateMessage),
+              hasReaction: Boolean(rawMessage?.reactionMessage),
               rawMessageKeys: rawMessage ? Object.keys(rawMessage).filter(k => k.includes('poll') || k.includes('Poll') || k.includes('Reaction')) : [],
               rawMessageFull: rawMessage ? Object.keys(rawMessage) : []
             };
@@ -969,7 +969,7 @@ export class WhatsAppClient {
       }
 
       // Enhanced Poll Vote Tracking with detailed logging
-      const hasPollUpdate = !!(rawMessage?.pollUpdateMessage || rawMessage?.protocolMessage?.pollUpdateMessage);
+      const hasPollUpdate = Boolean(rawMessage?.pollUpdateMessage || rawMessage?.protocolMessage?.pollUpdateMessage);
       if (hasPollUpdate) {
         console.error('[WA-POLL] 🗳️  Poll update message detected!');
         console.error('[WA-POLL] Message details:', {
@@ -985,11 +985,11 @@ export class WhatsAppClient {
       // Store poll vote if this is a poll update message
       if (rawMessage?.pollUpdateMessage || rawMessage?.protocolMessage?.pollUpdateMessage) {
         const pollUpdate = rawMessage.pollUpdateMessage || rawMessage.protocolMessage?.pollUpdateMessage;
-        
+
         console.error('[WA-POLL] Poll update structure:', {
-          hasPollCreationKey: !!pollUpdate?.pollCreationMessageKey,
+          hasPollCreationKey: Boolean(pollUpdate?.pollCreationMessageKey),
           pollCreationKeyId: pollUpdate?.pollCreationMessageKey?.id,
-          hasVote: !!pollUpdate?.vote,
+          hasVote: Boolean(pollUpdate?.vote),
           selectedOption: pollUpdate?.vote?.selectedOption,
           selectedOptions: pollUpdate?.vote?.selectedOptions,
           voteType: pollUpdate?.vote?.selectedOptions ? 'array' : (pollUpdate?.vote?.selectedOption ? 'single' : 'none')
@@ -997,7 +997,7 @@ export class WhatsAppClient {
 
         if (pollUpdate?.pollCreationMessageKey?.id) {
           const voteOptions = pollUpdate.vote?.selectedOptions || (pollUpdate.vote?.selectedOption ? [pollUpdate.vote.selectedOption] : []);
-          
+
           console.error('[WA-POLL] ✅ Vote captured:', {
             pollId: pollUpdate.pollCreationMessageKey.id,
             voter: msg.senderJid,
@@ -1115,7 +1115,7 @@ export class WhatsAppClient {
       if (phoneNumber) {
         // Get or create contact by phone number
         const contact = this.messageStore.getOrCreateContactByPhone(phoneNumber, senderName);
-        
+
         // Add LID device if present
         if (lidJid) {
           this.messageStore.addDeviceLid(phoneNumber, lidJid, {
@@ -1125,7 +1125,7 @@ export class WhatsAppClient {
             lastSeen: Math.floor(Date.now() / 1000)
           });
         }
-        
+
         // Add phone JID if present
         if (phoneJid && contact.id) {
           this.messageStore.addPhoneJidToContact(contact.id, phoneJid);
@@ -1165,10 +1165,10 @@ export class WhatsAppClient {
       if (userInfo && typeof userInfo === 'object') {
         const info = userInfo as Record<string, any>;
         const lidJid = info[phoneJid]?.lid_jid || info[phoneJid]?.lid;
-        
+
         if (lidJid && isLidJid(lidJid)) {
           const phoneNumber = extractPhoneNumber(phoneJid);
-          
+
           // Phase 4: Use new multi-device schema
           if (phoneNumber) {
             const contact = this.messageStore.getOrCreateContactByPhone(phoneNumber, contactName || undefined);
@@ -1178,22 +1178,22 @@ export class WhatsAppClient {
               isPrimary: false,
               lastSeen: Math.floor(Date.now() / 1000)
             });
-            
+
             // Also add phone JID if not already present
             if (contact.id) {
               this.messageStore.addPhoneJidToContact(contact.id, phoneJid);
             }
-            
+
             // Legacy fallback for backward compatibility
             this.messageStore.upsertContactMapping(lidJid, phoneJid, phoneNumber, contactName);
-            
+
             console.error(`[WA] Resolved LID mapping: ${lidJid} ↔ ${phoneJid}`);
           }
         }
       }
     } catch (error) {
       // Best-effort, don't throw
-      this.logger.error(`[WA] getUserInfo failed for LID resolution:`, (error as Error).message);
+      this.logger.error('[WA] getUserInfo failed for LID resolution:', (error as Error).message);
     }
   }
 
@@ -1376,7 +1376,7 @@ export class WhatsAppClient {
       margin: 44,
       color: {
         dark: '#000000ff',
-        light: '#ffffffff',
+        light: '#ffffffff'
       },
       errorCorrectionLevel: 'H'
     });
@@ -1495,12 +1495,12 @@ export class WhatsAppClient {
       } catch (pairErr) {
         lastPairingError = pairErr as Error;
         console.error(`[WA] Pairing code attempt ${attempt}/${maxPairingAttempts} failed: ${(pairErr as Error).message}`);
-        
+
         if (attempt < maxPairingAttempts) {
           console.error(`[WA] Retrying pairing code in ${pairingRetryDelayMs}ms...`);
           await new Promise((r) => setTimeout(r, pairingRetryDelayMs));
         } else {
-          console.error(`[WA] All pairing attempts failed, switching to QR code mode`);
+          console.error('[WA] All pairing attempts failed, switching to QR code mode');
         }
       }
     }
@@ -1571,7 +1571,7 @@ export class WhatsAppClient {
           if (phoneNumber) {
             // Try to resolve LID asynchronously
             this._resolveLidFromPhoneJid(jid, '').catch((err) => {
-              this.logger.error(`[WA] LID resolution failed on send:`, (err as Error).message);
+              this.logger.error('[WA] LID resolution failed on send:', (err as Error).message);
             });
           }
         }

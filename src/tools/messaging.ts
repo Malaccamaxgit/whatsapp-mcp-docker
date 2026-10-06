@@ -77,87 +77,87 @@ export function registerMessagingTools (
         .describe(`The message text to send (max ${LIMITS.MAX_MESSAGE_LENGTH} chars)`)
     }
   }, async ({ to, message }) => {
-      const toolCheck = permissions.isToolEnabled('send_message');
-      if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
-      }
-      if (!waClient.isConnected()) {
-        return {
-          content: [
-            { type: 'text', text: 'WhatsApp not connected. Use the authenticate tool first.' }
-          ],
-          isError: true
-        };
-      }
+    const toolCheck = permissions.isToolEnabled('send_message');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
+    if (!waClient.isConnected()) {
+      return {
+        content: [
+          { type: 'text', text: 'WhatsApp not connected. Use the authenticate tool first.' }
+        ],
+        isError: true
+      };
+    }
 
-      const chats = store.getAllChatsForMatching();
-      const { resolved, candidates, error } = resolveRecipient(to, chats);
+    const chats = store.getAllChatsForMatching();
+    const { resolved, candidates, error } = resolveRecipient(to, chats);
 
-      if (!resolved && candidates.length > 0) {
-        const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `${error ?? 'Ambiguous recipient'}\n\n${list}\n\nCall send_message again with the exact JID as the "to" parameter.`
-            }
-          ],
-          isError: true
-        };
-      }
+    if (!resolved && candidates.length > 0) {
+      const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `${error ?? 'Ambiguous recipient'}\n\n${list}\n\nCall send_message again with the exact JID as the "to" parameter.`
+          }
+        ],
+        isError: true
+      };
+    }
 
-      if (!resolved) {
-        // TODO: Automatically convert phone numbers to JID format when fuzzy matching fails.
-        // If "to" looks like a phone number (starts with + or contains digits only),
-        // validate it with validatePhoneNumber() and convert to JID format (NNNNNNNNNNN@s.whatsapp.net).
-        // This would allow send_message to work with new contacts not yet in the chat list.
-        // Current workaround: users must manually use JID format (e.g., "33680940027@s.whatsapp.net").
-        // See: docs/bugs/BUG-self-account-messages-not-received.md for related issues.
-        return {
-          content: [{ type: 'text', text: withToolInfoErrorHint(error ?? `Could not resolve recipient "${to}".`, 'send_message') }],
-          isError: true
-        };
-      }
+    if (!resolved) {
+      // TODO: Automatically convert phone numbers to JID format when fuzzy matching fails.
+      // If "to" looks like a phone number (starts with + or contains digits only),
+      // validate it with validatePhoneNumber() and convert to JID format (NNNNNNNNNNN@s.whatsapp.net).
+      // This would allow send_message to work with new contacts not yet in the chat list.
+      // Current workaround: users must manually use JID format (e.g., "33680940027@s.whatsapp.net").
+      // See: docs/bugs/BUG-self-account-messages-not-received.md for related issues.
+      return {
+        content: [{ type: 'text', text: withToolInfoErrorHint(error ?? `Could not resolve recipient "${to}".`, 'send_message') }],
+        isError: true
+      };
+    }
 
-      const jid = resolved.includes('@') ? resolved : toJid(resolved);
-      if (!jid) {
-        return {
-          content: [{ type: 'text', text: `Invalid phone number: "${resolved}"` }],
-          isError: true
-        };
-      }
+    const jid = resolved.includes('@') ? resolved : toJid(resolved);
+    if (!jid) {
+      return {
+        content: [{ type: 'text', text: `Invalid phone number: "${resolved}"` }],
+        isError: true
+      };
+    }
 
-      const contactCheck = permissions.canSendTo(jid);
-      if (!contactCheck.allowed) {
-        return { content: [{ type: 'text', text: contactCheck.error ?? 'Cannot send to this contact' }], isError: true };
-      }
+    const contactCheck = permissions.canSendTo(jid);
+    if (!contactCheck.allowed) {
+      return { content: [{ type: 'text', text: contactCheck.error ?? 'Cannot send to this contact' }], isError: true };
+    }
 
-      const rateCheck = permissions.checkRateLimit();
-      if (!rateCheck.allowed) {
-        return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
-      }
+    const rateCheck = permissions.checkRateLimit();
+    if (!rateCheck.allowed) {
+      return { content: [{ type: 'text', text: rateCheck.error ?? 'Rate limit exceeded' }], isError: true };
+    }
 
-      try {
-        const result = await waClient.sendMessage(jid, message);
-        audit.log('send_message', 'sent', { to: jid, messageId: result.id });
+    try {
+      const result = await waClient.sendMessage(jid, message);
+      audit.log('send_message', 'sent', { to: jid, messageId: result.id });
 
-        const chatName = (store.getChatByJid(jid) as ChatInfo | null)?.name ?? to;
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Message sent to ${chatName} (${jid}).\nMessage ID: ${result.id}`
-            }
-          ]
-        };
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error || '');
-        audit.log('send_message', 'failed', { to: jid, error: errorMsg }, false);
-        return {
-          content: [{ type: 'text', text: `Failed to send message: ${errorMsg}` }],
-          isError: true
-        };
-      }
+      const chatName = (store.getChatByJid(jid) as ChatInfo | null)?.name ?? to;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Message sent to ${chatName} (${jid}).\nMessage ID: ${result.id}`
+          }
+        ]
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error || '');
+      audit.log('send_message', 'failed', { to: jid, error: errorMsg }, false);
+      return {
+        content: [{ type: 'text', text: `Failed to send message: ${errorMsg}` }],
+        isError: true
+      };
+    }
   });
 
   // ── list_messages ────────────────────────────────────────────
@@ -205,109 +205,109 @@ export function registerMessagingTools (
     include_context = false,
     context_messages = 2
   }) => {
-      const toolCheck = permissions.isToolEnabled('list_messages');
-      if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
-      }
+    const toolCheck = permissions.isToolEnabled('list_messages');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
 
-      const chats = store.getAllChatsForMatching();
-      const { resolved, candidates, error } = resolveRecipient(chat, chats);
+    const chats = store.getAllChatsForMatching();
+    const { resolved, candidates, error } = resolveRecipient(chat, chats);
 
-      if (!resolved && candidates.length > 0) {
-        const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
-        return {
-          content: [{ type: 'text', text: `${error ?? 'Ambiguous recipient'}\n\n${list}` }],
-          isError: true
-        };
-      }
-      if (!resolved) {
-        return {
-          content: [{ type: 'text', text: withToolInfoErrorHint(error ?? 'Could not resolve chat', 'list_messages') }],
-          isError: true
-        };
-      }
-      const readCheck = permissions.canReadFrom(resolved);
-      if (!readCheck.allowed) {
-        return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
-      }
-
-      const safeLimit = Math.min(limit || 50, 200);
-      const offset = (page || 0) * safeLimit;
-      const beforeTs = before ? Math.floor(new Date(before).getTime() / 1000) : undefined;
-      const afterTs = after ? Math.floor(new Date(after).getTime() / 1000) : undefined;
-
-      const messages = store.listMessages({
-        chatJid: resolved,
-        limit: safeLimit,
-        offset,
-        before: beforeTs,
-        after: afterTs
-      });
-
-      if (messages.length === 0) {
-        return {
-          content: [{ type: 'text', text: 'No messages found for the specified criteria.' }]
-        };
-      }
-
-      const chatInfo = store.getChatByJid(resolved);
-      const chatName = (chatInfo as ChatInfo | null)?.name || resolved;
-
-      const formatMsg = (m: MessageRow, prefix = '') => {
-        const dir = m.is_from_me
-          ? 'You'
-          : m.sender_name || m.sender_jid?.split('@')[0] || 'Unknown';
-        const time = formatTimestamp(m.timestamp);
-        const readStatus = m.is_read ? 'yes' : 'no';
-        
-        let content: string;
-        if (m.body) {
-          content = m.body.substring(0, 200);
-        } else if (m.has_media) {
-          const mediaDesc = `[${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]`;
-          content = mediaDesc;
-        } else {
-          content = '[empty]';
-        }
-        
-        return `${prefix}[${time}] ${dir}\n${prefix}  ID: ${m.id}\n${prefix}  Read: ${readStatus}\n${prefix}  ${content}`;
+    if (!resolved && candidates.length > 0) {
+      const list = candidates.map((c) => `  - "${c.name ?? c.jid}" → ${c.jid}`).join('\n');
+      return {
+        content: [{ type: 'text', text: `${error ?? 'Ambiguous recipient'}\n\n${list}` }],
+        isError: true
       };
+    }
+    if (!resolved) {
+      return {
+        content: [{ type: 'text', text: withToolInfoErrorHint(error ?? 'Could not resolve chat', 'list_messages') }],
+        isError: true
+      };
+    }
+    const readCheck = permissions.canReadFrom(resolved);
+    if (!readCheck.allowed) {
+      return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
+    }
 
-      let output: string;
-      if (include_context) {
-        const contextLines: string[] = [];
-        for (const m of messages) {
-          const ctx = store.getMessageContext(m.id, context_messages, context_messages) as MessageContext | null;
-          if (ctx) {
-            for (const b of ctx.before) {contextLines.push(formatMsg(b, '  '));}
-            contextLines.push(formatMsg(ctx.message as MessageRow, '→ '));
-            for (const a of ctx.after) {contextLines.push(formatMsg(a, '  '));}
-            contextLines.push('');
-          } else {
-            contextLines.push(formatMsg(m));
-          }
-        }
-        output = contextLines.join('\n');
+    const safeLimit = Math.min(limit || 50, 200);
+    const offset = (page || 0) * safeLimit;
+    const beforeTs = before ? Math.floor(new Date(before).getTime() / 1000) : undefined;
+    const afterTs = after ? Math.floor(new Date(after).getTime() / 1000) : undefined;
+
+    const messages = store.listMessages({
+      chatJid: resolved,
+      limit: safeLimit,
+      offset,
+      before: beforeTs,
+      after: afterTs
+    });
+
+    if (messages.length === 0) {
+      return {
+        content: [{ type: 'text', text: 'No messages found for the specified criteria.' }]
+      };
+    }
+
+    const chatInfo = store.getChatByJid(resolved);
+    const chatName = (chatInfo as ChatInfo | null)?.name || resolved;
+
+    const formatMsg = (m: MessageRow, prefix = '') => {
+      const dir = m.is_from_me
+        ? 'You'
+        : m.sender_name || m.sender_jid?.split('@')[0] || 'Unknown';
+      const time = formatTimestamp(m.timestamp);
+      const readStatus = m.is_read ? 'yes' : 'no';
+
+      let content: string;
+      if (m.body) {
+        content = m.body.substring(0, 200);
+      } else if (m.has_media) {
+        const mediaDesc = `[${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]`;
+        content = mediaDesc;
       } else {
-        output = messages.map((m) => formatMsg(m)).join('\n');
+        content = '[empty]';
       }
 
-      audit.log('list_messages', 'read', { chat: resolved, count: messages.length, page });
+      return `${prefix}[${time}] ${dir}\n${prefix}  ID: ${m.id}\n${prefix}  Read: ${readStatus}\n${prefix}  ${content}`;
+    };
 
-      const pageInfo = page > 0 ? ` (page ${page})` : '';
-      const hasMore =
+    let output: string;
+    if (include_context) {
+      const contextLines: string[] = [];
+      for (const m of messages) {
+        const ctx = store.getMessageContext(m.id, context_messages, context_messages) as MessageContext | null;
+        if (ctx) {
+          for (const b of ctx.before) {contextLines.push(formatMsg(b, '  '));}
+          contextLines.push(formatMsg(ctx.message as MessageRow, '→ '));
+          for (const a of ctx.after) {contextLines.push(formatMsg(a, '  '));}
+          contextLines.push('');
+        } else {
+          contextLines.push(formatMsg(m));
+        }
+      }
+      output = contextLines.join('\n');
+    } else {
+      output = messages.map((m) => formatMsg(m)).join('\n');
+    }
+
+    audit.log('list_messages', 'read', { chat: resolved, count: messages.length, page });
+
+    const pageInfo = page > 0 ? ` (page ${page})` : '';
+    const hasMore =
         messages.length === safeLimit
           ? `\n\nMore messages may be available — use page=${(page || 0) + 1} to see the next page.`
           : '';
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Messages from ${chatName} (${messages.length})${pageInfo}:\n\n${output}${hasMore}`
-          }
-        ]
-      };
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Messages from ${chatName} (${messages.length})${pageInfo}:\n\n${output}${hasMore}`
+        }
+      ]
+    };
   });
 
   // ── search_messages ──────────────────────────────────────────
@@ -339,110 +339,110 @@ export function registerMessagingTools (
     page = 0,
     include_context = false
   }) => {
-      const toolCheck = permissions.isToolEnabled('search_messages');
-      if (!toolCheck.allowed) {
-        return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
-      }
+    const toolCheck = permissions.isToolEnabled('search_messages');
+    if (!toolCheck.allowed) {
+      return { content: [{ type: 'text', text: toolCheck.error ?? 'Tool disabled' }], isError: true };
+    }
 
-      let chatJid: string | null = null;
-      if (chat) {
-        const chats = store.getAllChatsForMatching();
-        const result = resolveRecipient(chat, chats);
-        if (result.resolved) {
-          chatJid = result.resolved;
-          const readCheck = permissions.canReadFrom(chatJid);
-          if (!readCheck.allowed) {
-            return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
-          }
+    let chatJid: string | null = null;
+    if (chat) {
+      const chats = store.getAllChatsForMatching();
+      const result = resolveRecipient(chat, chats);
+      if (result.resolved) {
+        chatJid = result.resolved;
+        const readCheck = permissions.canReadFrom(chatJid);
+        if (!readCheck.allowed) {
+          return { content: [{ type: 'text', text: readCheck.error ?? 'Read access denied' }], isError: true };
         }
-      } else if (permissions.hasContactRestrictions) {
-        return {
-          content: [{
-            type: 'text',
-            text: withToolInfoErrorHint(
-              'When ALLOWED_CONTACTS is set, provide "chat" for search_messages so access policy can be enforced.',
-              'search_messages'
-            )
-          }],
-          isError: true
-        };
       }
+    } else if (permissions.hasContactRestrictions) {
+      return {
+        content: [{
+          type: 'text',
+          text: withToolInfoErrorHint(
+            'When ALLOWED_CONTACTS is set, provide "chat" for search_messages so access policy can be enforced.',
+            'search_messages'
+          )
+        }],
+        isError: true
+      };
+    }
 
-      const safeLimit = Math.min(limit || 20, 100);
-      const offset = (page || 0) * safeLimit;
+    const safeLimit = Math.min(limit || 20, 100);
+    const offset = (page || 0) * safeLimit;
 
-      const messages = store.searchMessages({
-        query,
-        chatJid: chatJid || undefined,
-        limit: safeLimit,
-        offset
-      });
+    const messages = store.searchMessages({
+      query,
+      chatJid: chatJid || undefined,
+      limit: safeLimit,
+      offset
+    });
 
-      if (messages.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `No messages found matching "${query}".${chat ? ` (scoped to "${chat}")` : ''}`
-            }
-          ]
-        };
-      }
-
-      let lines: string[];
-      if (include_context) {
-        lines = [];
-        for (const m of messages) {
-          const ctx = store.getMessageContext(m.id, 1, 1) as MessageContext | null;
-          const chatInfo = store.getChatByJid(m.chat_jid);
-          const chatName = (chatInfo as ChatInfo | null)?.name || m.chat_jid;
-          if (ctx) {
-            for (const b of ctx.before) {
-              const s = b.is_from_me ? 'You' : b.sender_name || b.sender_jid?.split('@')[0] || '?';
-              lines.push(`  [${chatName}] ${s}: ${b.body?.substring(0, 100)}`);
-            }
-            const sender = m.is_from_me
-              ? 'You'
-              : m.sender_name || m.sender_jid?.split('@')[0] || '?';
-            const time = formatTimestamp(m.timestamp);
-            const mediaInfo = m.has_media ? ` [${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]` : '';
-            const readStatus = m.is_read ? '' : ' (unread)';
-            lines.push(`→ [${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150) || mediaInfo}${readStatus} (id: ${m.id})`);
-            for (const a of ctx.after) {
-              const s = a.is_from_me ? 'You' : a.sender_name || a.sender_jid?.split('@')[0] || '?';
-              lines.push(`  [${chatName}] ${s}: ${a.body?.substring(0, 100)}`);
-            }
-            lines.push('');
-          }
-        }
-      } else {
-        lines = messages.map((m) => {
-          const chatInfo = store.getChatByJid(m.chat_jid);
-          const chatName = (chatInfo as ChatInfo | null)?.name || m.chat_jid;
-          const sender = m.is_from_me ? 'You' : m.sender_name || m.sender_jid?.split('@')[0] || '?';
-          const time = formatTimestamp(m.timestamp);
-          const mediaInfo = m.has_media ? ` [${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]` : '';
-          const readStatus = m.is_read ? '' : ' (unread)';
-          return `[${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150) || mediaInfo}${readStatus} (id: ${m.id})`;
-        });
-      }
-
-      audit.log('search_messages', 'searched', { query, results: messages.length, page });
-
-      const pageInfo = page > 0 ? ` (page ${page})` : '';
-      const hasMore =
-        messages.length === safeLimit
-          ? `\n\nMore results may be available — use page=${(page || 0) + 1}.`
-          : '';
-
+    if (messages.length === 0) {
       return {
         content: [
           {
             type: 'text',
-            text: `Search results for "${query}" (${messages.length} matches)${pageInfo}:\n\n${lines.join('\n')}${hasMore}`
+            text: `No messages found matching "${query}".${chat ? ` (scoped to "${chat}")` : ''}`
           }
         ]
       };
+    }
+
+    let lines: string[];
+    if (include_context) {
+      lines = [];
+      for (const m of messages) {
+        const ctx = store.getMessageContext(m.id, 1, 1) as MessageContext | null;
+        const chatInfo = store.getChatByJid(m.chat_jid);
+        const chatName = (chatInfo as ChatInfo | null)?.name || m.chat_jid;
+        if (ctx) {
+          for (const b of ctx.before) {
+            const s = b.is_from_me ? 'You' : b.sender_name || b.sender_jid?.split('@')[0] || '?';
+            lines.push(`  [${chatName}] ${s}: ${b.body?.substring(0, 100)}`);
+          }
+          const sender = m.is_from_me
+            ? 'You'
+            : m.sender_name || m.sender_jid?.split('@')[0] || '?';
+          const time = formatTimestamp(m.timestamp);
+          const mediaInfo = m.has_media ? ` [${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]` : '';
+          const readStatus = m.is_read ? '' : ' (unread)';
+          lines.push(`→ [${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150) || mediaInfo}${readStatus} (id: ${m.id})`);
+          for (const a of ctx.after) {
+            const s = a.is_from_me ? 'You' : a.sender_name || a.sender_jid?.split('@')[0] || '?';
+            lines.push(`  [${chatName}] ${s}: ${a.body?.substring(0, 100)}`);
+          }
+          lines.push('');
+        }
+      }
+    } else {
+      lines = messages.map((m) => {
+        const chatInfo = store.getChatByJid(m.chat_jid);
+        const chatName = (chatInfo as ChatInfo | null)?.name || m.chat_jid;
+        const sender = m.is_from_me ? 'You' : m.sender_name || m.sender_jid?.split('@')[0] || '?';
+        const time = formatTimestamp(m.timestamp);
+        const mediaInfo = m.has_media ? ` [${m.media_type || 'media'}${m.media_filename ? `: ${m.media_filename}` : ''}]` : '';
+        const readStatus = m.is_read ? '' : ' (unread)';
+        return `[${chatName}] [${time}] ${sender}: ${m.body?.substring(0, 150) || mediaInfo}${readStatus} (id: ${m.id})`;
+      });
+    }
+
+    audit.log('search_messages', 'searched', { query, results: messages.length, page });
+
+    const pageInfo = page > 0 ? ` (page ${page})` : '';
+    const hasMore =
+        messages.length === safeLimit
+          ? `\n\nMore results may be available — use page=${(page || 0) + 1}.`
+          : '';
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Search results for "${query}" (${messages.length} matches)${pageInfo}:\n\n${lines.join('\n')}${hasMore}`
+        }
+      ]
+    };
   });
 
   // ── Poll tools (disabled — ephemeral container / gateway limitation) ──
@@ -602,7 +602,7 @@ export function registerMessagingTools (
       const totalVotes = votes.length;
       let output = `Poll: ${question}\n\n`;
       output += `Total votes: ${totalVotes}\n`;
-      
+
       // Add server start time context if there are votes
       if (totalVotes > 0) {
         const earliestVote = votes.reduce((min, v) => v.timestamp < min ? v.timestamp : min, votes[0].timestamp);
@@ -611,7 +611,7 @@ export function registerMessagingTools (
       } else {
         output += '\n';
       }
-      
+
       output += 'Results:\n';
 
       for (const opt of options) {
@@ -723,7 +723,7 @@ export function registerMessagingTools (
         // Get stored votes
         const votes = store.getPollVotes(effectivePollId, resolvedJid);
         output += `🗳️  Stored Votes: ${votes.length}\n`;
-        
+
         if (votes.length > 0) {
           output += '\nVote Details:\n';
           for (const vote of votes) {
@@ -750,7 +750,7 @@ export function registerMessagingTools (
 
       output += '💡 Tip: Check container logs for [WA-POLL] messages to see if votes are arriving\n';
       output += '   Run: docker compose logs -f whatsapp-mcp-docker | Select-String "WA-POLL"\n\n';
-      
+
       output += '⚠️  Known Limitation:\n';
       output += '   WhatsApp may not forward poll vote updates to secondary devices.\n';
       output += '   This server can only show votes it actually receives in real-time.\n';

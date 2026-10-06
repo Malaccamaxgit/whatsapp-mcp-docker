@@ -1,14 +1,14 @@
 /**
  * Interactive E2E Test Script - Message Actions
- * 
+ *
  * This script validates the fixes for:
  * - BUG-003: send_reaction emoji not appearing on phone
  * - BUG-004: delete_message error 479 on revoke
- * 
+ *
  * Prerequisites:
  * 1. WhatsApp session authenticated in .test-data/
  * 2. Container running with MCP client connected (e.g., Cursor)
- * 
+ *
  * Instructions:
  * Run this script to get test commands, then execute them via your MCP client
  * and verify the results on your WhatsApp phone.
@@ -24,7 +24,7 @@ import { WhatsAppClient } from '../../src/whatsapp/client.js';
 const TEST_DATA_DIR = resolve(process.cwd(), '.test-data');
 const SESSION_DB = resolve(TEST_DATA_DIR, 'session.db');
 
-async function main() {
+async function main () {
   console.log('='.repeat(70));
   console.log('INTERACTIVE E2E TEST: Message Actions (BUG-003 & BUG-004)');
   console.log('='.repeat(70));
@@ -73,7 +73,7 @@ async function main() {
   console.log('');
   console.log('Have your WhatsApp phone open and ready to verify results.');
   console.log('');
-  
+
   // Test T16: send_reaction
   console.log('-'.repeat(70));
   console.log('TEST T16: send_reaction (BUG-003)');
@@ -194,7 +194,7 @@ async function main() {
   // Cleanup
   await waClient.disconnect();
   await ctx.cleanup();
-  
+
   console.log('');
   console.log('Test script completed.');
   console.log('Now execute the commands above via your MCP client.');

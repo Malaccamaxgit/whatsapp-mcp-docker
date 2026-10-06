@@ -281,13 +281,13 @@ describe('JID Unification', () => {
 
   describe('getAllChatsUnifiedForMatching', () => {
     it('collapses @lid and @s.whatsapp.net rows for the same contact into one entry', () => {
-      const lid   = '44612043436101@lid';
+      const lid = '44612043436101@lid';
       const phone = '33680940027@s.whatsapp.net';
-      const name  = 'Séverine Godet';
+      const name = 'Séverine Godet';
       store.upsertContactMapping(lid, phone, '+33680940027', name);
       const now = Math.floor(Date.now() / 1000);
-      store.upsertChat(lid,   name, false, now - 100, 'from lid');
-      store.upsertChat(phone, name, false, now,       'from phone');
+      store.upsertChat(lid, name, false, now - 100, 'from lid');
+      store.upsertChat(phone, name, false, now, 'from phone');
 
       const results = store.getAllChatsUnifiedForMatching();
       const matches = results.filter((c) => c.name === name);

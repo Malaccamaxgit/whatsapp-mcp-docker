@@ -450,14 +450,14 @@ export function withToolInfoErrorHint (message: string, toolName: string): strin
 function formatDocumentation (toolName: string, doc: ToolDocumentation): string {
   const usage = doc.usage.length > 0
     ? doc.usage
-        .map((u) => `  - ${u.param} (${u.required ? 'required' : 'optional'}): ${u.description}`)
-        .join('\n')
+      .map((u) => `  - ${u.param} (${u.required ? 'required' : 'optional'}): ${u.description}`)
+      .join('\n')
     : '  (no input arguments)';
 
   const examples = doc.examples.length > 0
     ? doc.examples
-        .map((ex, index) => `  ${index + 1}. ${ex.name}\n     ${ex.call}`)
-        .join('\n\n')
+      .map((ex, index) => `  ${index + 1}. ${ex.name}\n     ${ex.call}`)
+      .join('\n\n')
     : '  (no examples available)';
 
   const errors = doc.response.errors.length > 0

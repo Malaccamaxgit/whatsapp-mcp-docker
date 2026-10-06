@@ -17,7 +17,7 @@ import type { ContactMapping, MessageStore } from '../whatsapp/store.js';
  */
 export function extractPhoneNumber (jid: string): string | null {
   if (!jid || typeof jid !== 'string') {return null;}
-  
+
   const match = jid.match(/^([0-9]+)@/);
   return match ? match[1] : null;
 }
@@ -117,7 +117,7 @@ export function formatJidWithType (jid: string): string {
 /**
  * Normalize a JID to the preferred format using contact mappings.
  * Prefers @lid format for contacts with names, falls back to @s.whatsapp.net.
- * 
+ *
  * @param jid - The JID to normalize
  * @param mappings - Array of contact mappings to use for resolution
  * @returns The preferred/normalized JID
@@ -142,7 +142,7 @@ export function normalizeJid (jid: string, mappings: ContactMapping[]): string {
 /**
  * Resolve a recipient string to the correct JID using contact mappings.
  * Handles phone numbers, names, and either JID format.
- * 
+ *
  * @param recipient - The recipient string (phone number, name, or JID)
  * @param mappings - Array of contact mappings
  * @returns The resolved JID, or the original input if no mapping found
@@ -173,7 +173,7 @@ export function resolveJid (recipient: string, mappings: ContactMapping[]): stri
 /**
  * Find the unified chat JID by checking both LID and phone JID formats.
  * This helps merge duplicate chat entries.
- * 
+ *
  * @param jid - The JID to find unified version for
  * @param mappings - Array of contact mappings
  * @returns Object with unified JID and related JIDs
@@ -194,7 +194,7 @@ export function getUnifiedChatJid (
 
   // Prefer LID for unified view
   const unifiedJid = mapping.lid_jid || mapping.phone_jid || jid;
-  
+
   return {
     unifiedJid,
     lidJid: mapping.lid_jid || undefined,
@@ -209,7 +209,7 @@ export function getUnifiedChatJid (
  */
 export function buildMappingLookup (mappings: ContactMapping[]): Map<string, ContactMapping> {
   const lookup = new Map<string, ContactMapping>();
-  
+
   if (!mappings) {return lookup;}
 
   for (const mapping of mappings) {
@@ -236,7 +236,7 @@ export async function areJidsFromSameContact (
   store: MessageStore
 ): Promise<boolean> {
   if (!store || !jid1 || !jid2) {return false;}
-  
+
   // Same JID = same contact
   if (jid1 === jid2) {return true;}
 
@@ -271,20 +271,20 @@ export async function getAllRelatedJids (
 
   // Try to find contact by JID
   const contact = store.getContactByJid(jid);
-  
+
   if (contact) {
     const jids: string[] = [];
-    
+
     // Add all device LIDs
     for (const device of contact.devices) {
       jids.push(device.lidJid);
     }
-    
+
     // Add all phone JIDs
     for (const phoneJid of contact.phoneJids) {
       jids.push(phoneJid);
     }
-    
+
     return jids;
   }
 
@@ -306,7 +306,7 @@ export async function getBestJidForSending (
   if (!store || !phoneNumber) {return null;}
 
   const contact = store.getOrCreateContactByPhone(phoneNumber);
-  
+
   if (!contact || !contact.devices || contact.devices.length === 0) {
     // No devices found, try to get phone JID
     const phoneJids = contact?.phoneJids || [];
@@ -335,15 +335,15 @@ export async function getBestJidForSending (
  * @returns Detected device type
  */
 export function detectDeviceType (
-  lidJid: string,
-  metadata?: { messageFrequency?: number; lastActiveHour?: number }
+  _lidJid: string,
+  _metadata?: { messageFrequency?: number; lastActiveHour?: number }
 ): 'phone' | 'desktop' | 'web' | 'unknown' {
   // Currently returns 'unknown' - future enhancement can add:
   // - Pattern matching on LID numeric sequences
   // - Activity pattern analysis (phone vs desktop hours)
   // - Message frequency analysis
   // - Presence notification parsing
-  
+
   return 'unknown';
 }
 
@@ -361,7 +361,7 @@ export async function getCanonicalJid (
   if (!store || !jid) {return jid;}
 
   const contact = store.getContactByJid(jid);
-  
+
   if (!contact) {return jid;}
 
   // Prefer primary device
