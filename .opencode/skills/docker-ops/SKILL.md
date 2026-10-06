@@ -148,3 +148,33 @@ docker volume ls | Select-String whatsapp
 ```
 
 Expected: `whatsapp-sessions`, `whatsapp-audit`.
+
+## Refresh the lockfile
+
+A removed `overrides` block does nothing until the lockfile is re-resolved.
+`npm install --package-lock-only` against an existing lockfile reports "up to
+date" and applies nothing.
+
+To force a fresh resolve:
+
+1. Delete `package-lock.json`.
+2. Run the resolve on musl (Alpine), because the direct dependency
+   `@whatsmeow-node/linux-x64-musl` needs musl libc.
+
+```bash
+docker run --rm -v "${PWD}:/app" -w /app node:20-alpine npm install --package-lock-only
+```
+
+On glibc (`node:20`) a fresh resolve fails with `EBADPLATFORM` and writes no
+lockfile. If that happens, restore it with `git checkout -- package-lock.json`
+and rerun with the Alpine image.
+
+A fresh resolve can move direct dependencies, not only the targeted transitive
+ones. Review the full lockfile diff before you commit.
+
+Verify the CI gate in the same image:
+
+```bash
+docker run --rm -v "${PWD}:/app" -w /app node:20-alpine npm audit --package-lock-only --production --audit-level=moderate
+```
+

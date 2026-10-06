@@ -164,6 +164,35 @@ docker compose run --rm tester-container env | grep -E "TZ|NODE"
 3. Verify files in the container after a build.
 4. Clear caches when tests behave strangely.
 
+## Container writes and host pollution
+
+The tester-container copies source at build time. It does not bind-mount the
+repo by default. A tool that writes files (`eslint --fix`, `prettier --write`)
+changes the container copy, and the change is lost when the container exits.
+
+To persist fixes to the host, bind-mount the source over the image copies:
+
+```bash
+docker compose --profile test run --rm \
+  -v "${PWD}/src:/app/src" \
+  -v "${PWD}/test:/app/test" \
+  -v "${PWD}/eslint.config.js:/app/eslint.config.js" \
+  tester-container npm run lint:fix
+```
+
+PowerShell: use backticks for the line continuation.
+
+To verify a command that installs dependencies, for example the CI step
+`npm install --include=dev`, copy the repo into a throwaway container instead of
+bind-mounting. This keeps Linux `node_modules` off the host:
+
+```bash
+docker run --rm -v "${PWD}:/src:ro" node:20 sh -c "mkdir -p /w && (cd /src && tar cf - --exclude=.git --exclude=node_modules .) | (cd /w && tar xf -) && cd /w && npm install --include=dev"
+```
+
+On glibc this install step succeeds. npm skips the musl-only dependency
+`@whatsmeow-node/linux-x64-musl` instead of failing.
+
 ## When to use this skill
 
 - Tests fail with `Cannot find module` errors.
