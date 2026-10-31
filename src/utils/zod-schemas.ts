@@ -18,18 +18,24 @@ import { validatePhoneNumber } from './phone.js';
 export const PhoneSchema = z
   .string()
   .max(200)
-  .refine(
-    (v) => v.includes('@') || validatePhoneNumber(v).valid,
-    (v) => ({ message: validatePhoneNumber(v).error ?? 'Invalid phone number' })
-  )
+  .superRefine((v, ctx) => {
+    if (v.includes('@')) {
+      return;
+    }
+
+    const result = validatePhoneNumber(v);
+
+    if (!result.valid) {
+      ctx.addIssue({
+        code: 'custom',
+        message: result.error ?? 'Invalid phone number'
+      });
+    }
+  })
   .describe('Phone number in E.164 format (e.g. "+14155552671") or WhatsApp JID');
 
 /**
  * Array of phone numbers / JIDs. Bounds intentionally loose so callers can
  * tighten per-tool (e.g. .max(20) for get_user_info vs .max(256) for participants).
  */
-export const PhoneArraySchema = (min = 1, max = 256) =>
-  z
-    .array(PhoneSchema)
-    .min(min)
-    .max(max);
+export const PhoneArraySchema = (min = 1, max = 256) => z.array(PhoneSchema).min(min).max(max);
