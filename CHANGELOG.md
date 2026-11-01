@@ -7,6 +7,17 @@ description: "Release history and change log for WhatsApp MCP Server."
 
 # Changelog
 
+## [0.6.0] - 2026-10-31
+
+### Changed
+- **Security dependencies**: `zod` 3.25.76 to 4.6.7 (CVE-2023-54404 is patched only at 4.6.6), `body-parser` 2.3.0 to 2.4.0, `qs` 6.16.0 to 6.17.1, `fast-uri` 3.1.8 to 3.1.9, and `ip-address` 10.7.3 to 10.7.5. `npm audit --production --audit-level=moderate` now reports 0 vulnerabilities.
+- **PhoneSchema**: Uses `superRefine` for the dynamic error message, because zod 4 removed the function form of the `refine` message. The user-facing text is unchanged.
+- **CI actions**: Moved off the deprecated node20 runtime: checkout v7, setup-buildx v4, login v4, build-push v7, configure-pages v6, upload-pages-artifact v5, and deploy-pages v5.
+
+### Added
+- **Tool boundary tests**: Assert JSON Schema conversion, array caps, and the phone validation message through the MCP client.
+- **Immutable image tags**: The publish workflow also tags the `package.json` version and `sha-<short>`, so a rollback can name an exact build.
+
 ## [0.4.0] - 2026-04-05
 
 ### Removed
