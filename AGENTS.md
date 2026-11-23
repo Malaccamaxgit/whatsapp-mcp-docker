@@ -263,6 +263,18 @@ Call `permissions.checkRateLimit()` for outbound actions. Log every action with
 
 ---
 
+## Code Style
+
+TypeScript files follow the house style. A function declaration puts one space
+before the parameter list: `export function registerTools (server: McpServer)`.
+All 90 function declarations in `src/` follow it.
+
+Prettier cannot express that space, so `format` and `format:check` cover only
+JSON and YAML. Never point Prettier at `src/` or `test/`: it rewrites 55 files
+and removes the space. Match the style of the neighbouring file instead.
+
+---
+
 ## Import Path Convention
 
 ESM imports keep the `.js` extension. TypeScript `NodeNext` resolves the path to
