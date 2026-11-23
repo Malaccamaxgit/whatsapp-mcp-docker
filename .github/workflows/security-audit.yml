@@ -38,7 +38,7 @@ jobs:
     - name: Run npm audit
       run: |
         echo "Running npm audit (lock-file only — native modules built inside Docker)..."
-        npm audit --package-lock-only --production --audit-level=moderate || exit 1
+        npm audit --package-lock-only --omit=dev --audit-level=moderate || exit 1
 
     - name: Lint check
       run: |
