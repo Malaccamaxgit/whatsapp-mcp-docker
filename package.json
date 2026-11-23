@@ -27,8 +27,8 @@
     "healthcheck": "node dist/healthcheck.js",
     "lint": "npm run _guard && eslint src/ test/",
     "lint:fix": "npm run _guard && eslint --fix src/ test/",
-    "format": "npm run _guard && prettier --write src/ test/",
-    "format:check": "npm run _guard && prettier --check src/ test/"
+    "format": "npm run _guard && prettier --write \"*.{json,yml}\"",
+    "format:check": "npm run _guard && prettier --check \"*.{json,yml}\""
   },
   "keywords": [
     "whatsapp",
@@ -37,7 +37,12 @@
     "docker-mcp-toolkit",
     "docker"
   ],
-  "authors": ["Qwen3-Coder-Next", "MiniMax-M2.7", "Qwen3.5", "Nemotron-3-Super"],
+  "authors": [
+    "Qwen3-Coder-Next",
+    "MiniMax-M2.7",
+    "Qwen3.5",
+    "Nemotron-3-Super"
+  ],
   "contributors": [
     "Benjamin Alloul <Benjamin.Alloul@gmail.com> (Director)"
   ],

@@ -55,7 +55,7 @@ COPY package*.json ./
 COPY tsconfig.json tsconfig.test.json ./
 COPY src/ ./src/
 COPY test/ ./test/
-COPY eslint.config.js .prettierrc ./
+COPY eslint.config.js .prettierrc .prettierignore ./
 
 RUN mkdir -p /data/store /data/audit .test-data coverage && \
     chown -R node:node /data .test-data coverage node_modules package*.json
